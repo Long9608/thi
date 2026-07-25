@@ -25,8 +25,31 @@ import api, {
 import EmployeeManagement from './components/EmployeeManagement';
 import PermissionManagement from './components/PermissionManagement';
 import RoleManagement from './components/RoleManagement';
+import ResidentManagement from "./components/ResidentManagement";
+import ApartmentManagement from "./components/ApartmentManagement";
+import BuildingManagement from "./components/BuildingManagement";
 
-// ============= IMPORT ICONS =============
+// 🔥 THÊM IMPORTS COMPONENT MỚI
+import RegisterResident from "./components/RegisterResident";
+import IdentityManagement from "./components/IdentityManagement";
+import FamilyMembers from "./components/FamilyMembers";
+import ResidenceHistory from "./components/ResidenceHistory";
+
+// 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ HỢP ĐỒNG
+import ContractList from "./pages/ContractList";
+import CreateContract from "./pages/CreateContract";
+import ContractRenewal from "./pages/ContractRenewal";
+import ContractTerminate from "./pages/ContractTerminate";
+import DepositManagement from "./pages/DepositManagement";
+
+// 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ DỊCH VỤ
+import ElectricityManagement from "./pages/ElectricityManagement";
+import WaterManagement from "./pages/WaterManagement";
+import RegisterService from "./pages/RegisterService";
+import GymManagement from "./pages/GymManagement";
+import PoolManagement from "./pages/PoolManagement";
+import EventSpaceManagement from "./pages/EventSpaceManagement";
+
 import {
   AlertCircle,
   ArrowLeft,
@@ -69,7 +92,15 @@ import {
   Waves,
   Wrench,
   X,
-  Save
+  Save,
+  // 🔥 THÊM ICON MỚI
+  UserPlus,
+  Shield,
+  Clock,
+  Heart,
+  Edit,
+  Trash2,
+  // ❌ KHÔNG CÓ Water - sử dụng Droplet thay thế
 } from "lucide-react";
 
 // ============= IMPORT REACT CHARTS =============
@@ -166,7 +197,7 @@ const Input = memo(({ icon: Icon, right, className = "", ...props }) => {
   );
 });
 
-const Select = memo(({ className = "", ...props }) => {
+const SelectInput = memo(({ className = "", ...props }) => {
   return (
     <select
       className={`rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm outline-none focus:border-[#1f4f46] ${className}`}
@@ -227,7 +258,14 @@ const StatCard = memo(({ icon: Icon, label, value, hint, trend }) => {
   );
 });
 
-const Modal = memo(({ open, title, description, children, onClose }) => {
+const Modal = memo(({ open, title, description, children, onClose, size = "default" }) => {
+  const sizeClasses = {
+    default: "max-w-2xl",
+    lg: "max-w-4xl",
+    xl: "max-w-6xl",
+    sm: "max-w-md"
+  };
+
   return (
     <AnimatePresence>
       {open && (
@@ -241,9 +279,9 @@ const Modal = memo(({ open, title, description, children, onClose }) => {
             initial={{ scale: 0.98, opacity: 0, y: 12 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.98, opacity: 0, y: 12 }}
-            className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl"
+            className={`w-full ${sizeClasses[size]} rounded-2xl bg-white shadow-2xl max-h-[90vh] flex flex-col`}
           >
-            <div className="flex items-start justify-between border-b border-slate-200 p-6">
+            <div className="flex items-start justify-between border-b border-slate-200 p-6 flex-shrink-0">
               <div>
                 <h3 className="text-xl font-bold text-slate-950">{title}</h3>
                 {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
@@ -252,7 +290,7 @@ const Modal = memo(({ open, title, description, children, onClose }) => {
                 <X size={18} />
               </button>
             </div>
-            <div className="p-6">{children}</div>
+            <div className="p-6 overflow-y-auto flex-1">{children}</div>
           </motion.div>
         </motion.div>
       )}
@@ -517,10 +555,10 @@ const MENU_STRUCTURE = [
     permission: "RESIDENT_VIEW",
     items: [
       { id: "residents", label: "Danh sách cư dân", icon: Users, permission: "RESIDENT_VIEW" },
-      { id: "register-resident", label: "Đăng ký cư dân mới", icon: UserRound, permission: "RESIDENT_CREATE" },
-      { id: "id-cards", label: "CCCD / Hồ sơ", icon: ShieldCheck, permission: "RESIDENT_VIEW" },
+      { id: "register-resident", label: "Đăng ký cư dân mới", icon: UserPlus, permission: "RESIDENT_CREATE" },
+      { id: "id-cards", label: "CCCD / Hồ sơ", icon: Shield, permission: "RESIDENT_VIEW" },
       { id: "family-members", label: "Thành viên hộ gia đình", icon: Users, permission: "RESIDENT_VIEW" },
-      { id: "residence-history", label: "Lịch sử cư trú", icon: CalendarClock, permission: "RESIDENT_VIEW" }
+      { id: "residence-history", label: "Lịch sử cư trú", icon: Clock, permission: "RESIDENT_VIEW" }
     ]
   },
   {
@@ -684,8 +722,8 @@ const CONTENT_TITLES = {
   "contract-renewal": ["Gia hạn hợp đồng", "Gia hạn hợp đồng thuê"],
   "contract-terminate": ["Thanh lý hợp đồng", "Thanh lý hợp đồng thuê"],
   deposits: ["Tiền cọc", "Quản lý tiền cọc"],
-  electricity: ["Điện", "Quản lý điện năng"],
-  water: ["Nước", "Quản lý nước"],
+  electricity: ["Điện", "Quản lý điện năng tiêu thụ"],
+  water: ["Nước", "Quản lý nước tiêu thụ"],
   "register-service": ["Đăng ký dịch vụ", "Đăng ký dịch vụ công ích"],
   gym: ["Gym", "Quản lý phòng gym"],
   pool: ["Hồ bơi", "Quản lý hồ bơi"],
@@ -733,11 +771,18 @@ export default function ApartmentManagementWeb() {
   // ===== State =====
   const [user, setUser] = useState(null);
   const [userPermissions, setUserPermissions] = useState([]);
-  const [tab, setTab] = useState(null); // Sửa: mặc định là null (trống)
+  const [tab, setTab] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [apartmentStatus, setApartmentStatus] = useState("Tất cả");
   const [toast, setToast] = useState("");
+
+  // 🔥 THÊM STATE MỚI
+  const [subTab, setSubTab] = useState('list');
+  const [selectedResidentForDetail, setSelectedResidentForDetail] = useState(null);
+  const [residentDetailOpen, setResidentDetailOpen] = useState(false);
+  const [residentSelectOpen, setResidentSelectOpen] = useState(false);
+  const [targetSubTab, setTargetSubTab] = useState(null);
 
   // Menu expanded states
   const getInitialExpanded = () => {
@@ -840,14 +885,12 @@ export default function ApartmentManagementWeb() {
 
   // ===== Filter menu theo permissions =====
   const filteredMenu = useMemo(() => {
-    // Nếu là admin (có tất cả quyền) hoặc chưa có permissions thì hiển thị tất cả
     if (userPermissions.includes('ADMIN') || userPermissions.length === 0) {
       return MENU_STRUCTURE;
     }
 
     return MENU_STRUCTURE
       .filter(menu => {
-        // Kiểm tra menu cha
         if (menu.permission && !userPermissions.includes(menu.permission)) {
           const hasChildWithPermission = menu.items.some(item => 
             !item.permission || userPermissions.includes(item.permission)
@@ -889,6 +932,30 @@ export default function ApartmentManagementWeb() {
       setSidebarOpen(false);
       setSelectedResident(null);
       setSelectedApartment(null);
+      
+      // Reset subTab khi chuyển tab
+      if (newTab === 'residents') {
+        setSubTab('list');
+      } else if (newTab === 'register-resident') {
+        setSubTab('register');
+        setTab('residents');
+      } else if (newTab === 'id-cards') {
+        setSubTab('identity');
+        setTab('residents');
+      } else if (newTab === 'family-members') {
+        setSubTab('family');
+        setTab('residents');
+      } else if (newTab === 'residence-history') {
+        setSubTab('history');
+        setTab('residents');
+      } else {
+        setSubTab(null);
+      }
+      
+      // Reset selected resident
+      setSelectedResidentForDetail(null);
+      setResidentDetailOpen(false);
+      setResidentSelectOpen(false);
     } else if (newTab) {
       flash('⚠️ Bạn không có quyền truy cập chức năng này');
     }
@@ -1133,6 +1200,14 @@ export default function ApartmentManagementWeb() {
     flash("Đã đăng ký xe mới.");
   }, [newVehicle, vehicles, flash]);
 
+  // 🔥 Hàm xử lý chọn cư dân
+  const handleSelectResident = useCallback((resident, targetTab) => {
+    setSelectedResidentForDetail(resident);
+    setTargetSubTab(targetTab);
+    setResidentSelectOpen(false);
+    setSubTab(targetTab);
+  }, []);
+
   // ===== useEffect =====
   useEffect(() => {
     if (!user) return;
@@ -1261,7 +1336,6 @@ export default function ApartmentManagementWeb() {
                       {menu.items.map((item) => {
                         const ItemIcon = item.icon;
                         const isItemActive = tab === item.id;
-                        // Kiểm tra quyền cho item
                         const hasPermission = !item.permission || userPermissions.includes(item.permission);
                         
                         if (!hasPermission) return null;
@@ -1364,21 +1438,32 @@ export default function ApartmentManagementWeb() {
           </div>
         </header>
 
-        {/* Page Title - Chỉ hiển thị khi có tab được chọn */}
+        {/* Page Title */}
         {tab && (
           <PageTitle
             eyebrow="Chung cư Đức Vũ Tower"
             title={CONTENT_TITLES[tab]?.[0] || "Dashboard"}
             description={CONTENT_TITLES[tab]?.[1] || ""}
             actions={
-              <>
-                <Button variant="secondary" onClick={() => setImportOpen(true)}>
-                  <Import size={16} /> Nhập Excel
-                </Button>
-                <Button onClick={() => setNotifyOpen(true)}>
-                  <CalendarClock size={16} /> Lên lịch gửi
-                </Button>
-              </>
+              tab === "residents" ? (
+                <>
+                  <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                    <Import size={16} /> Nhập Excel
+                  </Button>
+                  <Button onClick={() => setNotifyOpen(true)}>
+                    <CalendarClock size={16} /> Lên lịch gửi
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                    <Import size={16} /> Nhập Excel
+                  </Button>
+                  <Button onClick={() => setNotifyOpen(true)}>
+                    <CalendarClock size={16} /> Lên lịch gửi
+                  </Button>
+                </>
+              )
             }
           />
         )}
@@ -1653,13 +1738,13 @@ export default function ApartmentManagementWeb() {
                     onChange={(e) => setNotice({ ...notice, body: e.target.value })}
                     placeholder="Nội dung thông báo"
                   />
-                  <Select value={notice.target} onChange={(e) => setNotice({ ...notice, target: e.target.value })} className="w-full">
+                  <SelectInput value={notice.target} onChange={(e) => setNotice({ ...notice, target: e.target.value })} className="w-full">
                     <option>Tất cả cư dân</option>
                     <option>Block A</option>
                     <option>Block B</option>
                     <option>Block C</option>
                     <option>Cư dân sinh nhật hôm nay</option>
-                  </Select>
+                  </SelectInput>
                   <div className="grid gap-3 md:grid-cols-2">
                     <Input type="datetime-local" value={notice.start} onChange={(e) => setNotice({ ...notice, start: e.target.value })} />
                     <Input type="datetime-local" value={notice.end} onChange={(e) => setNotice({ ...notice, end: e.target.value })} />
@@ -1737,58 +1822,204 @@ export default function ApartmentManagementWeb() {
             </motion.section>
           )}
 
-          {/* RESIDENTS TAB */}
-          {tab === "residents" && (
+          {/* RESIDENTS TAB - CÓ SUB-TABS */}
+          {(tab === "residents" || 
+            tab === "register-resident" || 
+            tab === "id-cards" || 
+            tab === "family-members" || 
+            tab === "residence-history") && (
             <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+              {/* Header với sub-tabs */}
               <Card className="p-5">
-                <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-950">Hồ sơ cư dân</h3>
-                    <p className="text-sm text-slate-500">Quản lý định danh, hộ khẩu và trạng thái cư trú.</p>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-950">Quản lý cư dân</h3>
+                      <p className="text-sm text-slate-500">Quản lý hồ sơ cư dân, CCCD, thành viên và lịch sử cư trú</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        variant="secondary" 
+                        onClick={() => {
+                          setSubTab('list');
+                          setTab('residents');
+                          fetchAllData();
+                        }}
+                      >
+                        <RefreshCw size={16} /> Làm mới
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Input icon={Search} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo tên, CMND..." />
-                    <Button onClick={() => setImportOpen(true)}><Import size={16} /> Nhập liệu</Button>
-                    <Button variant="secondary" onClick={() => {
-                      exportSheet("danh-sach-cu-dan.xlsx", "CuDan", residents.map((r) => ({
-                        MaCuDan: r.id,
-                        HoTen: r.name,
-                        Email: r.email,
-                        SoDienThoai: r.phone,
-                        NgaySinh: r.birthday,
-                        CanHo: r.apartment,
-                        Block: r.tower,
-                        TrangThai: r.status,
-                      })));
-                    }}><Download size={16} /> Xuất Excel</Button>
+
+                  {/* Sub-tabs navigation */}
+                  <div className="flex flex-wrap gap-1 border-b border-slate-200">
+                    {[
+                      { id: 'list', label: 'Danh sách cư dân', icon: Users, tabId: 'residents' },
+                      { id: 'register', label: 'Đăng ký cư dân mới', icon: UserPlus, tabId: 'register-resident' },
+                      { id: 'identity', label: 'CCCD / Hồ sơ', icon: Shield, tabId: 'id-cards' },
+                      { id: 'family', label: 'Thành viên hộ gia đình', icon: Users, tabId: 'family-members' },
+                      { id: 'history', label: 'Lịch sử cư trú', icon: Clock, tabId: 'residence-history' },
+                    ].map(tabItem => {
+                      const Icon = tabItem.icon;
+                      const isActive = subTab === tabItem.id;
+                      return (
+                        <button
+                          key={tabItem.id}
+                          onClick={() => {
+                            setSubTab(tabItem.id);
+                            setTab('residents');
+                            if (tabItem.id !== 'list') {
+                              setSelectedResidentForDetail(null);
+                            }
+                          }}
+                          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition ${
+                            isActive
+                              ? 'border-[#1f4f46] text-[#1f4f46]'
+                              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <Icon size={16} />
+                          {tabItem.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </Card>
-              {loadingResidents ? (
-                <Card className="p-8 text-center"><p className="font-bold text-slate-900">Đang tải danh sách cư dân...</p></Card>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {filteredResidents.map((r) => (
-                    <Card key={r.id} className="group p-5 hover:border-[#1f4f46]/30 transition-all">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46] font-bold">{getInitials(r.name)}</div>
-                          <div>
-                            <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">{r.name}</h3>
-                            <p className="text-xs text-slate-500">CCCD: {r.idCard?.number || 'Chưa có'}</p>
-                          </div>
-                        </div>
-                        <Badge tone={r.isOwner ? "green" : "blue"}>{r.isOwner ? "Chủ hộ" : "Cư dân"}</Badge>
+
+              {/* Render content based on subTab */}
+              {subTab === 'list' && (
+                <ResidentManagement 
+                  flash={flash} 
+                  onSelectResident={(resident) => {
+                    setSelectedResidentForDetail(resident);
+                    setResidentDetailOpen(true);
+                  }}
+                />
+              )}
+
+              {subTab === 'register' && (
+                <RegisterResident 
+                  flash={flash} 
+                  onSuccess={() => {
+                    setSubTab('list');
+                    setTab('residents');
+                    fetchAllData();
+                  }}
+                />
+              )}
+
+              {subTab === 'identity' && (
+                <div className="space-y-4">
+                  {!selectedResidentForDetail ? (
+                    <Card className="p-8 text-center">
+                      <Shield size={48} className="text-slate-300 mx-auto" />
+                      <h3 className="mt-3 text-xl font-bold text-slate-900">Chọn cư dân</h3>
+                      <p className="text-sm text-slate-500">Vui lòng chọn một cư dân từ danh sách để xem CCCD</p>
+                      <div className="flex justify-center gap-3 mt-4">
+                        <Button 
+                          onClick={() => {
+                            setSubTab('list');
+                          }}
+                        >
+                          <Users size={16} /> Chọn từ danh sách
+                        </Button>
+                        <Button 
+                          variant="secondary"
+                          onClick={() => {
+                            setSubTab('register');
+                          }}
+                        >
+                          <UserPlus size={16} /> Đăng ký mới
+                        </Button>
                       </div>
-                      <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-slate-600">
-                        <div className="flex items-center gap-1"><Building2 size={14} /> Căn {r.apartment}</div>
-                        <div className="flex items-center gap-1"><Phone size={14} /> {r.phone}</div>
-                      </div>
-                      <Button variant="secondary" className="mt-4 w-full" onClick={() => setSelectedResident(r)}>
-                        <UserRound size={16} /> Xem hồ sơ chi tiết
-                      </Button>
                     </Card>
-                  ))}
+                  ) : (
+                    <IdentityManagement 
+                      residentId={selectedResidentForDetail.ResidentID || selectedResidentForDetail.id} 
+                      flash={flash}
+                      onBack={() => {
+                        setSelectedResidentForDetail(null);
+                        setSubTab('list');
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+
+              {subTab === 'family' && (
+                <div className="space-y-4">
+                  {!selectedResidentForDetail ? (
+                    <Card className="p-8 text-center">
+                      <Users size={48} className="text-slate-300 mx-auto" />
+                      <h3 className="mt-3 text-xl font-bold text-slate-900">Chọn cư dân</h3>
+                      <p className="text-sm text-slate-500">Vui lòng chọn một cư dân để xem thành viên hộ gia đình</p>
+                      <div className="flex justify-center gap-3 mt-4">
+                        <Button 
+                          onClick={() => {
+                            setSubTab('list');
+                          }}
+                        >
+                          <Users size={16} /> Chọn từ danh sách
+                        </Button>
+                        <Button 
+                          variant="secondary"
+                          onClick={() => {
+                            setSubTab('register');
+                          }}
+                        >
+                          <UserPlus size={16} /> Đăng ký mới
+                        </Button>
+                      </div>
+                    </Card>
+                  ) : (
+                    <FamilyMembers 
+                      residentId={selectedResidentForDetail.ResidentID || selectedResidentForDetail.id} 
+                      flash={flash}
+                      onBack={() => {
+                        setSelectedResidentForDetail(null);
+                        setSubTab('list');
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+
+              {subTab === 'history' && (
+                <div className="space-y-4">
+                  {!selectedResidentForDetail ? (
+                    <Card className="p-8 text-center">
+                      <Clock size={48} className="text-slate-300 mx-auto" />
+                      <h3 className="mt-3 text-xl font-bold text-slate-900">Chọn cư dân</h3>
+                      <p className="text-sm text-slate-500">Vui lòng chọn một cư dân để xem lịch sử cư trú</p>
+                      <div className="flex justify-center gap-3 mt-4">
+                        <Button 
+                          onClick={() => {
+                            setSubTab('list');
+                          }}
+                        >
+                          <Users size={16} /> Chọn từ danh sách
+                        </Button>
+                        <Button 
+                          variant="secondary"
+                          onClick={() => {
+                            setSubTab('register');
+                          }}
+                        >
+                          <UserPlus size={16} /> Đăng ký mới
+                        </Button>
+                      </div>
+                    </Card>
+                  ) : (
+                    <ResidenceHistory 
+                      residentId={selectedResidentForDetail.ResidentID || selectedResidentForDetail.id} 
+                      flash={flash}
+                      onBack={() => {
+                        setSelectedResidentForDetail(null);
+                        setSubTab('list');
+                      }}
+                    />
+                  )}
                 </div>
               )}
             </motion.section>
@@ -1796,54 +2027,88 @@ export default function ApartmentManagementWeb() {
 
           {/* APARTMENTS TAB */}
           {tab === "apartments" && (
-            <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-              <Card className="p-5">
-                <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-950">Danh sách căn hộ</h3>
-                    <p className="text-sm text-slate-500">Quản lý căn hộ, trạng thái và thông tin liên quan.</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Input icon={Search} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm căn hộ..." />
-                    <Select value={apartmentStatus} onChange={(e) => setApartmentStatus(e.target.value)}>
-                      <option value="Tất cả">Tất cả</option>
-                      <option value="Đã thuê">Đã thuê</option>
-                      <option value="Trống">Trống</option>
-                      <option value="Bảo trì">Bảo trì</option>
-                    </Select>
-                  </div>
-                </div>
-              </Card>
-              {loadingApartments ? (
-                <Card className="p-8 text-center"><p className="font-bold text-slate-900">Đang tải danh sách căn hộ...</p></Card>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {filteredApartments.map((a) => (
-                    <Card key={a.id} className="group hover:border-[#1f4f46]/40 transition-all">
-                      <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                        <h4 className="text-2xl font-black text-slate-900 group-hover:text-[#1f4f46]">{a.code || a.id}</h4>
-                        <Badge tone={a.status === "Đã thuê" ? "green" : a.status === "Trống" ? "blue" : "amber"}>{a.status}</Badge>
-                      </div>
-                      <div className="p-6 space-y-4">
-                        <div className="flex justify-between text-sm font-medium">
-                          <span>Block {a.tower} · Tầng {a.floor}</span>
-                          <span className="text-[#1f4f46]">{a.area} m²</span>
-                        </div>
-                        <div className="pt-2 border-t border-slate-100">
-                          <p className="text-xs font-medium text-slate-400">Chủ sở hữu</p>
-                          <p className="text-sm font-bold text-slate-700">{a.owners || 'Chưa cập nhật'}</p>
-                        </div>
-                      </div>
-                      <div className="flex border-t border-slate-100">
-                        <button className="flex-1 py-3 text-sm font-medium text-[#1f4f46] hover:bg-[#eef5f2] transition-colors" onClick={() => setSelectedApartment(a)}>
-                          <ClipboardList size={16} className="inline mr-1" /> Xem chi tiết
-                        </button>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </motion.section>
+            <ApartmentManagement flash={flash} />
+          )}
+
+          {/* BUILDINGS TAB */}
+          {tab === "buildings" && (
+            <BuildingManagement flash={flash} />
+          )}
+
+          {/* TAB: FLOORS */}
+          {tab === "floors" && (
+            <BuildingManagement flash={flash} />
+          )}
+
+          {/* TAB: APARTMENT STATUS - Sử dụng ApartmentManagement */}
+          {tab === "apartment-status" && (
+            <ApartmentManagement flash={flash} />
+          )}
+
+          {/* TAB: RENTAL HISTORY - Sử dụng ApartmentManagement */}
+          {tab === "rental-history" && (
+            <ApartmentManagement flash={flash} />
+          )}
+
+          {/* CONTRACT LIST TAB */}
+          {tab === "contract-list" && (
+            <ContractList flash={flash} />
+          )}
+
+          {/* CREATE CONTRACT TAB */}
+          {tab === "create-contract" && (
+            <CreateContract 
+              flash={flash} 
+              onSuccess={() => {
+                setTab('contract-list');
+                flash('✅ Hợp đồng đã được tạo!');
+              }}
+            />
+          )}
+
+          {/* CONTRACT RENEWAL TAB */}
+          {tab === "contract-renewal" && (
+            <ContractRenewal flash={flash} />
+          )}
+
+          {/* CONTRACT TERMINATE TAB */}
+          {tab === "contract-terminate" && (
+            <ContractTerminate flash={flash} />
+          )}
+
+          {/* DEPOSIT MANAGEMENT TAB */}
+          {tab === "deposits" && (
+            <DepositManagement flash={flash} />
+          )}
+
+          {/* ELECTRICITY TAB */}
+          {tab === "electricity" && (
+            <ElectricityManagement flash={flash} />
+          )}
+
+          {/* WATER TAB */}
+          {tab === "water" && (
+            <WaterManagement flash={flash} />
+          )}
+
+          {/* REGISTER SERVICE TAB */}
+          {tab === "register-service" && (
+            <RegisterService flash={flash} />
+          )}
+
+          {/* GYM TAB */}
+          {tab === "gym" && (
+            <GymManagement flash={flash} />
+          )}
+
+          {/* POOL TAB */}
+          {tab === "pool" && (
+            <PoolManagement flash={flash} />
+          )}
+
+          {/* EVENT SPACE TAB */}
+          {tab === "event-space" && (
+            <EventSpaceManagement flash={flash} />
           )}
 
           {/* FEES TAB */}
@@ -2105,19 +2370,35 @@ export default function ApartmentManagementWeb() {
             </motion.section>
           )}
 
-          {/* Placeholder cho các tab khác */}
-          {[
-            "quick-report", "register-resident", "id-cards", "family-members", "residence-history",
-            "buildings", "floors", "apartment-status", "rental-history",
-            "contract-list", "create-contract", "contract-renewal", "contract-terminate", "deposits",
-            "electricity", "water", "register-service", "gym", "pool", "event-space",
-            "payments", "debts", "fee-collection", "revenue",
-            "vehicle-cards", "parking-lot", "entry-exit-history",
-            "maintenance", "feedbacks", "maintenance-schedule", "equipment",
-            "send-notification", "schedule-notification",
-            "revenue-report", "debt-report", "apartment-report", "service-report", "export-excel", "export-pdf",
-            "ai-chat", "ai-stats", "ai-predict", "ai-search",
-            "profile", "change-password", "system-info"
+          {/* Placeholder cho các tab khác chưa có component */}
+          {[ 
+            "quick-report",
+            "payments", 
+            "debts", 
+            "fee-collection", 
+            "revenue",
+            "vehicle-cards", 
+            "parking-lot", 
+            "entry-exit-history",
+            "maintenance", 
+            "feedbacks", 
+            "maintenance-schedule", 
+            "equipment",
+            "send-notification", 
+            "schedule-notification",
+            "revenue-report", 
+            "debt-report", 
+            "apartment-report", 
+            "service-report", 
+            "export-excel", 
+            "export-pdf",
+            "ai-chat", 
+            "ai-stats", 
+            "ai-predict", 
+            "ai-search",
+            "profile", 
+            "change-password", 
+            "system-info"
           ].includes(tab) && (
             <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
               <Card className="p-8 text-center">
@@ -2135,6 +2416,61 @@ export default function ApartmentManagementWeb() {
         </main>
       </div>
 
+      {/* MODAL CHỌN CƯ DÂN */}
+      <Modal
+        open={residentSelectOpen}
+        title="Chọn cư dân"
+        description="Chọn cư dân để xem thông tin chi tiết"
+        onClose={() => setResidentSelectOpen(false)}
+        size="lg"
+      >
+        <div className="max-h-96 overflow-y-auto space-y-2">
+          {residents.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <Users size={48} className="mx-auto mb-3 text-slate-300" />
+              <p>Chưa có cư dân trong hệ thống</p>
+              <Button 
+                className="mt-3" 
+                onClick={() => {
+                  setResidentSelectOpen(false);
+                  setSubTab('register');
+                }}
+              >
+                <UserPlus size={16} /> Đăng ký cư dân mới
+              </Button>
+            </div>
+          ) : (
+            residents.map(resident => (
+              <button
+                key={resident.id || resident.ResidentID}
+                className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 hover:border-[#1f4f46] hover:bg-slate-50 transition"
+                onClick={() => {
+                  setSelectedResidentForDetail(resident);
+                  setResidentSelectOpen(false);
+                  if (targetSubTab) {
+                    setSubTab(targetSubTab);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46] font-bold">
+                    {getInitials(resident.name || resident.FullName)}
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-slate-950">{resident.name || resident.FullName}</p>
+                    <p className="text-sm text-slate-500">
+                      {resident.apartment || resident.ApartmentCode || 'Chưa có căn hộ'} 
+                      {(resident.phone || resident.Phone) && ` • ${resident.phone || resident.Phone}`}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-slate-400" />
+              </button>
+            ))
+          )}
+        </div>
+      </Modal>
+
       {/* MODALS */}
       <Modal open={notifyOpen} title="Tạo lịch gửi thông báo" description="Lưu lịch để scheduler gửi tự động hoặc gửi ngay nếu cần." onClose={() => setNotifyOpen(false)}>
         <div className="space-y-4">
@@ -2149,13 +2485,13 @@ export default function ApartmentManagementWeb() {
             <Input type="datetime-local" value={notice.end} onChange={(e) => setNotice({ ...notice, end: e.target.value })} />
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            <Select value={notice.target} onChange={(e) => setNotice({ ...notice, target: e.target.value })}>
+            <SelectInput value={notice.target} onChange={(e) => setNotice({ ...notice, target: e.target.value })}>
               <option>Tất cả cư dân</option>
               <option>Block A</option>
               <option>Block B</option>
               <option>Block C</option>
               <option>Cư dân sinh nhật hôm nay</option>
-            </Select>
+            </SelectInput>
             <Input value={notice.timezone} onChange={(e) => setNotice({ ...notice, timezone: e.target.value })} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -2280,18 +2616,18 @@ export default function ApartmentManagementWeb() {
             <Input value={newTicket.apartment} onChange={(e) => setNewTicket({ ...newTicket, apartment: e.target.value })} placeholder="Mã căn hộ" />
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            <Select value={newTicket.category} onChange={(e) => setNewTicket({ ...newTicket, category: e.target.value })}>
+            <SelectInput value={newTicket.category} onChange={(e) => setNewTicket({ ...newTicket, category: e.target.value })}>
               <option>Bảo trì</option>
               <option>Điện</option>
               <option>Nước</option>
               <option>An ninh</option>
               <option>Vệ sinh</option>
-            </Select>
-            <Select value={newTicket.priority} onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}>
+            </SelectInput>
+            <SelectInput value={newTicket.priority} onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}>
               <option>Thấp</option>
               <option>Trung bình</option>
               <option>Cao</option>
-            </Select>
+            </SelectInput>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setTicketOpen(false)}>Hủy</Button>
@@ -2304,11 +2640,11 @@ export default function ApartmentManagementWeb() {
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
             <Input value={newVehicle.plate} onChange={(e) => setNewVehicle({ ...newVehicle, plate: e.target.value })} placeholder="Biển số" />
-            <Select value={newVehicle.type} onChange={(e) => setNewVehicle({ ...newVehicle, type: e.target.value })}>
+            <SelectInput value={newVehicle.type} onChange={(e) => setNewVehicle({ ...newVehicle, type: e.target.value })}>
               <option>Ô tô</option>
               <option>Xe máy</option>
               <option>Xe đạp điện</option>
-            </Select>
+            </SelectInput>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <Input value={newVehicle.owner} onChange={(e) => setNewVehicle({ ...newVehicle, owner: e.target.value })} placeholder="Chủ xe" />

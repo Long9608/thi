@@ -1,3 +1,4 @@
+// backend/routes/index.js
 const express = require('express');
 const router = express.Router();
 
@@ -13,7 +14,7 @@ const ticketRoutes = require('./ticketRoutes');
 const vehicleRoutes = require('./vehicleRoutes');
 const utilityRoutes = require('./utilityRoutes');
 const dashboardRoutes = require('./dashboardRoutes');
-const userRoutes = require('./userRoutes'); // 🔥 Thêm mới
+const userRoutes = require('./userRoutes');
 const { authMiddleware } = require('../middlewares/auth');
 
 // Public routes
@@ -30,8 +31,6 @@ router.use('/tickets', ticketRoutes);
 router.use('/vehicles', vehicleRoutes);
 router.use('/utilities', utilityRoutes);
 router.use('/dashboard', dashboardRoutes);
-
-// 🔥 Thêm routes quản lý nhân sự & phân quyền
 router.use('/users', userRoutes);
 
 // Route kiểm tra quyền

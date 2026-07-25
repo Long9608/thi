@@ -1,71 +1,94 @@
+// backend/controllers/apartmentController.js
 const { getPool, sql } = require('../config/db');
 
-exports.getAllApartments = async (req, res) => {
+// ============================================
+// QUẢN LÝ CĂN HỘ
+// ============================================
+
+exports.getApartments = async (req, res) => {
     try {
-        const { 
-            buildingId, 
-            floorId, 
-            statusId,
-            search,
+        const {
+            search = '',
+            statusId = '',
+            buildingId = '',
+            floorId = '',
             page = 1,
-            limit = 20 
+            limit = 20
         } = req.query;
 
+        // 🔥 Đảm bảo page và limit là số nguyên dương
+        const parsedPage = parseInt(page) || 1;
+        const parsedLimit = parseInt(limit) || 20;
+        const safePage = Math.max(1, parsedPage);
+        const safeLimit = Math.max(1, parsedLimit);
+        const offset = (safePage - 1) * safeLimit;
+
         const pool = await getPool();
-        const offset = (page - 1) * limit;
 
         let query = `
             SELECT 
                 a.ApartmentID,
                 a.ApartmentCode,
                 a.Area,
-                a.FloorID,
-                f.FloorNumber,
-                b.BuildingName,
-                b.BuildingID,
-                ar.AreaName,
-                rs.StatusName AS Status,
                 a.StatusID,
+                rs.StatusName as Status,
+                f.FloorID,
+                f.FloorNumber,
+                b.BuildingID,
+                b.BuildingName,
+                ar.AreaID,
+                ar.AreaName,
+                ar.Address as AreaAddress,
                 (
-                    SELECT TOP 1 BaseRentalPrice 
-                    FROM ApartmentPriceHistory 
-                    WHERE ApartmentID = a.ApartmentID 
-                    ORDER BY EffectiveDate DESC
-                ) AS CurrentPrice,
+                    SELECT STRING_AGG(r.FullName, ', ')
+                    FROM ContractResident cr
+                    JOIN Contract c ON cr.ContractID = c.ContractID
+                    JOIN Resident r ON cr.ResidentID = r.ResidentID
+                    WHERE c.ApartmentID = a.ApartmentID
+                        AND c.StatusID = 2
+                        AND cr.MoveOutDate IS NULL
+                ) as CurrentResidents,
                 (
-                    SELECT COUNT(*) 
-                    FROM Contract c 
-                    WHERE c.ApartmentID = a.ApartmentID 
-                        AND c.StatusID IN (1, 2)
-                ) AS ActiveContracts
+                    SELECT TOP 1 c.ContractNumber
+                    FROM Contract c
+                    WHERE c.ApartmentID = a.ApartmentID
+                        AND c.StatusID = 2
+                    ORDER BY c.SignDate DESC
+                ) as CurrentContract,
+                (
+                    SELECT TOP 1 c.Rent
+                    FROM Contract c
+                    WHERE c.ApartmentID = a.ApartmentID
+                        AND c.StatusID = 2
+                    ORDER BY c.SignDate DESC
+                ) as CurrentRent
             FROM Apartment a
-            INNER JOIN Floor f ON a.FloorID = f.FloorID
-            INNER JOIN Building b ON f.BuildingID = b.BuildingID
-            INNER JOIN ApartmentArea ar ON b.AreaID = ar.AreaID
-            INNER JOIN RoomStatus rs ON a.StatusID = rs.StatusID
+            JOIN RoomStatus rs ON a.StatusID = rs.StatusID
+            JOIN Floor f ON a.FloorID = f.FloorID
+            JOIN Building b ON f.BuildingID = b.BuildingID
+            JOIN ApartmentArea ar ON b.AreaID = ar.AreaID
             WHERE 1=1
         `;
 
         const request = pool.request();
+        
+        // 🔥 countQuery cũng phải JOIN đúng các bảng
         let countQuery = `
             SELECT COUNT(*) as total 
             FROM Apartment a
-            INNER JOIN Floor f ON a.FloorID = f.FloorID
-            INNER JOIN Building b ON f.BuildingID = b.BuildingID
+            JOIN RoomStatus rs ON a.StatusID = rs.StatusID
+            JOIN Floor f ON a.FloorID = f.FloorID
+            JOIN Building b ON f.BuildingID = b.BuildingID
+            JOIN ApartmentArea ar ON b.AreaID = ar.AreaID
             WHERE 1=1
         `;
 
-        // Apply filters
-        if (buildingId) {
-            query += ` AND b.BuildingID = @BuildingID`;
-            countQuery += ` AND b.BuildingID = @BuildingID`;
-            request.input('BuildingID', sql.Int, parseInt(buildingId));
-        }
-
-        if (floorId) {
-            query += ` AND a.FloorID = @FloorID`;
-            countQuery += ` AND a.FloorID = @FloorID`;
-            request.input('FloorID', sql.Int, parseInt(floorId));
+        // 🔥 Thêm điều kiện tìm kiếm
+        if (search) {
+            const searchPattern = `%${search}%`;
+            query += ` AND (a.ApartmentCode LIKE @Search OR b.BuildingName LIKE @Search)`;
+            countQuery += ` AND (a.ApartmentCode LIKE @Search OR b.BuildingName LIKE @Search)`;
+            request.input('Search', sql.NVarChar, searchPattern);
         }
 
         if (statusId) {
@@ -74,24 +97,30 @@ exports.getAllApartments = async (req, res) => {
             request.input('StatusID', sql.Int, parseInt(statusId));
         }
 
-        if (search) {
-            query += ` AND (a.ApartmentCode LIKE @Search OR b.BuildingName LIKE @Search)`;
-            countQuery += ` AND (a.ApartmentCode LIKE @Search OR b.BuildingName LIKE @Search)`;
-            request.input('Search', sql.NVarChar, `%${search}%`);
+        if (buildingId) {
+            query += ` AND b.BuildingID = @BuildingID`;
+            countQuery += ` AND b.BuildingID = @BuildingID`;
+            request.input('BuildingID', sql.Int, parseInt(buildingId));
         }
 
-        // Get total count
-        const countResult = await request.query(countQuery);
-        const total = countResult.recordset[0].total;
+        if (floorId) {
+            query += ` AND f.FloorID = @FloorID`;
+            countQuery += ` AND f.FloorID = @FloorID`;
+            request.input('FloorID', sql.Int, parseInt(floorId));
+        }
 
-        // Get data with pagination
+        // 🔥 Lấy tổng số bản ghi
+        const countResult = await request.query(countQuery);
+        const total = countResult.recordset[0]?.total || 0;
+
+        // 🔥 Thêm phân trang
         query += `
-            ORDER BY a.ApartmentCode
+            ORDER BY b.BuildingName, f.FloorNumber, a.ApartmentCode
             OFFSET @Offset ROWS
             FETCH NEXT @Limit ROWS ONLY
         `;
-        request.input('Offset', sql.Int, parseInt(offset));
-        request.input('Limit', sql.Int, parseInt(limit));
+        request.input('Offset', sql.Int, offset);
+        request.input('Limit', sql.Int, safeLimit);
 
         const result = await request.query(query);
 
@@ -100,9 +129,9 @@ exports.getAllApartments = async (req, res) => {
             data: result.recordset,
             pagination: {
                 total,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                totalPages: Math.ceil(total / limit)
+                page: safePage,
+                limit: safeLimit,
+                totalPages: Math.ceil(total / safeLimit)
             }
         });
 
@@ -116,6 +145,7 @@ exports.getAllApartments = async (req, res) => {
     }
 };
 
+// Lấy chi tiết căn hộ
 exports.getApartmentById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -125,26 +155,24 @@ exports.getApartmentById = async (req, res) => {
             .input('ApartmentID', sql.Int, id)
             .query(`
                 SELECT 
-                    a.*,
+                    a.ApartmentID,
+                    a.ApartmentCode,
+                    a.Area,
+                    a.StatusID,
+                    rs.StatusName as Status,
+                    f.FloorID,
                     f.FloorNumber,
-                    b.BuildingName,
                     b.BuildingID,
-                    ar.AreaName,
+                    b.BuildingName,
+                    b.NumberOfFloors,
                     ar.AreaID,
-                    rs.StatusName AS Status,
-                    ph.BaseRentalPrice,
-                    ph.EffectiveDate AS PriceEffectiveDate
+                    ar.AreaName,
+                    ar.Address as AreaAddress
                 FROM Apartment a
-                INNER JOIN Floor f ON a.FloorID = f.FloorID
-                INNER JOIN Building b ON f.BuildingID = b.BuildingID
-                INNER JOIN ApartmentArea ar ON b.AreaID = ar.AreaID
-                INNER JOIN RoomStatus rs ON a.StatusID = rs.StatusID
-                LEFT JOIN ApartmentPriceHistory ph ON a.ApartmentID = ph.ApartmentID
-                    AND ph.EffectiveDate = (
-                        SELECT MAX(EffectiveDate) 
-                        FROM ApartmentPriceHistory 
-                        WHERE ApartmentID = a.ApartmentID
-                    )
+                JOIN RoomStatus rs ON a.StatusID = rs.StatusID
+                JOIN Floor f ON a.FloorID = f.FloorID
+                JOIN Building b ON f.BuildingID = b.BuildingID
+                JOIN ApartmentArea ar ON b.AreaID = ar.AreaID
                 WHERE a.ApartmentID = @ApartmentID
             `);
 
@@ -155,24 +183,112 @@ exports.getApartmentById = async (req, res) => {
             });
         }
 
-        // Get current contract if any
+        const apartment = result.recordset[0];
+
+        // Lấy lịch sử giá
+        const priceResult = await pool.request()
+            .input('ApartmentID', sql.Int, id)
+            .query(`
+                SELECT 
+                    PriceHistoryID,
+                    BaseRentalPrice,
+                    EffectiveDate,
+                    Note
+                FROM ApartmentPriceHistory
+                WHERE ApartmentID = @ApartmentID
+                ORDER BY EffectiveDate DESC
+            `);
+        apartment.PriceHistory = priceResult.recordset;
+
+        // Lấy hợp đồng hiện tại
         const contractResult = await pool.request()
             .input('ApartmentID', sql.Int, id)
             .query(`
-                SELECT TOP 1 
-                    c.*,
-                    r.FullName AS OwnerName,
-                    cs.StatusName AS ContractStatus
+                SELECT 
+                    c.ContractID,
+                    c.ContractNumber,
+                    c.SignDate,
+                    c.StartDate,
+                    c.EndDate,
+                    c.Rent,
+                    c.Deposit,
+                    cs.StatusName as ContractStatus,
+                    r.FullName as OwnerName,
+                    r.Phone as OwnerPhone,
+                    r.Email as OwnerEmail
                 FROM Contract c
-                INNER JOIN Resident r ON c.OwnerID = r.ResidentID
-                INNER JOIN ContractStatus cs ON c.StatusID = cs.StatusID
-                WHERE c.ApartmentID = @ApartmentID 
-                    AND c.StatusID IN (1, 2)
-                ORDER BY c.StartDate DESC
+                JOIN ContractStatus cs ON c.StatusID = cs.StatusID
+                JOIN Resident r ON c.OwnerID = r.ResidentID
+                WHERE c.ApartmentID = @ApartmentID
+                    AND c.StatusID = 2
+                ORDER BY c.SignDate DESC
             `);
+        apartment.CurrentContract = contractResult.recordset[0] || null;
 
-        const apartment = result.recordset[0];
-        apartment.currentContract = contractResult.recordset[0] || null;
+        // Lấy tất cả hợp đồng
+        const allContracts = await pool.request()
+            .input('ApartmentID', sql.Int, id)
+            .query(`
+                SELECT 
+                    c.ContractID,
+                    c.ContractNumber,
+                    c.SignDate,
+                    c.StartDate,
+                    c.EndDate,
+                    c.Rent,
+                    c.Deposit,
+                    cs.StatusName as ContractStatus,
+                    r.FullName as OwnerName
+                FROM Contract c
+                JOIN ContractStatus cs ON c.StatusID = cs.StatusID
+                JOIN Resident r ON c.OwnerID = r.ResidentID
+                WHERE c.ApartmentID = @ApartmentID
+                ORDER BY c.SignDate DESC
+            `);
+        apartment.AllContracts = allContracts.recordset;
+
+        // Lấy cư dân hiện tại
+        const residentResult = await pool.request()
+            .input('ApartmentID', sql.Int, id)
+            .query(`
+                SELECT 
+                    r.ResidentID,
+                    r.FullName,
+                    r.Gender,
+                    r.BirthDate,
+                    r.Phone,
+                    r.Email,
+                    cr.Relationship,
+                    cr.MoveInDate
+                FROM ContractResident cr
+                JOIN Resident r ON cr.ResidentID = r.ResidentID
+                JOIN Contract c ON cr.ContractID = c.ContractID
+                WHERE c.ApartmentID = @ApartmentID
+                    AND c.StatusID = 2
+                    AND cr.MoveOutDate IS NULL
+            `);
+        apartment.CurrentResidents = residentResult.recordset;
+
+        // Lấy lịch sử thuê
+        const historyResult = await pool.request()
+            .input('ApartmentID', sql.Int, id)
+            .query(`
+                SELECT 
+                    c.ContractNumber,
+                    c.SignDate,
+                    c.StartDate,
+                    c.EndDate,
+                    c.Rent,
+                    c.Deposit,
+                    cs.StatusName as ContractStatus,
+                    r.FullName as OwnerName
+                FROM Contract c
+                JOIN ContractStatus cs ON c.StatusID = cs.StatusID
+                JOIN Resident r ON c.OwnerID = r.ResidentID
+                WHERE c.ApartmentID = @ApartmentID
+                ORDER BY c.SignDate DESC
+            `);
+        apartment.RentalHistory = historyResult.recordset;
 
         res.json({
             success: true,
@@ -189,28 +305,26 @@ exports.getApartmentById = async (req, res) => {
     }
 };
 
+// Tạo căn hộ mới
 exports.createApartment = async (req, res) => {
     try {
-        const { 
-            floorId, 
-            apartmentCode, 
-            area, 
-            statusId,
-            baseRentalPrice,
-            priceEffectiveDate
+        const {
+            floorId,
+            apartmentCode,
+            area,
+            statusId
         } = req.body;
 
-        // Validation
         if (!floorId || !apartmentCode || !area) {
             return res.status(400).json({
                 success: false,
-                message: 'Floor ID, Apartment Code, and Area are required'
+                message: 'Floor ID, apartment code and area are required'
             });
         }
 
         const pool = await getPool();
 
-        // Check if apartment code already exists
+        // Check code exists
         const checkResult = await pool.request()
             .input('ApartmentCode', sql.VarChar, apartmentCode)
             .query('SELECT ApartmentID FROM Apartment WHERE ApartmentCode = @ApartmentCode');
@@ -222,7 +336,6 @@ exports.createApartment = async (req, res) => {
             });
         }
 
-        // Create apartment
         const result = await pool.request()
             .input('FloorID', sql.Int, floorId)
             .input('ApartmentCode', sql.VarChar, apartmentCode)
@@ -236,17 +349,17 @@ exports.createApartment = async (req, res) => {
 
         const apartmentId = result.recordset[0].ApartmentID;
 
-        // Add price history if provided
-        if (baseRentalPrice) {
-            await pool.request()
-                .input('ApartmentID', sql.Int, apartmentId)
-                .input('BaseRentalPrice', sql.Decimal, baseRentalPrice)
-                .input('EffectiveDate', sql.Date, priceEffectiveDate || new Date())
-                .query(`
-                    INSERT INTO ApartmentPriceHistory (ApartmentID, BaseRentalPrice, EffectiveDate)
-                    VALUES (@ApartmentID, @BaseRentalPrice, @EffectiveDate)
-                `);
-        }
+        // Ghi audit log
+        await pool.request()
+            .input('UserID', sql.Int, req.userId || null)
+            .input('Action', sql.VarChar, 'INSERT')
+            .input('TableName', sql.VarChar, 'Apartment')
+            .input('RecordID', sql.Int, apartmentId)
+            .input('IPAddress', sql.VarChar, req.ip || req.connection.remoteAddress)
+            .query(`
+                INSERT INTO AuditLog (UserID, Action, TableName, RecordID, Timestamp, IPAddress)
+                VALUES (@UserID, @Action, @TableName, @RecordID, GETDATE(), @IPAddress)
+            `);
 
         res.status(201).json({
             success: true,
@@ -264,14 +377,18 @@ exports.createApartment = async (req, res) => {
     }
 };
 
+// Cập nhật căn hộ
 exports.updateApartment = async (req, res) => {
     try {
         const { id } = req.params;
-        const { area, statusId, baseRentalPrice, priceEffectiveDate } = req.body;
+        const {
+            floorId,
+            area,
+            statusId
+        } = req.body;
 
         const pool = await getPool();
 
-        // Check if apartment exists
         const checkResult = await pool.request()
             .input('ApartmentID', sql.Int, id)
             .query('SELECT ApartmentID FROM Apartment WHERE ApartmentID = @ApartmentID');
@@ -283,16 +400,18 @@ exports.updateApartment = async (req, res) => {
             });
         }
 
-        // Update apartment
         const updates = [];
         const request = pool.request();
         request.input('ApartmentID', sql.Int, id);
 
+        if (floorId) {
+            updates.push('FloorID = @FloorID');
+            request.input('FloorID', sql.Int, floorId);
+        }
         if (area) {
             updates.push('Area = @Area');
             request.input('Area', sql.Float, area);
         }
-
         if (statusId) {
             updates.push('StatusID = @StatusID');
             request.input('StatusID', sql.Int, statusId);
@@ -306,41 +425,17 @@ exports.updateApartment = async (req, res) => {
             `);
         }
 
-        // Update price history if provided
-        if (baseRentalPrice) {
-            // Check if there's already a price for this date
-            const priceCheck = await pool.request()
-                .input('ApartmentID', sql.Int, id)
-                .input('EffectiveDate', sql.Date, priceEffectiveDate || new Date())
-                .query(`
-                    SELECT PriceHistoryID 
-                    FROM ApartmentPriceHistory 
-                    WHERE ApartmentID = @ApartmentID 
-                        AND EffectiveDate = @EffectiveDate
-                `);
-
-            if (priceCheck.recordset[0]) {
-                // Update existing price
-                await pool.request()
-                    .input('PriceHistoryID', sql.Int, priceCheck.recordset[0].PriceHistoryID)
-                    .input('BaseRentalPrice', sql.Decimal, baseRentalPrice)
-                    .query(`
-                        UPDATE ApartmentPriceHistory 
-                        SET BaseRentalPrice = @BaseRentalPrice
-                        WHERE PriceHistoryID = @PriceHistoryID
-                    `);
-            } else {
-                // Insert new price
-                await pool.request()
-                    .input('ApartmentID', sql.Int, id)
-                    .input('BaseRentalPrice', sql.Decimal, baseRentalPrice)
-                    .input('EffectiveDate', sql.Date, priceEffectiveDate || new Date())
-                    .query(`
-                        INSERT INTO ApartmentPriceHistory (ApartmentID, BaseRentalPrice, EffectiveDate)
-                        VALUES (@ApartmentID, @BaseRentalPrice, @EffectiveDate)
-                    `);
-            }
-        }
+        // Ghi audit log
+        await pool.request()
+            .input('UserID', sql.Int, req.userId || null)
+            .input('Action', sql.VarChar, 'UPDATE')
+            .input('TableName', sql.VarChar, 'Apartment')
+            .input('RecordID', sql.Int, id)
+            .input('IPAddress', sql.VarChar, req.ip || req.connection.remoteAddress)
+            .query(`
+                INSERT INTO AuditLog (UserID, Action, TableName, RecordID, Timestamp, IPAddress)
+                VALUES (@UserID, @Action, @TableName, @RecordID, GETDATE(), @IPAddress)
+            `);
 
         res.json({
             success: true,
@@ -357,32 +452,16 @@ exports.updateApartment = async (req, res) => {
     }
 };
 
+// Xóa căn hộ
 exports.deleteApartment = async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await getPool();
 
-        // Check if apartment exists
-        const checkResult = await pool.request()
-            .input('ApartmentID', sql.Int, id)
-            .query('SELECT ApartmentID FROM Apartment WHERE ApartmentID = @ApartmentID');
-
-        if (!checkResult.recordset[0]) {
-            return res.status(404).json({
-                success: false,
-                message: 'Apartment not found'
-            });
-        }
-
         // Check if apartment has active contracts
         const contractCheck = await pool.request()
             .input('ApartmentID', sql.Int, id)
-            .query(`
-                SELECT COUNT(*) as count 
-                FROM Contract 
-                WHERE ApartmentID = @ApartmentID 
-                    AND StatusID IN (1, 2)
-            `);
+            .query("SELECT COUNT(*) as count FROM Contract WHERE ApartmentID = @ApartmentID AND StatusID = 2");
 
         if (contractCheck.recordset[0].count > 0) {
             return res.status(400).json({
@@ -391,10 +470,16 @@ exports.deleteApartment = async (req, res) => {
             });
         }
 
-        // Delete apartment (cascade will handle related records)
-        await pool.request()
+        const result = await pool.request()
             .input('ApartmentID', sql.Int, id)
             .query('DELETE FROM Apartment WHERE ApartmentID = @ApartmentID');
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Apartment not found'
+            });
+        }
 
         res.json({
             success: true,
@@ -411,12 +496,351 @@ exports.deleteApartment = async (req, res) => {
     }
 };
 
+// ============================================
+// QUẢN LÝ TÒA NHÀ
+// ============================================
+
+exports.getBuildings = async (req, res) => {
+    try {
+        const { areaId } = req.query;
+        const pool = await getPool();
+
+        let query = `
+            SELECT 
+                b.BuildingID,
+                b.BuildingName,
+                b.NumberOfFloors,
+                b.AreaID,
+                ar.AreaName,
+                ar.Address as AreaAddress,
+                COUNT(DISTINCT a.ApartmentID) as TotalApartments,
+                COUNT(DISTINCT CASE WHEN a.StatusID = 2 THEN a.ApartmentID END) as OccupiedApartments
+            FROM Building b
+            JOIN ApartmentArea ar ON b.AreaID = ar.AreaID
+            LEFT JOIN Floor f ON b.BuildingID = f.BuildingID
+            LEFT JOIN Apartment a ON f.FloorID = a.FloorID
+            WHERE 1=1
+        `;
+
+        if (areaId) {
+            query += ` AND b.AreaID = @AreaID`;
+        }
+
+        query += `
+            GROUP BY b.BuildingID, b.BuildingName, b.NumberOfFloors, b.AreaID, ar.AreaName, ar.Address
+            ORDER BY b.BuildingName
+        `;
+
+        const request = pool.request();
+        if (areaId) {
+            request.input('AreaID', sql.Int, parseInt(areaId));
+        }
+
+        const result = await request.query(query);
+
+        res.json({
+            success: true,
+            data: result.recordset
+        });
+
+    } catch (error) {
+        console.error('Get buildings error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch buildings',
+            error: error.message
+        });
+    }
+};
+
+exports.createBuilding = async (req, res) => {
+    try {
+        const { areaId, buildingName, numberOfFloors } = req.body;
+
+        if (!areaId || !buildingName || !numberOfFloors) {
+            return res.status(400).json({
+                success: false,
+                message: 'Area ID, building name and number of floors are required'
+            });
+        }
+
+        const pool = await getPool();
+
+        const result = await pool.request()
+            .input('AreaID', sql.Int, areaId)
+            .input('BuildingName', sql.NVarChar, buildingName)
+            .input('NumberOfFloors', sql.Int, numberOfFloors)
+            .query(`
+                INSERT INTO Building (AreaID, BuildingName, NumberOfFloors)
+                OUTPUT INSERTED.BuildingID
+                VALUES (@AreaID, @BuildingName, @NumberOfFloors)
+            `);
+
+        res.status(201).json({
+            success: true,
+            message: 'Building created successfully',
+            data: { buildingId: result.recordset[0].BuildingID }
+        });
+
+    } catch (error) {
+        console.error('Create building error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create building',
+            error: error.message
+        });
+    }
+};
+
+exports.updateBuilding = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { buildingName, numberOfFloors } = req.body;
+
+        const pool = await getPool();
+
+        const updates = [];
+        const request = pool.request();
+        request.input('BuildingID', sql.Int, id);
+
+        if (buildingName) {
+            updates.push('BuildingName = @BuildingName');
+            request.input('BuildingName', sql.NVarChar, buildingName);
+        }
+        if (numberOfFloors) {
+            updates.push('NumberOfFloors = @NumberOfFloors');
+            request.input('NumberOfFloors', sql.Int, numberOfFloors);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No fields to update'
+            });
+        }
+
+        const result = await request.query(`
+            UPDATE Building 
+            SET ${updates.join(', ')}
+            WHERE BuildingID = @BuildingID
+        `);
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Building not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Building updated successfully'
+        });
+
+    } catch (error) {
+        console.error('Update building error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update building',
+            error: error.message
+        });
+    }
+};
+
+exports.deleteBuilding = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pool = await getPool();
+
+        // Check if building has apartments
+        const checkResult = await pool.request()
+            .input('BuildingID', sql.Int, id)
+            .query(`
+                SELECT COUNT(*) as count 
+                FROM Floor f
+                JOIN Apartment a ON f.FloorID = a.FloorID
+                WHERE f.BuildingID = @BuildingID
+            `);
+
+        if (checkResult.recordset[0].count > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot delete building with existing apartments'
+            });
+        }
+
+        const result = await pool.request()
+            .input('BuildingID', sql.Int, id)
+            .query('DELETE FROM Building WHERE BuildingID = @BuildingID');
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Building not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Building deleted successfully'
+        });
+
+    } catch (error) {
+        console.error('Delete building error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete building',
+            error: error.message
+        });
+    }
+};
+
+// ============================================
+// QUẢN LÝ TẦNG
+// ============================================
+
+exports.getFloors = async (req, res) => {
+    try {
+        const { buildingId } = req.query;
+        const pool = await getPool();
+
+        let query = `
+            SELECT 
+                f.FloorID,
+                f.FloorNumber,
+                f.BuildingID,
+                b.BuildingName,
+                COUNT(a.ApartmentID) as TotalApartments
+            FROM Floor f
+            JOIN Building b ON f.BuildingID = b.BuildingID
+            LEFT JOIN Apartment a ON f.FloorID = a.FloorID
+            WHERE 1=1
+        `;
+
+        if (buildingId) {
+            query += ` AND f.BuildingID = @BuildingID`;
+        }
+
+        query += `
+            GROUP BY f.FloorID, f.FloorNumber, f.BuildingID, b.BuildingName
+            ORDER BY f.FloorNumber
+        `;
+
+        const request = pool.request();
+        if (buildingId) {
+            request.input('BuildingID', sql.Int, parseInt(buildingId));
+        }
+
+        const result = await request.query(query);
+
+        res.json({
+            success: true,
+            data: result.recordset
+        });
+
+    } catch (error) {
+        console.error('Get floors error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch floors',
+            error: error.message
+        });
+    }
+};
+
+exports.createFloor = async (req, res) => {
+    try {
+        const { buildingId, floorNumber } = req.body;
+
+        if (!buildingId || !floorNumber) {
+            return res.status(400).json({
+                success: false,
+                message: 'Building ID and floor number are required'
+            });
+        }
+
+        const pool = await getPool();
+
+        const result = await pool.request()
+            .input('BuildingID', sql.Int, buildingId)
+            .input('FloorNumber', sql.Int, floorNumber)
+            .query(`
+                INSERT INTO Floor (BuildingID, FloorNumber)
+                OUTPUT INSERTED.FloorID
+                VALUES (@BuildingID, @FloorNumber)
+            `);
+
+        res.status(201).json({
+            success: true,
+            message: 'Floor created successfully',
+            data: { floorId: result.recordset[0].FloorID }
+        });
+
+    } catch (error) {
+        console.error('Create floor error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create floor',
+            error: error.message
+        });
+    }
+};
+
+exports.deleteFloor = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pool = await getPool();
+
+        // Check if floor has apartments
+        const checkResult = await pool.request()
+            .input('FloorID', sql.Int, id)
+            .query('SELECT COUNT(*) as count FROM Apartment WHERE FloorID = @FloorID');
+
+        if (checkResult.recordset[0].count > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot delete floor with existing apartments'
+            });
+        }
+
+        const result = await pool.request()
+            .input('FloorID', sql.Int, id)
+            .query('DELETE FROM Floor WHERE FloorID = @FloorID');
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Floor not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Floor deleted successfully'
+        });
+
+    } catch (error) {
+        console.error('Delete floor error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete floor',
+            error: error.message
+        });
+    }
+};
+
+// ============================================
+// QUẢN LÝ TRẠNG THÁI CĂN HỘ
+// ============================================
+
 exports.getApartmentStatuses = async (req, res) => {
     try {
         const pool = await getPool();
         const result = await pool.query(`
-            SELECT StatusID, StatusName 
-            FROM RoomStatus 
+            SELECT 
+                StatusID,
+                StatusName
+            FROM RoomStatus
             ORDER BY StatusID
         `);
 
@@ -426,7 +850,7 @@ exports.getApartmentStatuses = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get statuses error:', error);
+        console.error('Get apartment statuses error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch statuses',
@@ -435,7 +859,11 @@ exports.getApartmentStatuses = async (req, res) => {
     }
 };
 
-exports.getApartmentAreas = async (req, res) => {
+// ============================================
+// QUẢN LÝ KHU VỰC
+// ============================================
+
+exports.getAreas = async (req, res) => {
     try {
         const pool = await getPool();
         const result = await pool.query(`
@@ -443,13 +871,11 @@ exports.getApartmentAreas = async (req, res) => {
                 ar.AreaID,
                 ar.AreaName,
                 ar.Address,
-                COUNT(DISTINCT b.BuildingID) as BuildingCount,
-                COUNT(DISTINCT a.ApartmentID) as ApartmentCount
+                ar.Description,
+                COUNT(DISTINCT b.BuildingID) as TotalBuildings
             FROM ApartmentArea ar
             LEFT JOIN Building b ON ar.AreaID = b.AreaID
-            LEFT JOIN Floor f ON b.BuildingID = f.BuildingID
-            LEFT JOIN Apartment a ON f.FloorID = a.FloorID
-            GROUP BY ar.AreaID, ar.AreaName, ar.Address
+            GROUP BY ar.AreaID, ar.AreaName, ar.Address, ar.Description
             ORDER BY ar.AreaName
         `);
 
@@ -468,34 +894,35 @@ exports.getApartmentAreas = async (req, res) => {
     }
 };
 
-exports.getApartmentBuildings = async (req, res) => {
+// ============================================
+// THỐNG KÊ CĂN HỘ
+// ============================================
+
+exports.getApartmentStats = async (req, res) => {
     try {
         const pool = await getPool();
-        const result = await pool.query(`
+
+        const result = await pool.request().query(`
             SELECT 
-                b.BuildingID,
-                b.BuildingName,
-                b.NumberOfFloors,
-                ar.AreaName,
-                COUNT(DISTINCT a.ApartmentID) as ApartmentCount
-            FROM Building b
-            INNER JOIN ApartmentArea ar ON b.AreaID = ar.AreaID
-            LEFT JOIN Floor f ON b.BuildingID = f.BuildingID
-            LEFT JOIN Apartment a ON f.FloorID = a.FloorID
-            GROUP BY b.BuildingID, b.BuildingName, b.NumberOfFloors, ar.AreaName
-            ORDER BY b.BuildingName
+                rs.StatusName,
+                COUNT(a.ApartmentID) as Count,
+                CAST(COUNT(a.ApartmentID) * 100.0 / NULLIF(SUM(COUNT(a.ApartmentID)) OVER(), 0) AS DECIMAL(5,2)) as Percentage
+            FROM Apartment a
+            JOIN RoomStatus rs ON a.StatusID = rs.StatusID
+            GROUP BY rs.StatusName
+            ORDER BY Count DESC
         `);
 
         res.json({
             success: true,
-            data: result.recordset
+            data: result.recordset || []
         });
 
     } catch (error) {
-        console.error('Get buildings error:', error);
+        console.error('Get apartment stats error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to fetch buildings',
+            message: 'Failed to fetch stats',
             error: error.message
         });
     }

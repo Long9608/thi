@@ -22,6 +22,7 @@ export const logout = () => {
   window.location.href = '/login';
 };
 
+// Request wrapper hỗ trợ JWT, JSON & FormData
 async function request(path, options = {}) {
   try {
     const token = getAuthToken();
@@ -59,7 +60,12 @@ async function request(path, options = {}) {
     }
 
     if (!res.ok) {
-      throw new Error(data?.message || data?.error || 'API request failed');
+      const error = new Error(data?.message || data?.error || 'API request failed');
+      error.response = {
+        status: res.status,
+        data: data
+      };
+      throw error;
     }
 
     return data;
@@ -120,7 +126,39 @@ export const apartmentAPI = {
   }),
   getStatuses: () => request('/apartments/statuses'),
   getAreas: () => request('/apartments/areas'),
-  getBuildings: () => request('/apartments/buildings'),
+  getStats: () => request('/apartments/stats'),
+
+  // 🏢 Buildings (Căn hộ / Tòa nhà)
+  getBuildings: (areaId) => {
+    const params = new URLSearchParams();
+    if (areaId) params.set('areaId', areaId);
+    return request(`/apartments/buildings?${params.toString()}`);
+  },
+  createBuilding: (data) => request('/apartments/buildings', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateBuilding: (id, data) => request(`/apartments/buildings/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  deleteBuilding: (id) => request(`/apartments/buildings/${id}`, {
+    method: 'DELETE',
+  }),
+
+  // 🪜 Floors (Tầng)
+  getFloors: (buildingId) => {
+    const params = new URLSearchParams();
+    if (buildingId) params.set('buildingId', buildingId);
+    return request(`/apartments/floors?${params.toString()}`);
+  },
+  createFloor: (data) => request('/apartments/floors', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  deleteFloor: (id) => request(`/apartments/floors/${id}`, {
+    method: 'DELETE',
+  }),
 };
 
 // ============ CONTRACT API ============
@@ -197,6 +235,39 @@ export const residentAPI = {
     method: 'DELETE',
   }),
   getBirthdays: (monthDay) => request(`/residents/birthdays?monthDay=${monthDay}`),
+  getByBirthday: (monthDay) => request(`/residents/birthdays?monthDay=${monthDay}`),
+  exportExcel: () => request('/residents/export'),
+  getIdentity: (residentId) => request(`/residents/${residentId}/identity`),
+  updateIdentity: (residentId, data) => request(`/residents/${residentId}/identity`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  uploadIdentityImage: (residentId, file, type) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('type', type); // 'front' hoặc 'back'
+    return request(`/residents/${residentId}/identity/upload`, {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  // 👨‍👩‍👧‍👦 Thành viên hộ gia đình
+  getFamilyMembers: (residentId) => request(`/residents/${residentId}/family`),
+  addFamilyMember: (residentId, data) => request(`/residents/${residentId}/family`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateFamilyMember: (residentId, memberId, data) => request(`/residents/${residentId}/family/${memberId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  removeFamilyMember: (residentId, memberId) => request(`/residents/${residentId}/family/${memberId}`, {
+    method: 'DELETE',
+  }),
+
+  // 📜 Lịch sử cư trú
+  getResidenceHistory: (residentId) => request(`/residents/${residentId}/residence-history`),
 };
 
 // ============ SERVICE API ============
@@ -341,17 +412,8 @@ export const dashboardAPI = {
   getFinancial: () => request('/dashboard/financial'),
 };
 
-// ============================================
-// API NHÂN SỰ & PHÂN QUYỀN (SỬA LỖI)
-// ============================================
-
-// Tạo axios instance riêng cho userAPI để dễ quản lý
-const userRequest = async (path, options = {}) => {
-  return request(path, options);
-};
-
+// ============ USER & PERMISSION API ============
 export const userAPI = {
-  // Employee management
   getEmployees: (search = '', status = '', roleId = '', page = 1, limit = 999) => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
@@ -361,57 +423,45 @@ export const userAPI = {
     params.set('limit', limit);
     return request(`/users/employees?${params.toString()}`);
   },
-  // src/api.js - Thêm vào userAPI
-getCurrentUserPermissions: () => {
-  return request('/auth/permissions');
-},
+  getCurrentUserPermissions: () => {
+    return request('/auth/permissions');
+  },
   getEmployee: (id) => request(`/users/employees/${id}`),
-  
   createEmployee: (data) => request('/users/employees', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
-  
   updateEmployee: (id, data) => request(`/users/employees/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   }),
-  
   deleteEmployee: (id) => request(`/users/employees/${id}`, {
     method: 'DELETE',
   }),
-
-  // Role management
   getRoles: () => request('/users/roles'),
-getRole: (id) => request(`/users/roles/${id}`),
-createRole: (data) => request('/users/roles', {
-  method: 'POST',
-  body: JSON.stringify(data),
-}),
-  
+  getRole: (id) => request(`/users/roles/${id}`),
+  createRole: (data) => request('/users/roles', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
   updateRole: (id, data) => request(`/users/roles/${id}`, {
-  method: 'PUT',
-  body: JSON.stringify(data),
-}),
-deleteRole: (id) => request(`/users/roles/${id}`, {
-  method: 'DELETE',
-}),
-
-  // Permission management
- getPermissions: (moduleId) => {
-  const params = new URLSearchParams();
-  if (moduleId) params.set('moduleId', moduleId);
-  return request(`/users/permissions?${params.toString()}`);
-},
-  
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  deleteRole: (id) => request(`/users/roles/${id}`, {
+    method: 'DELETE',
+  }),
+  getPermissions: (moduleId) => {
+    const params = new URLSearchParams();
+    if (moduleId) params.set('moduleId', moduleId);
+    return request(`/users/permissions?${params.toString()}`);
+  },
   getModules: () => request('/users/modules'),
-getRolePermissions: (roleId) => request(`/users/roles/${roleId}/permissions`),
-updateRolePermissions: (roleId, permissionIds) => request(`/users/roles/${roleId}/permissions`, {
-  method: 'PUT',
-  body: JSON.stringify({ permissionIds }),
-}),
-
-  // Audit logs
+  getRolePermissions: (roleId) => request(`/users/roles/${roleId}/permissions`),
+  updateRolePermissions: (roleId, permissionIds) => request(`/users/roles/${roleId}/permissions`, {
+    method: 'PUT',
+    body: JSON.stringify({ permissionIds }),
+  }),
   getAuditLogs: (params = {}) => {
     const queryParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
@@ -437,8 +487,8 @@ const api = {
   utilities: utilityAPI,
   dashboard: dashboardAPI,
   user: userAPI,
-  // Các hàm cũ để tương thích
-  residents: (search, page, limit) => residentAPI.getAll(search, page, limit),
+  
+  // Shorthands & Helper Functions
   importResidents: (file) => {
     const form = new FormData();
     form.append('file', file);
@@ -458,13 +508,11 @@ const api = {
   history: () => request('/notifications/history'),
   schedules: () => request('/notifications/schedules'),
   createTicket: (data) => ticketAPI.create(data),
-  tickets: (statusId, page, limit) => ticketAPI.getAll(statusId, page, limit),
   updateTicketStatus: (id, statusId) => request(`/tickets/${id}/status`, {
     method: 'PUT',
     body: JSON.stringify({ statusId }),
   }),
   createVehicle: (data) => vehicleAPI.create(data),
-  vehicles: (residentId, vehicleTypeId, page, limit) => vehicleAPI.getAll(residentId, vehicleTypeId, page, limit),
   getAvailableSlots: (vehicleType) => {
     const params = new URLSearchParams();
     if (vehicleType) params.set('vehicleType', vehicleType);

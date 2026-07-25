@@ -1233,3 +1233,6 @@ JOIN RolePermission rp ON r.RoleID = rp.RoleID
 JOIN Permission p ON rp.PermissionID = p.PermissionID
 WHERE r.RoleID = 1
 ORDER BY p.PermissionCode;
+
+
+select * from Resident
