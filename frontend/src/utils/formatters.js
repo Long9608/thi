@@ -16,6 +16,9 @@ export function formatDate(date, format = 'dd/MM/yyyy') {
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
     
     switch (format) {
       case 'dd/MM/yyyy':
@@ -26,12 +29,25 @@ export function formatDate(date, format = 'dd/MM/yyyy') {
         return `${year}-${month}-${day}`;
       case 'dd-MM-yyyy':
         return `${day}-${month}-${year}`;
+      case 'dd/MM/yyyy HH:mm':
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
+      case 'dd/MM/yyyy HH:mm:ss':
+        return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
       default:
         return `${day}/${month}/${year}`;
     }
   } catch {
     return 'Chưa cập nhật';
   }
+}
+
+/**
+ * Format date and time
+ * @param {string|Date} date - Date to format
+ * @returns {string} Formatted date time string
+ */
+export function formatDateTime(date) {
+  return formatDate(date, 'dd/MM/yyyy HH:mm');
 }
 
 /**
@@ -181,3 +197,129 @@ export function getStatusLabel(status) {
   
   return labelMap[status] || status;
 }
+
+/**
+ * Format relative time (e.g., "5 phút trước", "2 giờ trước")
+ * @param {string|Date} date - Date to format
+ * @returns {string} Relative time string
+ */
+export function timeAgo(date) {
+  if (!date) return 'Chưa xác định';
+  
+  try {
+    const now = new Date();
+    const past = new Date(date);
+    if (isNaN(past.getTime())) return 'Chưa xác định';
+    
+    const diffMs = now - past;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+    const diffMonth = Math.floor(diffDay / 30);
+    const diffYear = Math.floor(diffDay / 365);
+    
+    if (diffYear > 0) return `${diffYear} năm trước`;
+    if (diffMonth > 0) return `${diffMonth} tháng trước`;
+    if (diffDay > 0) return `${diffDay} ngày trước`;
+    if (diffHour > 0) return `${diffHour} giờ trước`;
+    if (diffMin > 0) return `${diffMin} phút trước`;
+    return 'Vừa xong';
+  } catch {
+    return 'Chưa xác định';
+  }
+}
+
+/**
+ * Format file size
+ * @param {number} bytes - File size in bytes
+ * @returns {string} Formatted file size
+ */
+export function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Format VND currency without symbol
+ * @param {number} value - Number to format
+ * @returns {string} Formatted currency without symbol
+ */
+export function formatCurrency(value) {
+  if (value === null || value === undefined || isNaN(value)) {
+    return '0';
+  }
+  
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0
+  }).format(value).replace('₫', '').trim();
+}
+
+/**
+ * Check if string is valid JSON
+ * @param {string} str - String to check
+ * @returns {boolean} True if valid JSON
+ */
+export function isValidJSON(str) {
+  try {
+    JSON.parse(str);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get status style for parking actions
+ * @param {string} action - Action type
+ * @returns {string} CSS class
+ */
+export function getParkingActionStyle(action) {
+  if (action === 'Vào') {
+    return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  }
+  if (action === 'Ra') {
+    return 'bg-amber-50 text-amber-700 border-amber-200';
+  }
+  return 'bg-slate-50 text-slate-700 border-slate-200';
+}
+
+/**
+ * Get vehicle type icon name
+ * @param {string} type - Vehicle type
+ * @returns {string} Icon name
+ */
+export function getVehicleTypeIcon(type) {
+  if (!type) return 'Car';
+  const name = type.toLowerCase();
+  if (name.includes('ôtô') || name.includes('o to')) return 'Car';
+  if (name.includes('xe máy') || name.includes('xe may')) return 'Bike';
+  if (name.includes('xe đạp') || name.includes('xe dap')) return 'Bicycle';
+  return 'Car';
+}
+
+export default {
+  formatDate,
+  formatDateTime,
+  money,
+  getInitials,
+  formatBirthday,
+  formatPhone,
+  formatNumber,
+  truncate,
+  getStatusColor,
+  getStatusLabel,
+  timeAgo,
+  formatFileSize,
+  formatCurrency,
+  isValidJSON,
+  getParkingActionStyle,
+  getVehicleTypeIcon
+};

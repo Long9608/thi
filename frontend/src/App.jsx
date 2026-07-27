@@ -50,6 +50,38 @@ import GymManagement from "./pages/GymManagement";
 import PoolManagement from "./pages/PoolManagement";
 import EventSpaceManagement from "./pages/EventSpaceManagement";
 
+// 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ GỬI XE
+import VehicleManagement from './pages/VehicleManagement';
+import ParkingCardManagement from './pages/ParkingCardManagement';
+import ParkingSlotManagement from './pages/ParkingSlotManagement';
+import ParkingHistory from './pages/ParkingHistory';
+
+// 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ VẬN HÀNH
+import TicketManagement from './pages/TicketManagement';
+import MaintenanceManagement from './pages/MaintenanceManagement';
+import FeedbackManagement from './pages/FeedbackManagement';
+import MaintenanceSchedule from './pages/MaintenanceSchedule';
+import EquipmentManagement from './pages/EquipmentManagement';
+
+// 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ THÔNG BÁO
+import NotificationList from './pages/NotificationList';
+import SendNotification from './pages/SendNotification';
+import ScheduleNotification from './pages/ScheduleNotification';
+
+// 🔥 THÊM IMPORTS COMPONENT BÁO CÁO
+import QuickReport from './pages/QuickReport'; // ✅ THÊM IMPORT QUICKREPORT
+import RevenueReport from './pages/RevenueReport';
+import DebtReport from './pages/DebtReport';
+import ApartmentReport from './pages/ApartmentReport';
+import ServiceReport from './pages/ServiceReport';
+import ExportExcel from './pages/ExportExcel';
+import ExportPDF from './pages/ExportPDF';
+
+// 🔥 THÊM IMPORTS COMPONENT CÀI ĐẶT
+import Profile from './pages/Profile';
+import ChangePassword from './pages/ChangePassword';
+import SystemInfo from './pages/SystemInfo';
+
 import {
   AlertCircle,
   ArrowLeft,
@@ -100,7 +132,10 @@ import {
   Heart,
   Edit,
   Trash2,
-  // ❌ KHÔNG CÓ Water - sử dụng Droplet thay thế
+  Calendar,
+  FileSpreadsheet,
+  User,
+  Lock
 } from "lucide-react";
 
 // ============= IMPORT REACT CHARTS =============
@@ -545,7 +580,7 @@ const MENU_STRUCTURE = [
     permission: "DASHBOARD_VIEW",
     items: [
       { id: "dashboard", label: "Dashboard", icon: Home, permission: "DASHBOARD_VIEW" },
-      { id: "quick-report", label: "Báo cáo nhanh", icon: FileText, permission: "REPORT_VIEW" }
+      { id: "quick-report", label: "Báo cáo nhanh", icon: FileText, permission: "REPORT_VIEW" } // ✅ THÊM DÒNG NÀY
     ]
   },
   {
@@ -623,7 +658,7 @@ const MENU_STRUCTURE = [
       { id: "vehicles", label: "Xe cư dân", icon: Car, permission: "PARKING_VIEW" },
       { id: "vehicle-cards", label: "Thẻ xe", icon: CreditCard, permission: "CARD_CREATE" },
       { id: "parking-lot", label: "Bãi xe", icon: Home, permission: "PARKING_VIEW" },
-      { id: "entry-exit-history", label: "Lịch sử ra/vào", icon: CalendarClock, permission: "PARKING_HISTORY" }
+      { id: "parking-history", label: "Lịch sử ra/vào", icon: Clock, permission: "PARKING_HISTORY" }
     ]
   },
   {
@@ -632,10 +667,10 @@ const MENU_STRUCTURE = [
     icon: Wrench,
     permission: "TICKET_VIEW",
     items: [
-      { id: "tickets", label: "Ticket", icon: Wrench, permission: "TICKET_VIEW" },
+      { id: "tickets", label: "Ticket hỗ trợ", icon: Wrench, permission: "TICKET_VIEW" },
       { id: "maintenance", label: "Bảo trì", icon: Settings, permission: "MAINTENANCE_UPDATE" },
-      { id: "feedbacks", label: "Phản ánh", icon: AlertCircle, permission: "TICKET_VIEW" },
-      { id: "maintenance-schedule", label: "Lịch bảo trì", icon: CalendarClock, permission: "MAINTENANCE_UPDATE" },
+      { id: "feedbacks", label: "Phản ánh", icon: MessageSquare, permission: "TICKET_VIEW" },
+      { id: "maintenance-schedule", label: "Lịch bảo trì", icon: Calendar, permission: "MAINTENANCE_UPDATE" },
       { id: "equipment", label: "Thiết bị", icon: ClipboardList, permission: "DEVICE_MANAGE" }
     ]
   },
@@ -647,7 +682,7 @@ const MENU_STRUCTURE = [
     items: [
       { id: "notifications", label: "Danh sách", icon: Bell, permission: "NOTIFICATION_VIEW" },
       { id: "send-notification", label: "Gửi thông báo", icon: Send, permission: "NOTIFICATION_SEND" },
-      { id: "schedule-notification", label: "Lịch gửi", icon: CalendarClock, permission: "NOTIFICATION_SEND" }
+      { id: "schedule-notification", label: "Lịch gửi", icon: Calendar, permission: "NOTIFICATION_SEND" }
     ]
   },
   {
@@ -672,7 +707,7 @@ const MENU_STRUCTURE = [
       { id: "debt-report", label: "Công nợ", icon: AlertCircle, permission: "REPORT_VIEW" },
       { id: "apartment-report", label: "Căn hộ", icon: Building2, permission: "REPORT_VIEW" },
       { id: "service-report", label: "Dịch vụ", icon: Wrench, permission: "REPORT_VIEW" },
-      { id: "export-excel", label: "Excel", icon: Download, permission: "REPORT_EXCEL" },
+      { id: "export-excel", label: "Excel", icon: FileSpreadsheet, permission: "REPORT_EXCEL" },
       { id: "export-pdf", label: "PDF", icon: FileText, permission: "REPORT_PDF" }
     ]
   },
@@ -694,8 +729,8 @@ const MENU_STRUCTURE = [
     icon: Settings,
     permission: "PROFILE_UPDATE",
     items: [
-      { id: "profile", label: "Hồ sơ", icon: UserRound, permission: "PROFILE_UPDATE" },
-      { id: "change-password", label: "Đổi mật khẩu", icon: LockKeyhole, permission: "PASSWORD_CHANGE" },
+      { id: "profile", label: "Hồ sơ", icon: User, permission: "PROFILE_UPDATE" },
+      { id: "change-password", label: "Đổi mật khẩu", icon: Lock, permission: "PASSWORD_CHANGE" },
       { id: "system-info", label: "Thông tin hệ thống", icon: Info, permission: "SYSTEM_SETTING" }
     ]
   }
@@ -706,7 +741,7 @@ const MENU_STRUCTURE = [
 // ============================================================
 const CONTENT_TITLES = {
   dashboard: ["Bảng điều khiển", "Theo dõi vận hành chung cư, thông báo và tình trạng căn hộ trong ngày."],
-  "quick-report": ["Báo cáo nhanh", "Xem báo cáo tổng hợp nhanh"],
+  "quick-report": ["Báo cáo nhanh", "Xem báo cáo tổng hợp nhanh"], // ✅ THÊM DÒNG NÀY
   residents: ["Danh sách cư dân", "Quản lý hồ sơ cư dân, liên hệ, ngày sinh và căn hộ đang ở."],
   "register-resident": ["Đăng ký cư dân mới", "Thêm cư dân mới vào hệ thống"],
   "id-cards": ["CCCD / Hồ sơ", "Quản lý CCCD và hồ sơ cư dân"],
@@ -736,13 +771,13 @@ const CONTENT_TITLES = {
   vehicles: ["Xe cư dân", "Quản lý xe cư dân"],
   "vehicle-cards": ["Thẻ xe", "Quản lý thẻ xe"],
   "parking-lot": ["Bãi xe", "Quản lý bãi xe"],
-  "entry-exit-history": ["Lịch sử ra/vào", "Lịch sử ra vào bãi xe"],
+  "parking-history": ["Lịch sử ra/vào", "Lịch sử ra vào bãi xe"],
   tickets: ["Ticket hỗ trợ", "Quản lý yêu cầu hỗ trợ"],
   maintenance: ["Bảo trì", "Quản lý bảo trì"],
   feedbacks: ["Phản ánh", "Quản lý phản ánh của cư dân"],
   "maintenance-schedule": ["Lịch bảo trì", "Lịch bảo trì thiết bị"],
   equipment: ["Thiết bị", "Quản lý thiết bị"],
-  notifications: ["Thông báo", "Quản lý thông báo"],
+  notifications: ["Danh sách thông báo", "Quản lý danh sách thông báo"],
   "send-notification": ["Gửi thông báo", "Gửi thông báo đến cư dân"],
   "schedule-notification": ["Lịch gửi", "Lịch gửi thông báo"],
   employees: ["Nhân viên", "Quản lý nhân viên"],
@@ -759,9 +794,9 @@ const CONTENT_TITLES = {
   "ai-stats": ["Thống kê AI", "Thống kê từ AI"],
   "ai-predict": ["Dự đoán hợp đồng", "Dự đoán từ AI"],
   "ai-search": ["AI tìm kiếm", "Tìm kiếm với AI"],
-  profile: ["Hồ sơ", "Quản lý hồ sơ"],
-  "change-password": ["Đổi mật khẩu", "Đổi mật khẩu"],
-  "system-info": ["Thông tin hệ thống", "Thông tin hệ thống"],
+  profile: ["Hồ sơ", "Quản lý hồ sơ cá nhân"],
+  "change-password": ["Đổi mật khẩu", "Đổi mật khẩu đăng nhập"],
+  "system-info": ["Thông tin hệ thống", "Thông tin chi tiết về hệ thống"],
 };
 
 // ============================================================
@@ -1087,7 +1122,7 @@ export default function ApartmentManagementWeb() {
 
       setLoadingVehicles(true);
       try {
-        const vehData = await vehicleAPI.getAll('', '', 1, 999);
+        const vehData = await vehicleAPI.getAll('', '', '', 1, 999);
         const data = vehData?.data || vehData || [];
         const mappedVehicles = data.map((item) => ({
           id: item.VehicleID || item.vehicleId || item.id,
@@ -1722,104 +1757,24 @@ export default function ApartmentManagementWeb() {
             </motion.section>
           )}
 
-          {/* NOTIFICATIONS TAB */}
+          {/* QUICK REPORT TAB */}
+          {tab === "quick-report" && (
+            <QuickReport flash={flash} />
+          )}
+
+          {/* NOTIFICATIONS TAB - DANH SÁCH THÔNG BÁO */}
           {tab === "notifications" && (
-            <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-              <Card className="overflow-hidden">
-                <div className="border-b border-slate-200 p-5">
-                  <h3 className="text-base font-bold text-slate-950">Tạo thông báo mới</h3>
-                  <p className="text-sm text-slate-500">Validate thời gian, timezone và đối tượng nhận trước khi gửi.</p>
-                </div>
-                <div className="space-y-4 p-5">
-                  <Input value={notice.title} onChange={(e) => setNotice({ ...notice, title: e.target.value })} placeholder="Tiêu đề thông báo" />
-                  <textarea
-                    className="min-h-36 w-full rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-800 shadow-sm outline-none placeholder:text-slate-400 focus:border-[#1f4f46]"
-                    value={notice.body}
-                    onChange={(e) => setNotice({ ...notice, body: e.target.value })}
-                    placeholder="Nội dung thông báo"
-                  />
-                  <SelectInput value={notice.target} onChange={(e) => setNotice({ ...notice, target: e.target.value })} className="w-full">
-                    <option>Tất cả cư dân</option>
-                    <option>Block A</option>
-                    <option>Block B</option>
-                    <option>Block C</option>
-                    <option>Cư dân sinh nhật hôm nay</option>
-                  </SelectInput>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <Input type="datetime-local" value={notice.start} onChange={(e) => setNotice({ ...notice, start: e.target.value })} />
-                    <Input type="datetime-local" value={notice.end} onChange={(e) => setNotice({ ...notice, end: e.target.value })} />
-                  </div>
-                  <Input value={notice.timezone} onChange={(e) => setNotice({ ...notice, timezone: e.target.value })} placeholder="Asia/Ho_Chi_Minh" />
-                  <div className="flex flex-wrap gap-2">
-                    <Button onClick={scheduleNotice}><CalendarClock size={16} /> Thêm vào lịch gửi</Button>
-                    <Button variant="secondary" onClick={() => {
-                      const item = { ...notice, id: "manual" };
-                      setQueue(queue.filter((q) => q.id !== item.id));
-                      setHistory([
-                        {
-                          id: `H${String(history.length + 1).padStart(3, "0")}`,
-                          title: item.title,
-                          type: "Gửi hàng loạt",
-                          target: item.target,
-                          sentAt: new Date().toLocaleString("vi-VN", { hour12: false }),
-                          state: "Đã gửi",
-                          count: item.target === "Tất cả cư dân" ? residents.length : 1,
-                        },
-                        ...history,
-                      ]);
-                      flash("Đã gửi thông báo và lưu lịch sử gửi.");
-                    }}><Send size={16} /> Gửi ngay</Button>
-                  </div>
-                </div>
-              </Card>
+            <NotificationList flash={flash} />
+          )}
 
-              <div className="space-y-6">
-                <Card className="overflow-hidden">
-                  <div className="flex flex-col justify-between gap-4 border-b border-slate-200 p-5 md:flex-row md:items-center">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-950">Cư dân sinh nhật</h3>
-                      <p className="text-sm text-slate-500">Lọc theo MM-DD, không cần năm sinh.</p>
-                    </div>
-                    <Input value={birthdayMonthDay} onChange={(e) => setBirthdayMonthDay(e.target.value)} className="md:w-40" placeholder="04-27" />
-                  </div>
-                  <div className="space-y-3 p-5">
-                    {birthdayResidents.length === 0 && <EmptyState title="Không có cư dân phù hợp" description="Thử nhập ngày theo định dạng MM-DD, ví dụ 04-27." />}
-                    {birthdayResidents.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#eef5f2] text-sm font-bold text-[#1f4f46]">{getInitials(r.name)}</div>
-                          <div>
-                            <p className="font-bold text-slate-950">{r.name}</p>
-                            <p className="text-sm text-slate-500">{r.apartment} · {formatBirthday(r.birthday)} · {r.phone}</p>
-                          </div>
-                        </div>
-                        <Button variant="success" onClick={() => flash(`Đã gửi lời chúc sinh nhật đến ${r.name}`)}>
-                          <Mail size={16} /> Gửi
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
+          {/* SEND NOTIFICATION TAB */}
+          {tab === "send-notification" && (
+            <SendNotification flash={flash} />
+          )}
 
-                <Card className="overflow-hidden">
-                  <div className="border-b border-slate-200 p-5">
-                    <h3 className="text-base font-bold text-slate-950">Thống kê gửi theo loại</h3>
-                    <p className="text-sm text-slate-500">Phân nhóm dữ liệu lịch sử thông báo.</p>
-                  </div>
-                  <div className="h-64 p-5">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={historyChart}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                        <Tooltip />
-                        <Bar dataKey="count" fill="#1f4f46" radius={[8, 8, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-              </div>
-            </motion.section>
+          {/* SCHEDULE NOTIFICATION TAB */}
+          {tab === "schedule-notification" && (
+            <ScheduleNotification flash={flash} />
           )}
 
           {/* RESIDENTS TAB - CÓ SUB-TABS */}
@@ -2111,6 +2066,96 @@ export default function ApartmentManagementWeb() {
             <EventSpaceManagement flash={flash} />
           )}
 
+          {/* VEHICLES TAB - QUẢN LÝ XE CƯ DÂN */}
+          {tab === "vehicles" && (
+            <VehicleManagement flash={flash} />
+          )}
+
+          {/* VEHICLE CARDS TAB - QUẢN LÝ THẺ XE */}
+          {tab === "vehicle-cards" && (
+            <ParkingCardManagement flash={flash} />
+          )}
+
+          {/* PARKING LOT TAB - QUẢN LÝ BÃI XE */}
+          {tab === "parking-lot" && (
+            <ParkingSlotManagement flash={flash} />
+          )}
+
+          {/* PARKING HISTORY TAB - LỊCH SỬ RA/VÀO */}
+          {tab === "parking-history" && (
+            <ParkingHistory flash={flash} />
+          )}
+
+          {/* 🔥 TICKET MANAGEMENT TAB */}
+          {tab === "tickets" && (
+            <TicketManagement flash={flash} />
+          )}
+
+          {/* 🔥 MAINTENANCE MANAGEMENT TAB */}
+          {tab === "maintenance" && (
+            <MaintenanceManagement flash={flash} />
+          )}
+
+          {/* 🔥 FEEDBACK MANAGEMENT TAB */}
+          {tab === "feedbacks" && (
+            <FeedbackManagement flash={flash} />
+          )}
+
+          {/* 🔥 MAINTENANCE SCHEDULE TAB */}
+          {tab === "maintenance-schedule" && (
+            <MaintenanceSchedule flash={flash} />
+          )}
+
+          {/* 🔥 EQUIPMENT MANAGEMENT TAB */}
+          {tab === "equipment" && (
+            <EquipmentManagement flash={flash} />
+          )}
+
+          {/* 🔥 BÁO CÁO DOANH THU */}
+          {tab === "revenue-report" && (
+            <RevenueReport flash={flash} />
+          )}
+
+          {/* 🔥 BÁO CÁO CÔNG NỢ */}
+          {tab === "debt-report" && (
+            <DebtReport flash={flash} />
+          )}
+
+          {/* 🔥 BÁO CÁO CĂN HỘ */}
+          {tab === "apartment-report" && (
+            <ApartmentReport flash={flash} />
+          )}
+
+          {/* 🔥 BÁO CÁO DỊCH VỤ */}
+          {tab === "service-report" && (
+            <ServiceReport flash={flash} />
+          )}
+
+          {/* 🔥 XUẤT EXCEL */}
+          {tab === "export-excel" && (
+            <ExportExcel flash={flash} />
+          )}
+
+          {/* 🔥 XUẤT PDF */}
+          {tab === "export-pdf" && (
+            <ExportPDF flash={flash} />
+          )}
+
+          {/* 🔥 PROFILE TAB - HỒ SƠ */}
+          {tab === "profile" && (
+            <Profile flash={flash} />
+          )}
+
+          {/* 🔥 CHANGE PASSWORD TAB - ĐỔI MẬT KHẨU */}
+          {tab === "change-password" && (
+            <ChangePassword flash={flash} />
+          )}
+
+          {/* 🔥 SYSTEM INFO TAB - THÔNG TIN HỆ THỐNG */}
+          {tab === "system-info" && (
+            <SystemInfo flash={flash} />
+          )}
+
           {/* FEES TAB */}
           {tab === "fees" && (
             <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
@@ -2191,110 +2236,6 @@ export default function ApartmentManagementWeb() {
             </motion.section>
           )}
 
-          {/* TICKETS TAB */}
-          {tab === "tickets" && (
-            <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-              <Card className="p-5">
-                <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-950">Danh sách yêu cầu</h3>
-                    <p className="text-sm text-slate-500">Tạo mới, phân loại và cập nhật trạng thái xử lý.</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={() => {
-                      exportSheet("yeu-cau-cu-dan.xlsx", "YeuCau", tickets.map((t) => ({
-                        MaYeuCau: t.id,
-                        TieuDe: t.title,
-                        CuDan: t.resident,
-                        CanHo: t.apartment,
-                        PhanLoai: t.category,
-                        UuTien: t.priority,
-                        TrangThai: t.status,
-                        NgayTao: t.createdAt,
-                      })));
-                    }}><Download size={16} /> Xuất Excel</Button>
-                    <Button onClick={() => setTicketOpen(true)}><Plus size={16} /> Tạo yêu cầu</Button>
-                  </div>
-                </div>
-              </Card>
-              <div className="grid gap-4 xl:grid-cols-3">
-                {filteredTickets.map((ticket) => (
-                  <Card key={ticket.id} className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <Badge tone={ticket.priority === "Cao" ? "red" : ticket.priority === "Trung bình" ? "amber" : "slate"}>{ticket.priority}</Badge>
-                        <h3 className="mt-3 font-bold text-slate-950">{ticket.title}</h3>
-                        <p className="mt-1 text-sm text-slate-500">{ticket.resident} · {ticket.apartment}</p>
-                      </div>
-                      <Badge tone={ticket.status === "Hoàn tất" ? "green" : ticket.status === "Đang xử lý" ? "amber" : "blue"}>{ticket.status}</Badge>
-                    </div>
-                    <div className="mt-5 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
-                      <p>Loại: <b>{ticket.category}</b></p>
-                      <p className="mt-1">Ngày tạo: {ticket.createdAt}</p>
-                    </div>
-                    <div className="mt-5 flex gap-2">
-                      <Button variant="secondary" className="flex-1" onClick={() => updateTicketStatus(ticket.id, "Đang xử lý")}>Nhận xử lý</Button>
-                      <Button className="flex-1" onClick={() => updateTicketStatus(ticket.id, "Hoàn tất")}>Hoàn tất</Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </motion.section>
-          )}
-
-          {/* VEHICLES TAB */}
-          {tab === "vehicles" && (
-            <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-              <Card className="p-5">
-                <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-950">Danh sách xe</h3>
-                    <p className="text-sm text-slate-500">Quản lý biển số, loại xe, vị trí đỗ và trạng thái thẻ xe.</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={() => {
-                      exportSheet("danh-sach-xe.xlsx", "BaiXe", vehicles.map((v) => ({
-                        MaXe: v.id,
-                        BienSo: v.plate,
-                        ChuXe: v.owner,
-                        CanHo: v.apartment,
-                        LoaiXe: v.type,
-                        ViTriDo: v.slot,
-                        TrangThai: v.status,
-                      })));
-                    }}><Download size={16} /> Xuất Excel</Button>
-                    <Button onClick={() => setVehicleOpen(true)}><Plus size={16} /> Đăng ký xe</Button>
-                  </div>
-                </div>
-              </Card>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {filteredVehicles.map((vehicle) => (
-                  <Card key={vehicle.id} className="overflow-hidden">
-                    <div className="border-b border-slate-200 bg-slate-50 p-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm text-slate-500">Biển số</p>
-                          <h3 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">{vehicle.plate}</h3>
-                        </div>
-                        <Badge tone={vehicle.status === "Hoạt động" ? "green" : "red"}>{vehicle.status}</Badge>
-                      </div>
-                    </div>
-                    <div className="space-y-3 p-5 text-sm text-slate-600">
-                      <div className="flex items-center justify-between"><span>Chủ xe</span><b className="text-slate-950">{vehicle.owner}</b></div>
-                      <div className="flex items-center justify-between"><span>Căn hộ</span><b className="text-slate-950">{vehicle.apartment}</b></div>
-                      <div className="flex items-center justify-between"><span>Loại xe</span><b className="text-slate-950">{vehicle.type}</b></div>
-                      <div className="flex items-center justify-between"><span>Vị trí</span><b className="text-slate-950">{vehicle.slot}</b></div>
-                    </div>
-                    <div className="flex border-t border-slate-200">
-                      <button className="flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" onClick={() => flash("Đã mở lịch sử ra vào mẫu.")}>Lịch sử</button>
-                      <button className="flex flex-1 items-center justify-center gap-2 border-l border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" onClick={() => flash("Đã cập nhật trạng thái thẻ xe.")}>Khóa thẻ</button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </motion.section>
-          )}
-
           {/* EMPLOYEES TAB */}
           {tab === "employees" && (
             <EmployeeManagement flash={flash} />
@@ -2372,33 +2313,14 @@ export default function ApartmentManagementWeb() {
 
           {/* Placeholder cho các tab khác chưa có component */}
           {[ 
-            "quick-report",
             "payments", 
             "debts", 
             "fee-collection", 
             "revenue",
-            "vehicle-cards", 
-            "parking-lot", 
-            "entry-exit-history",
-            "maintenance", 
-            "feedbacks", 
-            "maintenance-schedule", 
-            "equipment",
-            "send-notification", 
-            "schedule-notification",
-            "revenue-report", 
-            "debt-report", 
-            "apartment-report", 
-            "service-report", 
-            "export-excel", 
-            "export-pdf",
             "ai-chat", 
             "ai-stats", 
             "ai-predict", 
-            "ai-search",
-            "profile", 
-            "change-password", 
-            "system-info"
+            "ai-search"
           ].includes(tab) && (
             <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
               <Card className="p-8 text-center">

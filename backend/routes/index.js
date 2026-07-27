@@ -33,7 +33,7 @@ router.use('/utilities', utilityRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/users', userRoutes);
 
-// Route kiểm tra quyền
+// Route kiểm tra quyền ✅ SỬA
 router.get('/permissions', authMiddleware, (req, res) => {
     res.json({
         success: true,

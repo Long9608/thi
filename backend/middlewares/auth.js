@@ -1,3 +1,4 @@
+// backend/middlewares/auth.js
 const jwt = require('jsonwebtoken');
 const { getPool, sql } = require('../config/db');
 
@@ -17,7 +18,7 @@ const authMiddleware = async (req, res, next) => {
         
         const pool = await getPool();
         
-         const result = await pool.request()
+        const result = await pool.request()
             .input('UserID', sql.Int, decoded.userId)
             .query(`
                 SELECT 
@@ -39,26 +40,31 @@ const authMiddleware = async (req, res, next) => {
                          u.Status, u.LastLogin, u.CreatedAt
             `);
 
-         if (!result.recordset[0]) {
+        if (!result.recordset[0]) {
             throw new Error('User not found or inactive');
         }
 
         const user = result.recordset[0];
         
-       const permResult = await pool.request()
+        // ✅ SỬA: Thêm SortOrder vào SELECT
+        const permResult = await pool.request()
             .input('UserID', sql.Int, decoded.userId)
             .query(`
-                SELECT p.PermissionCode, m.ModuleCode
+                SELECT DISTINCT 
+                    p.PermissionCode, 
+                    m.ModuleCode,
+                    m.SortOrder
                 FROM Users u
                 JOIN UserRole ur ON u.UserID = ur.UserID
                 JOIN RolePermission rp ON ur.RoleID = rp.RoleID
                 JOIN Permission p ON rp.PermissionID = p.PermissionID
                 JOIN Module m ON p.ModuleID = m.ModuleID
                 WHERE u.UserID = @UserID AND rp.IsGranted = 1
+                ORDER BY m.SortOrder, p.PermissionCode
             `);
 
-        const permissions = permResult.recordset.map(p => p.PermissionCode);
-        const moduleCodes = [...new Set(permResult.recordset.map(p => p.ModuleCode))];
+        const permissions = permResult.recordset ? permResult.recordset.map(p => p.PermissionCode) : [];
+        const moduleCodes = [...new Set(permResult.recordset ? permResult.recordset.map(p => p.ModuleCode) : [])];
 
         req.user = {
             UserID: user.UserID,

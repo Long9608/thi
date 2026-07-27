@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const { authMiddleware } = require('../middlewares/auth');
 
 // ============================================
-// 🔥 ĐĂNG NHẬP - THÊM ROUTE NÀY
+// 🔥 ĐĂNG NHẬP
 // ============================================
 router.post('/login', async (req, res) => {
     try {
@@ -23,7 +23,6 @@ router.post('/login', async (req, res) => {
 
         const pool = await getPool();
         
-        // Tìm user theo username hoặc email
         const result = await pool.request()
             .input('Username', sql.VarChar, username)
             .query(`
@@ -34,13 +33,15 @@ router.post('/login', async (req, res) => {
                     u.Email,
                     u.Phone,
                     u.Status,
+                    u.LastLogin,
+                    u.CreatedAt,
                     STRING_AGG(r.RoleCode, ',') AS RoleCodes,
                     STRING_AGG(r.RoleName, ',') AS RoleNames
                 FROM Users u
                 LEFT JOIN UserRole ur ON u.UserID = ur.UserID
                 LEFT JOIN Role r ON ur.RoleID = r.RoleID
                 WHERE u.Username = @Username OR u.Email = @Username
-                GROUP BY u.UserID, u.Username, u.PasswordHash, u.Email, u.Phone, u.Status
+                GROUP BY u.UserID, u.Username, u.PasswordHash, u.Email, u.Phone, u.Status, u.LastLogin, u.CreatedAt
             `);
 
         if (!result.recordset[0]) {
@@ -52,7 +53,6 @@ router.post('/login', async (req, res) => {
 
         const user = result.recordset[0];
         
-        // So sánh password (tạm thời so sánh trực tiếp)
         if (password !== user.PasswordHash) {
             return res.status(401).json({
                 success: false,
@@ -67,12 +67,10 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Cập nhật LastLogin
         await pool.request()
             .input('UserID', sql.Int, user.UserID)
             .query('UPDATE Users SET LastLogin = GETDATE() WHERE UserID = @UserID');
 
-        // Tạo JWT token
         const JWT_SECRET = process.env.JWT_SECRET || "ApartmentManagementSecret123456789";
         const token = jwt.sign(
             { 
@@ -84,7 +82,6 @@ router.post('/login', async (req, res) => {
             { expiresIn: '7d' }
         );
 
-        // Lấy thông tin employee nếu có
         const empResult = await pool.request()
             .input('UserID', sql.Int, user.UserID)
             .query(`
@@ -94,6 +91,34 @@ router.post('/login', async (req, res) => {
             `);
 
         const employee = empResult.recordset[0] || null;
+
+        const resResult = await pool.request()
+            .input('UserID', sql.Int, user.UserID)
+            .query(`
+                SELECT ResidentID, FullName 
+                FROM Resident 
+                WHERE UserID = @UserID
+            `);
+
+        const resident = resResult.recordset[0] || null;
+
+        // ✅ SỬA: Thêm SortOrder vào SELECT
+        const permResult = await pool.request()
+            .input('UserID', sql.Int, user.UserID)
+            .query(`
+                SELECT DISTINCT 
+                    p.PermissionCode,
+                    m.SortOrder
+                FROM Users u
+                JOIN UserRole ur ON u.UserID = ur.UserID
+                JOIN RolePermission rp ON ur.RoleID = rp.RoleID
+                JOIN Permission p ON rp.PermissionID = p.PermissionID
+                JOIN Module m ON p.ModuleID = m.ModuleID
+                WHERE u.UserID = @UserID AND rp.IsGranted = 1
+                ORDER BY m.SortOrder, p.PermissionCode
+            `);
+
+        const permissions = permResult.recordset ? permResult.recordset.map(row => row.PermissionCode) : [];
 
         res.json({
             success: true,
@@ -105,11 +130,19 @@ router.post('/login', async (req, res) => {
                     username: user.Username,
                     email: user.Email,
                     phone: user.Phone,
-                    role: user.RoleNames ? user.RoleNames.split(',')[0] : 'User',
-                    roles: user.RoleCodes ? user.RoleCodes.split(',') : [],
+                    status: user.Status,
+                    lastLogin: user.LastLogin,
+                    createdAt: user.CreatedAt,
+                    roles: user.RoleNames ? user.RoleNames.split(',') : [],
+                    roleCodes: user.RoleCodes ? user.RoleCodes.split(',') : [],
+                    permissions: permissions,
                     employee: employee ? {
                         fullName: employee.FullName,
                         employeeId: employee.EmployeeID
+                    } : null,
+                    resident: resident ? {
+                        fullName: resident.FullName,
+                        residentId: resident.ResidentID
                     } : null
                 }
             }
@@ -144,15 +177,31 @@ router.get('/me', authMiddleware, async (req, res) => {
                     u.CreatedAt,
                     STRING_AGG(r.RoleCode, ',') AS RoleCodes,
                     STRING_AGG(r.RoleName, ',') AS RoleNames,
-                    e.FullName,
-                    e.EmployeeID
+                    e.FullName AS EmployeeFullName,
+                    e.EmployeeID,
+                    e.Phone AS EmployeePhone,
+                    e.Email AS EmployeeEmail,
+                    e.Address AS EmployeeAddress,
+                    e.BirthDate AS EmployeeBirthDate,
+                    e.Gender AS EmployeeGender,
+                    res.FullName AS ResidentFullName,
+                    res.ResidentID,
+                    res.Phone AS ResidentPhone,
+                    res.Email AS ResidentEmail,
+                    res.Address AS ResidentAddress,
+                    res.BirthDate AS ResidentBirthDate,
+                    res.Gender AS ResidentGender
                 FROM Users u
                 LEFT JOIN UserRole ur ON u.UserID = ur.UserID
                 LEFT JOIN Role r ON ur.RoleID = r.RoleID
                 LEFT JOIN Employee e ON u.UserID = e.UserID
+                LEFT JOIN Resident res ON u.UserID = res.UserID
                 WHERE u.UserID = @UserID
                 GROUP BY u.UserID, u.Username, u.Email, u.Phone, u.Status, 
-                         u.LastLogin, u.CreatedAt, e.FullName, e.EmployeeID
+                         u.LastLogin, u.CreatedAt, e.FullName, e.EmployeeID,
+                         e.Phone, e.Email, e.Address, e.BirthDate, e.Gender,
+                         res.FullName, res.ResidentID, res.Phone, res.Email,
+                         res.Address, res.BirthDate, res.Gender
             `);
 
         if (!result.recordset[0]) {
@@ -162,43 +211,103 @@ router.get('/me', authMiddleware, async (req, res) => {
             });
         }
 
+        const userData = result.recordset[0];
+
+        // ✅ SỬA: Thêm SortOrder vào SELECT
+        const permResult = await pool.request()
+            .input('UserID', sql.Int, req.userId)
+            .query(`
+                SELECT DISTINCT 
+                    p.PermissionCode,
+                    m.SortOrder
+                FROM Users u
+                JOIN UserRole ur ON u.UserID = ur.UserID
+                JOIN RolePermission rp ON ur.RoleID = rp.RoleID
+                JOIN Permission p ON rp.PermissionID = p.PermissionID
+                JOIN Module m ON p.ModuleID = m.ModuleID
+                WHERE u.UserID = @UserID AND rp.IsGranted = 1
+                ORDER BY m.SortOrder, p.PermissionCode
+            `);
+
+        const permissions = permResult.recordset ? permResult.recordset.map(row => row.PermissionCode) : [];
+
         res.json({
             success: true,
-            data: result.recordset[0]
+            data: {
+                id: userData.UserID,
+                username: userData.Username,
+                email: userData.Email,
+                phone: userData.Phone,
+                status: userData.Status,
+                lastLogin: userData.LastLogin,
+                createdAt: userData.CreatedAt,
+                roles: userData.RoleNames ? userData.RoleNames.split(',') : [],
+                roleCodes: userData.RoleCodes ? userData.RoleCodes.split(',') : [],
+                permissions: permissions,
+                employee: userData.EmployeeID ? {
+                    employeeId: userData.EmployeeID,
+                    fullName: userData.EmployeeFullName,
+                    phone: userData.EmployeePhone,
+                    email: userData.EmployeeEmail,
+                    address: userData.EmployeeAddress,
+                    birthDate: userData.EmployeeBirthDate,
+                    gender: userData.EmployeeGender
+                } : null,
+                resident: userData.ResidentID ? {
+                    residentId: userData.ResidentID,
+                    fullName: userData.ResidentFullName,
+                    phone: userData.ResidentPhone,
+                    email: userData.ResidentEmail,
+                    address: userData.ResidentAddress,
+                    birthDate: userData.ResidentBirthDate,
+                    gender: userData.ResidentGender
+                } : null
+            }
         });
 
     } catch (error) {
         console.error('❌ Get user error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to get user info'
+            message: 'Failed to get user info',
+            error: error.message
         });
     }
 });
 
 // ============================================
-// LẤY PERMISSIONS CỦA USER HIỆN TẠI
+// LẤY PERMISSIONS CỦA USER HIỆN TẠI ✅ SỬA
 // ============================================
 router.get('/permissions', authMiddleware, async (req, res) => {
     try {
         const pool = await getPool();
+        
+        // ✅ SỬA: Thêm SortOrder vào SELECT
         const result = await pool.request()
             .input('UserID', sql.Int, req.userId)
             .query(`
-                SELECT DISTINCT p.PermissionCode
+                SELECT DISTINCT 
+                    p.PermissionCode, 
+                    p.PermissionName, 
+                    m.ModuleCode,
+                    m.ModuleName,
+                    m.SortOrder
                 FROM Users u
                 JOIN UserRole ur ON u.UserID = ur.UserID
                 JOIN RolePermission rp ON ur.RoleID = rp.RoleID
                 JOIN Permission p ON rp.PermissionID = p.PermissionID
+                JOIN Module m ON p.ModuleID = m.ModuleID
                 WHERE u.UserID = @UserID AND rp.IsGranted = 1
+                ORDER BY m.SortOrder, p.PermissionCode
             `);
         
-        const permissions = result.recordset.map(row => row.PermissionCode);
+        const permissions = result.recordset ? result.recordset.map(row => row.PermissionCode) : [];
         
         res.json({
             success: true,
             data: {
-                permissions,
+                permissions: permissions,
+                permissionsDetail: result.recordset || [],
                 count: permissions.length
             }
         });
@@ -207,7 +316,8 @@ router.get('/permissions', authMiddleware, async (req, res) => {
         console.error('❌ Get permissions error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to get permissions'
+            message: 'Failed to get permissions',
+            error: error.message
         });
     }
 });
@@ -226,9 +336,15 @@ router.post('/change-password', authMiddleware, async (req, res) => {
             });
         }
 
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password must be at least 6 characters'
+            });
+        }
+
         const pool = await getPool();
         
-        // Kiểm tra mật khẩu cũ
         const result = await pool.request()
             .input('UserID', sql.Int, req.userId)
             .query('SELECT PasswordHash FROM Users WHERE UserID = @UserID');
@@ -243,11 +359,10 @@ router.post('/change-password', authMiddleware, async (req, res) => {
         if (oldPassword !== result.recordset[0].PasswordHash) {
             return res.status(401).json({
                 success: false,
-                message: 'Old password is incorrect'
+                message: 'Current password is incorrect'
             });
         }
 
-        // Cập nhật mật khẩu mới
         await pool.request()
             .input('UserID', sql.Int, req.userId)
             .input('NewPassword', sql.VarChar, newPassword)
@@ -262,7 +377,178 @@ router.post('/change-password', authMiddleware, async (req, res) => {
         console.error('❌ Change password error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to change password'
+            message: 'Failed to change password',
+            error: error.message
+        });
+    }
+});
+
+// ============================================
+// CẬP NHẬT HỒ SƠ (PROFILE)
+// ============================================
+router.put('/profile', authMiddleware, async (req, res) => {
+    try {
+        const { fullName, email, phone, address, birthDate, gender } = req.body;
+        const userId = req.userId;
+
+        const pool = await getPool();
+
+        const userCheck = await pool.request()
+            .input('UserID', sql.Int, userId)
+            .query('SELECT UserID FROM Users WHERE UserID = @UserID');
+
+        if (!userCheck.recordset[0]) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        const userUpdates = [];
+        const userRequest = pool.request();
+        userRequest.input('UserID', sql.Int, userId);
+
+        if (email !== undefined && email !== null) {
+            if (email) {
+                const emailCheck = await pool.request()
+                    .input('Email', sql.VarChar, email)
+                    .input('UserID', sql.Int, userId)
+                    .query('SELECT UserID FROM Users WHERE Email = @Email AND UserID != @UserID');
+                
+                if (emailCheck.recordset[0]) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Email already exists'
+                    });
+                }
+            }
+            userUpdates.push('Email = @Email');
+            userRequest.input('Email', sql.VarChar, email || null);
+        }
+
+        if (phone !== undefined && phone !== null) {
+            if (phone) {
+                const phoneCheck = await pool.request()
+                    .input('Phone', sql.VarChar, phone)
+                    .input('UserID', sql.Int, userId)
+                    .query('SELECT UserID FROM Users WHERE Phone = @Phone AND UserID != @UserID');
+                
+                if (phoneCheck.recordset[0]) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Phone number already exists'
+                    });
+                }
+            }
+            userUpdates.push('Phone = @Phone');
+            userRequest.input('Phone', sql.VarChar, phone || null);
+        }
+
+        if (userUpdates.length > 0) {
+            await userRequest.query(`
+                UPDATE Users 
+                SET ${userUpdates.join(', ')}
+                WHERE UserID = @UserID
+            `);
+        }
+
+        const empResult = await pool.request()
+            .input('UserID', sql.Int, userId)
+            .query('SELECT EmployeeID FROM Employee WHERE UserID = @UserID');
+
+        if (empResult.recordset[0]) {
+            const empUpdates = [];
+            const empRequest = pool.request();
+            empRequest.input('EmployeeID', sql.Int, empResult.recordset[0].EmployeeID);
+
+            if (fullName !== undefined) {
+                empUpdates.push('FullName = @FullName');
+                empRequest.input('FullName', sql.NVarChar, fullName);
+            }
+            if (address !== undefined) {
+                empUpdates.push('Address = @Address');
+                empRequest.input('Address', sql.NVarChar, address);
+            }
+            if (birthDate !== undefined) {
+                empUpdates.push('BirthDate = @BirthDate');
+                empRequest.input('BirthDate', sql.Date, birthDate || null);
+            }
+            if (gender !== undefined) {
+                empUpdates.push('Gender = @Gender');
+                empRequest.input('Gender', sql.Bit, gender);
+            }
+            if (email !== undefined) {
+                empUpdates.push('Email = @Email');
+                empRequest.input('Email', sql.VarChar, email || null);
+            }
+            if (phone !== undefined) {
+                empUpdates.push('Phone = @Phone');
+                empRequest.input('Phone', sql.VarChar, phone || null);
+            }
+
+            if (empUpdates.length > 0) {
+                await empRequest.query(`
+                    UPDATE Employee 
+                    SET ${empUpdates.join(', ')}
+                    WHERE EmployeeID = @EmployeeID
+                `);
+            }
+        }
+
+        const resResult = await pool.request()
+            .input('UserID', sql.Int, userId)
+            .query('SELECT ResidentID FROM Resident WHERE UserID = @UserID');
+
+        if (resResult.recordset[0]) {
+            const resUpdates = [];
+            const resRequest = pool.request();
+            resRequest.input('ResidentID', sql.Int, resResult.recordset[0].ResidentID);
+
+            if (fullName !== undefined) {
+                resUpdates.push('FullName = @FullName');
+                resRequest.input('FullName', sql.NVarChar, fullName);
+            }
+            if (address !== undefined) {
+                resUpdates.push('Address = @Address');
+                resRequest.input('Address', sql.NVarChar, address);
+            }
+            if (birthDate !== undefined) {
+                resUpdates.push('BirthDate = @BirthDate');
+                resRequest.input('BirthDate', sql.Date, birthDate || null);
+            }
+            if (gender !== undefined) {
+                resUpdates.push('Gender = @Gender');
+                resRequest.input('Gender', sql.Bit, gender);
+            }
+            if (email !== undefined) {
+                resUpdates.push('Email = @Email');
+                resRequest.input('Email', sql.VarChar, email || null);
+            }
+            if (phone !== undefined) {
+                resUpdates.push('Phone = @Phone');
+                resRequest.input('Phone', sql.VarChar, phone || null);
+            }
+
+            if (resUpdates.length > 0) {
+                await resRequest.query(`
+                    UPDATE Resident 
+                    SET ${resUpdates.join(', ')}
+                    WHERE ResidentID = @ResidentID
+                `);
+            }
+        }
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully'
+        });
+
+    } catch (error) {
+        console.error('❌ Update profile error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update profile',
+            error: error.message
         });
     }
 });

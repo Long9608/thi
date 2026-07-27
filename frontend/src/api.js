@@ -1,6 +1,16 @@
 // src/api.js
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+// ============ ERROR HANDLING ============
+class ApiError extends Error {
+  constructor(message, status, data = null) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
 // Helper để lấy token từ localStorage
 const getAuthToken = () => {
   return localStorage.getItem('token');
@@ -22,7 +32,7 @@ export const logout = () => {
   window.location.href = '/login';
 };
 
-// Request wrapper hỗ trợ JWT, JSON & FormData
+// ============ REQUEST WRAPPER with BETTER ERROR HANDLING ============
 async function request(path, options = {}) {
   try {
     const token = getAuthToken();
@@ -35,6 +45,7 @@ async function request(path, options = {}) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    // Xử lý Content-Type
     if (!(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
     }
@@ -44,6 +55,7 @@ async function request(path, options = {}) {
       headers,
     });
 
+    // Parse response
     const text = await res.text();
     let data = null;
     if (text) {
@@ -54,23 +66,80 @@ async function request(path, options = {}) {
       }
     }
 
+    // Xử lý 401 Unauthorized
     if (res.status === 401) {
       logout();
-      throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      throw new ApiError(
+        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+        401,
+        data
+      );
     }
 
+    // Xử lý 403 Forbidden
+    if (res.status === 403) {
+      throw new ApiError(
+        data?.message || 'Bạn không có quyền thực hiện thao tác này.',
+        403,
+        data
+      );
+    }
+
+    // Xử lý 404 Not Found
+    if (res.status === 404) {
+      throw new ApiError(
+        data?.message || 'Không tìm thấy dữ liệu yêu cầu.',
+        404,
+        data
+      );
+    }
+
+    // Xử lý 422 Validation Error
+    if (res.status === 422) {
+      const errors = data?.errors || data?.message || 'Dữ liệu không hợp lệ.';
+      throw new ApiError(
+        typeof errors === 'string' ? errors : 'Dữ liệu không hợp lệ.',
+        422,
+        data
+      );
+    }
+
+    // Xử lý 500 Internal Server Error
+    if (res.status === 500) {
+      throw new ApiError(
+        'Lỗi máy chủ nội bộ. Vui lòng thử lại sau.',
+        500,
+        data
+      );
+    }
+
+    // Xử lý các lỗi khác
     if (!res.ok) {
-      const error = new Error(data?.message || data?.error || 'API request failed');
-      error.response = {
-        status: res.status,
-        data: data
-      };
-      throw error;
+      const errorMessage = data?.message || data?.error || `API request failed with status ${res.status}`;
+      throw new ApiError(errorMessage, res.status, data);
     }
 
     return data;
+
   } catch (error) {
-    console.error(`❌ API Error [${path}]:`, error);
+    // Log error chi tiết
+    console.error(`❌ API Error [${path}]:`, {
+      message: error.message,
+      status: error.status,
+      data: error.data,
+      stack: error.stack
+    });
+
+    // Nếu là lỗi network
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new ApiError(
+        'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
+        0,
+        null
+      );
+    }
+
+    // Re-throw error để component xử lý
     throw error;
   }
 }
@@ -128,7 +197,7 @@ export const apartmentAPI = {
   getAreas: () => request('/apartments/areas'),
   getStats: () => request('/apartments/stats'),
 
-  // 🏢 Buildings (Căn hộ / Tòa nhà)
+  // 🏢 Buildings
   getBuildings: (areaId) => {
     const params = new URLSearchParams();
     if (areaId) params.set('areaId', areaId);
@@ -146,7 +215,7 @@ export const apartmentAPI = {
     method: 'DELETE',
   }),
 
-  // 🪜 Floors (Tầng)
+  // 🪜 Floors
   getFloors: (buildingId) => {
     const params = new URLSearchParams();
     if (buildingId) params.set('buildingId', buildingId);
@@ -245,14 +314,12 @@ export const residentAPI = {
   uploadIdentityImage: (residentId, file, type) => {
     const form = new FormData();
     form.append('file', file);
-    form.append('type', type); // 'front' hoặc 'back'
+    form.append('type', type);
     return request(`/residents/${residentId}/identity/upload`, {
       method: 'POST',
       body: form,
     });
   },
-
-  // 👨‍👩‍👧‍👦 Thành viên hộ gia đình
   getFamilyMembers: (residentId) => request(`/residents/${residentId}/family`),
   addFamilyMember: (residentId, data) => request(`/residents/${residentId}/family`, {
     method: 'POST',
@@ -265,8 +332,6 @@ export const residentAPI = {
   removeFamilyMember: (residentId, memberId) => request(`/residents/${residentId}/family/${memberId}`, {
     method: 'DELETE',
   }),
-
-  // 📜 Lịch sử cư trú
   getResidenceHistory: (residentId) => request(`/residents/${residentId}/residence-history`),
 };
 
@@ -329,35 +394,207 @@ export const ticketAPI = {
   getStatuses: () => request('/tickets/statuses'),
 };
 
-// ============ VEHICLE API ============
+// ============ VEHICLE API (UPDATED WITH BETTER ERROR HANDLING) ============
 export const vehicleAPI = {
-  getAll: (residentId = '', vehicleTypeId = '', page = 1, limit = 20) => {
-    const params = new URLSearchParams();
-    if (residentId) params.set('residentId', residentId);
-    if (vehicleTypeId) params.set('vehicleTypeId', vehicleTypeId);
-    params.set('page', page);
-    params.set('limit', limit);
-    return request(`/vehicles?${params.toString()}`);
+  /**
+   * Lấy danh sách phương tiện
+   * @param {string} residentId - ID cư dân (tùy chọn)
+   * @param {string} vehicleTypeId - ID loại phương tiện (tùy chọn)
+   * @param {string} status - Trạng thái: active/inactive/pending (tùy chọn)
+   * @param {number} page - Trang hiện tại
+   * @param {number} limit - Số lượng mỗi trang
+   * @returns {Promise<{data: Array, pagination: Object}>}
+   */
+  getAll: async (residentId = '', vehicleTypeId = '', status = '', page = 1, limit = 20) => {
+    try {
+      const params = new URLSearchParams();
+      if (residentId) params.set('residentId', residentId);
+      if (vehicleTypeId) params.set('vehicleTypeId', vehicleTypeId);
+      if (status && status !== '') params.set('status', status);
+      params.set('page', page);
+      params.set('limit', limit);
+      
+      const response = await request(`/vehicles?${params.toString()}`);
+      
+      // Validate response structure
+      if (!response || typeof response !== 'object') {
+        throw new ApiError('Dữ liệu trả về không hợp lệ', 500, response);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('❌ VehicleAPI.getAll error:', error);
+      throw error;
+    }
   },
-  getById: (id) => request(`/vehicles/${id}`),
-  create: (data) => request('/vehicles', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-  update: (id, data) => request(`/vehicles/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-  delete: (id) => request(`/vehicles/${id}`, {
-    method: 'DELETE',
-  }),
-  getTypes: () => request('/vehicles/types'),
-  getParkingSlots: (areaId = '', vehicleTypeId = '', isOccupied = '') => {
-    const params = new URLSearchParams();
-    if (areaId) params.set('areaId', areaId);
-    if (vehicleTypeId) params.set('vehicleTypeId', vehicleTypeId);
-    if (isOccupied !== '') params.set('isOccupied', isOccupied);
-    return request(`/vehicles/parking-slots?${params.toString()}`);
+
+  /**
+   * Lấy chi tiết phương tiện theo ID
+   * @param {string|number} id - ID phương tiện
+   * @returns {Promise<Object>}
+   */
+  getById: async (id) => {
+    try {
+      if (!id) {
+        throw new ApiError('ID phương tiện không hợp lệ', 400);
+      }
+      return await request(`/vehicles/${id}`);
+    } catch (error) {
+      console.error(`❌ VehicleAPI.getById(${id}) error:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tạo mới phương tiện
+   * @param {Object} data - Dữ liệu phương tiện
+   * @returns {Promise<Object>}
+   */
+  create: async (data) => {
+    try {
+      // Validate dữ liệu đầu vào
+      if (!data) {
+        throw new ApiError('Dữ liệu không được để trống', 400);
+      }
+      
+      // Validate các trường bắt buộc
+      const requiredFields = ['licensePlate', 'vehicleTypeId', 'residentId'];
+      const missingFields = requiredFields.filter(field => !data[field]);
+      
+      if (missingFields.length > 0) {
+        throw new ApiError(
+          `Thiếu các trường bắt buộc: ${missingFields.join(', ')}`,
+          400,
+          { missingFields }
+        );
+      }
+
+      // Validate biển số xe (định dạng cơ bản)
+      const licensePlateRegex = /^[0-9]{2}[A-Z]-[0-9]{3}\.[0-9]{2}$/;
+      if (!licensePlateRegex.test(data.licensePlate)) {
+        throw new ApiError(
+          'Biển số xe không đúng định dạng (ví dụ: 30A-123.45)',
+          400,
+          { field: 'licensePlate' }
+        );
+      }
+
+      const response = await request('/vehicles', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+
+      return response;
+    } catch (error) {
+      console.error('❌ VehicleAPI.create error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cập nhật phương tiện
+   * @param {string|number} id - ID phương tiện
+   * @param {Object} data - Dữ liệu cập nhật
+   * @returns {Promise<Object>}
+   */
+  update: async (id, data) => {
+    try {
+      if (!id) {
+        throw new ApiError('ID phương tiện không hợp lệ', 400);
+      }
+      
+      if (!data || Object.keys(data).length === 0) {
+        throw new ApiError('Dữ liệu cập nhật không được để trống', 400);
+      }
+
+      // Validate biển số xe nếu có cập nhật
+      if (data.licensePlate) {
+        const licensePlateRegex = /^[0-9]{2}[A-Z]-[0-9]{3}\.[0-9]{2}$/;
+        if (!licensePlateRegex.test(data.licensePlate)) {
+          throw new ApiError(
+            'Biển số xe không đúng định dạng (ví dụ: 30A-123.45)',
+            400,
+            { field: 'licensePlate' }
+          );
+        }
+      }
+
+      const response = await request(`/vehicles/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+
+      return response;
+    } catch (error) {
+      console.error(`❌ VehicleAPI.update(${id}) error:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Xóa phương tiện
+   * @param {string|number} id - ID phương tiện
+   * @returns {Promise<Object>}
+   */
+  delete: async (id) => {
+    try {
+      if (!id) {
+        throw new ApiError('ID phương tiện không hợp lệ', 400);
+      }
+
+      // Confirm before delete (nên được xử lý ở UI)
+      const response = await request(`/vehicles/${id}`, {
+        method: 'DELETE',
+      });
+
+      return response;
+    } catch (error) {
+      console.error(`❌ VehicleAPI.delete(${id}) error:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách loại phương tiện
+   * @returns {Promise<Array>}
+   */
+  getTypes: async () => {
+    try {
+      return await request('/vehicles/types');
+    } catch (error) {
+      console.error('❌ VehicleAPI.getTypes error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách chỗ đỗ xe
+   * @param {string} areaId - ID khu vực (tùy chọn)
+   * @param {string} vehicleTypeId - ID loại phương tiện (tùy chọn)
+   * @param {string} isOccupied - '0' hoặc '1' (tùy chọn)
+   * @returns {Promise<Array>}
+   */
+  getParkingSlots: async (areaId = '', vehicleTypeId = '', isOccupied = '') => {
+    try {
+      const params = new URLSearchParams();
+      if (areaId) params.set('areaId', areaId);
+      if (vehicleTypeId) params.set('vehicleTypeId', vehicleTypeId);
+      if (isOccupied !== '' && (isOccupied === '0' || isOccupied === '1')) {
+        params.set('isOccupied', isOccupied);
+      }
+      
+      const response = await request(`/vehicles/parking-slots?${params.toString()}`);
+      
+      // Validate response
+      if (!Array.isArray(response) && response?.data) {
+        return response.data;
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('❌ VehicleAPI.getParkingSlots error:', error);
+      throw error;
+    }
   },
 };
 
@@ -520,5 +757,8 @@ const api = {
     return request(`/vehicles/parking-slots?${params.toString()}`);
   },
 };
+
+// Export ApiError để sử dụng ở component
+export { ApiError };
 
 export default api;

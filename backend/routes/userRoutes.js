@@ -1,3 +1,4 @@
+// backend/routes/userRoutes.js
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
@@ -20,7 +21,7 @@ router.get('/roles/:id', authMiddleware, checkPermission('ROLE_MANAGE'), userCon
 router.post('/roles', authMiddleware, checkPermission('ROLE_MANAGE'), userController.createRole);
 router.put('/roles/:id', authMiddleware, checkPermission('ROLE_MANAGE'), userController.updateRole);
 router.delete('/roles/:id', authMiddleware, checkPermission('ROLE_MANAGE'), userController.deleteRole);
-router.get('/roles/:roleId/permissions', authMiddleware, userController.getRolePermissions);
+router.get('/roles/:roleId/permissions', authMiddleware, checkPermission('ROLE_MANAGE'), userController.getRolePermissions);
 
 // ============================================
 // QUẢN LÝ PERMISSION
@@ -33,5 +34,10 @@ router.put('/roles/:roleId/permissions', authMiddleware, checkPermission('PERMIS
 // NHẬT KÝ HỆ THỐNG
 // ============================================
 router.get('/audit-logs', authMiddleware, checkPermission('SYSTEM_SETTING'), userController.getAuditLogs);
+
+// ============================================
+// 🔥 THÔNG TIN HỆ THỐNG (MỚI)
+// ============================================
+router.get('/system-info', authMiddleware, checkPermission('SYSTEM_SETTING'), userController.getSystemInfo);
 
 module.exports = router;

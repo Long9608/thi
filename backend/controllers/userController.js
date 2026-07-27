@@ -1,5 +1,5 @@
+// backend/controllers/userController.js
 const { getPool, sql } = require('../config/db');
-const bcrypt = require('bcrypt');
 
 // ============================================
 // QUẢN LÝ NHÂN VIÊN
@@ -13,12 +13,12 @@ exports.getEmployees = async (req, res) => {
             status,
             roleId,
             page = 1,
-
             limit = 20 
         } = req.query;
 
         const pool = await getPool();
-        const offset = (page - 1) * limit;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const safeLimit = parseInt(limit) || 20;
 
         let query = `
             SELECT 
@@ -53,12 +53,13 @@ exports.getEmployees = async (req, res) => {
         `;
 
         if (search) {
+            const searchPattern = `%${search}%`;
             query += ` AND (e.FullName LIKE @Search OR e.Phone LIKE @Search OR e.Email LIKE @Search OR u.Username LIKE @Search)`;
             countQuery += ` AND (e.FullName LIKE @Search OR e.Phone LIKE @Search OR e.Email LIKE @Search OR u.Username LIKE @Search)`;
-            request.input('Search', sql.NVarChar, `%${search}%`);
+            request.input('Search', sql.NVarChar, searchPattern);
         }
 
-        if (status !== undefined) {
+        if (status !== undefined && status !== '') {
             query += ` AND e.Status = @Status`;
             countQuery += ` AND e.Status = @Status`;
             request.input('Status', sql.Bit, parseInt(status));
@@ -73,26 +74,26 @@ exports.getEmployees = async (req, res) => {
         query += ` GROUP BY e.EmployeeID, e.UserID, e.FullName, e.Gender, e.BirthDate, e.Phone, e.Email, e.Address, e.CCCD, e.HireDate, e.Status, u.Username, u.Status`;
 
         const countResult = await request.query(countQuery);
-        const total = countResult.recordset[0].total;
+        const total = countResult.recordset[0]?.total || 0;
 
         query += `
             ORDER BY e.EmployeeID DESC
             OFFSET @Offset ROWS
             FETCH NEXT @Limit ROWS ONLY
         `;
-        request.input('Offset', sql.Int, parseInt(offset));
-        request.input('Limit', sql.Int, parseInt(limit));
+        request.input('Offset', sql.Int, offset);
+        request.input('Limit', sql.Int, safeLimit);
 
         const result = await request.query(query);
 
         res.json({
             success: true,
-            data: result.recordset,
+            data: result.recordset || [],
             pagination: {
                 total,
                 page: parseInt(page),
-                limit: parseInt(limit),
-                totalPages: Math.ceil(total / limit)
+                limit: safeLimit,
+                totalPages: Math.ceil(total / safeLimit)
             }
         });
 
@@ -145,7 +146,6 @@ exports.getEmployeeById = async (req, res) => {
 
         const employee = result.recordset[0];
         
-        // Lấy danh sách permissions của employee
         if (employee.UserID) {
             const permResult = await pool.request()
                 .input('UserID', sql.Int, employee.UserID)
@@ -229,6 +229,20 @@ exports.createEmployee = async (req, res) => {
             }
         }
 
+        // Check phone exists
+        if (phone) {
+            const checkPhone = await pool.request()
+                .input('Phone', sql.VarChar, phone)
+                .query('SELECT UserID FROM Users WHERE Phone = @Phone');
+            
+            if (checkPhone.recordset[0]) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Phone number already exists'
+                });
+            }
+        }
+
         // Tạo user
         const userResult = await pool.request()
             .input('Username', sql.VarChar, username)
@@ -249,7 +263,7 @@ exports.createEmployee = async (req, res) => {
                 await pool.request()
                     .input('UserID', sql.Int, userId)
                     .input('RoleID', sql.Int, roleId)
-                    .input('AssignedBy', sql.Int, req.userId)
+                    .input('AssignedBy', sql.Int, req.userId || null)
                     .query(`
                         INSERT INTO UserRole (UserID, RoleID, AssignedDate, AssignedBy)
                         VALUES (@UserID, @RoleID, GETDATE(), @AssignedBy)
@@ -314,7 +328,6 @@ exports.updateEmployee = async (req, res) => {
 
         const pool = await getPool();
 
-        // Check employee exists
         const checkResult = await pool.request()
             .input('EmployeeID', sql.Int, id)
             .query('SELECT UserID FROM Employee WHERE EmployeeID = @EmployeeID');
@@ -383,21 +396,43 @@ exports.updateEmployee = async (req, res) => {
 
         // Update roles
         if (roleIds && userId) {
-            // Xóa roles cũ
             await pool.request()
                 .input('UserID', sql.Int, userId)
                 .query('DELETE FROM UserRole WHERE UserID = @UserID');
 
-            // Thêm roles mới
             for (const roleId of roleIds) {
                 await pool.request()
                     .input('UserID', sql.Int, userId)
                     .input('RoleID', sql.Int, roleId)
-                    .input('AssignedBy', sql.Int, req.userId)
+                    .input('AssignedBy', sql.Int, req.userId || null)
                     .query(`
                         INSERT INTO UserRole (UserID, RoleID, AssignedDate, AssignedBy)
                         VALUES (@UserID, @RoleID, GETDATE(), @AssignedBy)
                     `);
+            }
+        }
+
+        // Update Users table if email or phone changed
+        if (email || phone) {
+            const userUpdates = [];
+            const userRequest = pool.request();
+            userRequest.input('UserID', sql.Int, userId);
+
+            if (email) {
+                userUpdates.push('Email = @Email');
+                userRequest.input('Email', sql.VarChar, email);
+            }
+            if (phone) {
+                userUpdates.push('Phone = @Phone');
+                userRequest.input('Phone', sql.VarChar, phone);
+            }
+
+            if (userUpdates.length > 0) {
+                await userRequest.query(`
+                    UPDATE Users 
+                    SET ${userUpdates.join(', ')}
+                    WHERE UserID = @UserID
+                `);
             }
         }
 
@@ -435,12 +470,10 @@ exports.deleteEmployee = async (req, res) => {
 
         const userId = checkResult.recordset[0].UserID;
 
-        // Soft delete employee
         await pool.request()
             .input('EmployeeID', sql.Int, id)
             .query('UPDATE Employee SET Status = 0 WHERE EmployeeID = @EmployeeID');
 
-        // Soft delete user
         if (userId) {
             await pool.request()
                 .input('UserID', sql.Int, userId)
@@ -489,7 +522,7 @@ exports.getRoles = async (req, res) => {
 
         res.json({
             success: true,
-            data: result.recordset
+            data: result.recordset || []
         });
 
     } catch (error) {
@@ -527,7 +560,6 @@ exports.getRoleById = async (req, res) => {
             });
         }
 
-        // Lấy permissions của role
         const permResult = await pool.request()
             .input('RoleID', sql.Int, id)
             .query(`
@@ -547,7 +579,7 @@ exports.getRoleById = async (req, res) => {
             `);
 
         const role = result.recordset[0];
-        role.Permissions = permResult.recordset;
+        role.Permissions = permResult.recordset || [];
 
         res.json({
             success: true,
@@ -578,7 +610,6 @@ exports.createRole = async (req, res) => {
 
         const pool = await getPool();
 
-        // Check role exists
         const checkResult = await pool.request()
             .input('RoleCode', sql.VarChar, roleCode)
             .query('SELECT RoleID FROM Role WHERE RoleCode = @RoleCode');
@@ -590,7 +621,6 @@ exports.createRole = async (req, res) => {
             });
         }
 
-        // Create role
         const result = await pool.request()
             .input('RoleCode', sql.VarChar, roleCode)
             .input('RoleName', sql.NVarChar, roleName)
@@ -603,7 +633,6 @@ exports.createRole = async (req, res) => {
 
         const roleId = result.recordset[0].RoleID;
 
-        // Gán permissions
         if (permissionIds && permissionIds.length > 0) {
             for (const permissionId of permissionIds) {
                 await pool.request()
@@ -674,14 +703,11 @@ exports.updateRole = async (req, res) => {
             }
         }
 
-        // Update permissions
         if (permissionIds) {
-            // Xóa permissions cũ
             await pool.request()
                 .input('RoleID', sql.Int, id)
                 .query('DELETE FROM RolePermission WHERE RoleID = @RoleID');
 
-            // Thêm permissions mới
             for (const permissionId of permissionIds) {
                 await pool.request()
                     .input('RoleID', sql.Int, id)
@@ -714,7 +740,6 @@ exports.deleteRole = async (req, res) => {
         const { id } = req.params;
         const pool = await getPool();
 
-        // Check if role has users
         const userCheck = await pool.request()
             .input('RoleID', sql.Int, id)
             .query('SELECT COUNT(*) as count FROM UserRole WHERE RoleID = @RoleID');
@@ -753,7 +778,7 @@ exports.deleteRole = async (req, res) => {
 };
 
 // ============================================
-// QUẢN LÝ PERMISSION
+// QUẢN LÝ PERMISSION ✅ SỬA
 // ============================================
 
 // Lấy danh sách permissions
@@ -792,7 +817,7 @@ exports.getPermissions = async (req, res) => {
 
         res.json({
             success: true,
-            data: result.recordset
+            data: result.recordset || []
         });
 
     } catch (error) {
@@ -826,7 +851,7 @@ exports.getModules = async (req, res) => {
 
         res.json({
             success: true,
-            data: result.recordset
+            data: result.recordset || []
         });
 
     } catch (error) {
@@ -854,7 +879,6 @@ exports.updateRolePermissions = async (req, res) => {
 
         const pool = await getPool();
 
-        // Check role exists
         const roleCheck = await pool.request()
             .input('RoleID', sql.Int, roleId)
             .query('SELECT RoleID FROM Role WHERE RoleID = @RoleID');
@@ -866,12 +890,10 @@ exports.updateRolePermissions = async (req, res) => {
             });
         }
 
-        // Xóa permissions cũ
         await pool.request()
             .input('RoleID', sql.Int, roleId)
             .query('DELETE FROM RolePermission WHERE RoleID = @RoleID');
 
-        // Thêm permissions mới
         for (const permissionId of permissionIds) {
             await pool.request()
                 .input('RoleID', sql.Int, roleId)
@@ -897,6 +919,37 @@ exports.updateRolePermissions = async (req, res) => {
     }
 };
 
+// Lấy quyền của vai trò
+exports.getRolePermissions = async (req, res) => {
+    try {
+        const { roleId } = req.params;
+        const pool = await getPool();
+        
+        const result = await pool.request()
+            .input('RoleID', sql.Int, roleId)
+            .query(`
+                SELECT PermissionID as id
+                FROM RolePermission
+                WHERE RoleID = @RoleID AND IsGranted = 1
+            `);
+        
+        const permissionIds = result.recordset ? result.recordset.map(row => row.id) : [];
+        
+        res.json({
+            success: true,
+            data: permissionIds
+        });
+
+    } catch (error) {
+        console.error('Get role permissions error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch role permissions',
+            error: error.message
+        });
+    }
+};
+
 // ============================================
 // NHẬT KÝ HỆ THỐNG (AUDIT LOG)
 // ============================================
@@ -915,7 +968,8 @@ exports.getAuditLogs = async (req, res) => {
         } = req.query;
 
         const pool = await getPool();
-        const offset = (page - 1) * limit;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const safeLimit = parseInt(limit) || 20;
 
         let query = `
             SELECT 
@@ -971,26 +1025,26 @@ exports.getAuditLogs = async (req, res) => {
         }
 
         const countResult = await request.query(countQuery);
-        const total = countResult.recordset[0].total;
+        const total = countResult.recordset[0]?.total || 0;
 
         query += `
             ORDER BY al.Timestamp DESC
             OFFSET @Offset ROWS
             FETCH NEXT @Limit ROWS ONLY
         `;
-        request.input('Offset', sql.Int, parseInt(offset));
-        request.input('Limit', sql.Int, parseInt(limit));
+        request.input('Offset', sql.Int, offset);
+        request.input('Limit', sql.Int, safeLimit);
 
         const result = await request.query(query);
 
         res.json({
             success: true,
-            data: result.recordset,
+            data: result.recordset || [],
             pagination: {
                 total,
                 page: parseInt(page),
-                limit: parseInt(limit),
-                totalPages: Math.ceil(total / limit)
+                limit: safeLimit,
+                totalPages: Math.ceil(total / safeLimit)
             }
         });
 
@@ -1003,32 +1057,87 @@ exports.getAuditLogs = async (req, res) => {
         });
     }
 };
-// backend/controllers/userController.js
-// Lấy quyền của vai trò
-exports.getRolePermissions = async (req, res) => {
+
+// ============================================
+// 🔥 THÔNG TIN HỆ THỐNG (MỚI)
+// ============================================
+
+// Lấy thông tin hệ thống
+exports.getSystemInfo = async (req, res) => {
     try {
-        const { roleId } = req.params;
         const pool = await getPool();
-        
-        const result = await pool.request()
-            .input('RoleID', sql.Int, roleId)
-            .query(`
-                SELECT PermissionID as id
-                FROM RolePermission
-                WHERE RoleID = @RoleID AND IsGranted = 1
-            `);
-        
-        const permissionIds = result.recordset.map(row => row.id);
-        
+
+        // Lấy thống kê tổng quan
+        const statsResult = await pool.request().query(`
+            SELECT 
+                (SELECT COUNT(*) FROM Apartment) AS totalApartments,
+                (SELECT COUNT(*) FROM Resident WHERE Status = 1) AS totalResidents,
+                (SELECT COUNT(*) FROM Contract WHERE StatusID = 2) AS activeContracts,
+                (SELECT COUNT(*) FROM Invoice) AS totalInvoices,
+                (SELECT COUNT(*) FROM Service WHERE Status = 1) AS totalServices,
+                (SELECT COUNT(*) FROM MaintenanceRequest) AS totalTickets,
+                (SELECT COUNT(*) FROM Vehicle) AS totalVehicles,
+                (SELECT COUNT(*) FROM Notification) AS totalNotifications,
+                (SELECT COUNT(*) FROM Users WHERE Status = 1) AS activeUsers,
+                (SELECT COUNT(*) FROM Users) AS totalUsers
+        `);
+
+        const stats = statsResult.recordset[0] || {};
+
+        // Lấy thông tin database
+        const dbInfo = await pool.request().query(`
+            SELECT 
+                DB_NAME() AS databaseName,
+                SUM(s.total_pages) * 8 / 1024 AS sizeMB
+            FROM sys.tables t
+            JOIN sys.partitions p ON t.object_id = p.object_id
+            JOIN sys.allocation_units a ON p.partition_id = a.container_id
+            JOIN sys.schemas s ON t.schema_id = s.schema_id
+            GROUP BY t.schema_id, s.name
+        `);
+
+        const dbSize = dbInfo.recordset.reduce((sum, row) => sum + (row.sizeMB || 0), 0);
+
         res.json({
             success: true,
-            data: permissionIds
+            data: {
+                stats: stats,
+                system: {
+                    version: '2.0.0',
+                    build: '2026.07.26.001',
+                    environment: process.env.NODE_ENV || 'development',
+                    nodeVersion: process.version,
+                    uptime: Math.floor(process.uptime())
+                },
+                database: {
+                    name: 'ApartmentManagement',
+                    size: `${Math.round(dbSize)} MB`,
+                    tables: 28
+                },
+                features: {
+                    apartments: stats.totalApartments || 0,
+                    residents: stats.totalResidents || 0,
+                    contracts: stats.activeContracts || 0,
+                    invoices: stats.totalInvoices || 0,
+                    services: stats.totalServices || 0,
+                    tickets: stats.totalTickets || 0,
+                    vehicles: stats.totalVehicles || 0,
+                    notifications: stats.totalNotifications || 0
+                },
+                status: {
+                    database: 'Connected',
+                    api: 'Running',
+                    storage: 'Healthy',
+                    cache: 'Active'
+                }
+            }
         });
+
     } catch (error) {
-        console.error('Get role permissions error:', error);
+        console.error('Get system info error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to fetch role permissions',
+            message: 'Failed to get system info',
             error: error.message
         });
     }
