@@ -7,7 +7,7 @@ import {
   CheckCircle2, X, Users, FileText, CreditCard, Clock,
   Calendar, MapPin, User, Phone, Mail, Shield, ArrowLeft
 } from 'lucide-react';
-import { apartmentAPI, contractAPI } from '../api';
+import { apartmentAPI, contractAPI, residentAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, money, getInitials } from '../utils/formatters';
 

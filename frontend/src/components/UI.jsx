@@ -114,7 +114,7 @@ export function Badge({ children, tone = "slate" }) {
   );
 }
 
-export function Modal({ open, title, description, children, onClose, size = "default" }) {
+export function Modal({ open, title, description, children, onClose, size = "default", backdropClassName, backdropBlur = true }) {
   const sizeClasses = {
     default: "max-w-2xl",
     lg: "max-w-4xl",
@@ -126,7 +126,7 @@ export function Modal({ open, title, description, children, onClose, size = "def
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
+          className={`fixed inset-0 z-50 flex items-center justify-center ${backdropClassName || 'bg-slate-950/45'} p-4 ${backdropBlur ? 'backdrop-blur-sm' : ''}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

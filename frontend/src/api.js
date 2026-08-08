@@ -173,10 +173,12 @@ export const authAPI = {
 
 // ============ APARTMENT API ============
 export const apartmentAPI = {
-  getAll: (search = '', statusId = '', page = 1, limit = 20) => {
+  getAll: (search = '', statusId = '', page = 1, limit = 20, buildingId = '', floorId = '') => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     if (statusId) params.set('statusId', statusId);
+    if (buildingId) params.set('buildingId', buildingId);
+    if (floorId) params.set('floorId', floorId);
     params.set('page', page);
     params.set('limit', limit);
     return request(`/apartments?${params.toString()}`);
@@ -227,7 +229,7 @@ export const apartmentAPI = {
   }),
   deleteFloor: (id) => request(`/apartments/floors/${id}`, {
     method: 'DELETE',
-  }),
+  })
 };
 
 // ============ CONTRACT API ============

@@ -384,22 +384,23 @@ exports.updateContract = async (req, res) => {
         const request = pool.request();
         request.input('ContractID', sql.Int, id);
 
-        if (endDate) {
+        if (typeof endDate !== 'undefined' && endDate !== null && endDate !== '') {
             updates.push('EndDate = @EndDate');
             request.input('EndDate', sql.Date, endDate);
         }
 
-        if (deposit !== undefined) {
+        if (typeof deposit !== 'undefined' && deposit !== null) {
             updates.push('Deposit = @Deposit');
             request.input('Deposit', sql.Decimal, deposit);
         }
 
-        if (rent !== undefined) {
+        if (typeof rent !== 'undefined' && rent !== null) {
             updates.push('Rent = @Rent');
             request.input('Rent', sql.Decimal, rent);
         }
 
-        if (statusId) {
+        const willUpdateStatus = (typeof statusId !== 'undefined' && statusId !== null);
+        if (willUpdateStatus) {
             updates.push('StatusID = @StatusID');
             request.input('StatusID', sql.Int, statusId);
         }
@@ -411,13 +412,11 @@ exports.updateContract = async (req, res) => {
             });
         }
 
-        const result = await pool.request()
-            .input('ContractID', sql.Int, id)
-            .query(`
-                UPDATE Contract 
-                SET ${updates.join(', ')}
-                WHERE ContractID = @ContractID
-            `);
+        const result = await request.query(`
+            UPDATE Contract 
+            SET ${updates.join(', ')}
+            WHERE ContractID = @ContractID
+        `);
 
         if (result.rowsAffected[0] === 0) {
             return res.status(404).json({
@@ -430,6 +429,29 @@ exports.updateContract = async (req, res) => {
             success: true,
             message: 'Contract updated successfully'
         });
+
+        // Nếu cập nhật status hợp đồng, đồng bộ trạng thái căn hộ tương ứng
+        if (willUpdateStatus) {
+            try {
+                // 2 = Hiệu lực (đang ở), 4 = Đã thanh lý (trống)
+                const apartmentStatus = statusId === 2 ? 2 : (statusId === 4 ? 1 : null);
+                if (apartmentStatus !== null) {
+                    // Lấy ApartmentID của hợp đồng
+                    const cidRes = await pool.request()
+                        .input('ContractID', sql.Int, id)
+                        .query('SELECT ApartmentID FROM Contract WHERE ContractID = @ContractID');
+                    const aptId = cidRes.recordset[0]?.ApartmentID;
+                    if (aptId) {
+                        await pool.request()
+                            .input('ApartmentID', sql.Int, aptId)
+                            .input('StatusID', sql.Int, apartmentStatus)
+                            .query('UPDATE Apartment SET StatusID = @StatusID WHERE ApartmentID = @ApartmentID');
+                    }
+                }
+            } catch (syncErr) {
+                console.error('Failed to sync apartment status after contract update:', syncErr);
+            }
+        }
 
     } catch (error) {
         console.error('Update contract error:', error);

@@ -37,9 +37,6 @@ import ResidenceHistory from "./components/ResidenceHistory";
 
 // 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ HỢP ĐỒNG
 import ContractList from "./pages/ContractList";
-import CreateContract from "./pages/CreateContract";
-import ContractRenewal from "./pages/ContractRenewal";
-import ContractTerminate from "./pages/ContractTerminate";
 import DepositManagement from "./pages/DepositManagement";
 
 // 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ DỊCH VỤ
@@ -584,42 +581,14 @@ const MENU_STRUCTURE = [
     ]
   },
   {
-    id: "residents",
-    label: "Quản lý cư dân",
-    icon: Users,
-    permission: "RESIDENT_VIEW",
+    id: "condo",
+    label: "Quản lý chung cư",
+    icon: Building2,
+    permission: null,
     items: [
       { id: "residents", label: "Danh sách cư dân", icon: Users, permission: "RESIDENT_VIEW" },
-      { id: "register-resident", label: "Đăng ký cư dân mới", icon: UserPlus, permission: "RESIDENT_CREATE" },
-      { id: "id-cards", label: "CCCD / Hồ sơ", icon: Shield, permission: "RESIDENT_VIEW" },
-      { id: "family-members", label: "Thành viên hộ gia đình", icon: Users, permission: "RESIDENT_VIEW" },
-      { id: "residence-history", label: "Lịch sử cư trú", icon: Clock, permission: "RESIDENT_VIEW" }
-    ]
-  },
-  {
-    id: "apartments",
-    label: "Quản lý căn hộ",
-    icon: Building2,
-    permission: "APARTMENT_VIEW",
-    items: [
-      { id: "apartments", label: "Danh sách căn hộ", icon: Building2, permission: "APARTMENT_VIEW" },
       { id: "buildings", label: "Tòa nhà", icon: Home, permission: "APARTMENT_VIEW" },
-      { id: "floors", label: "Tầng", icon: ClipboardList, permission: "APARTMENT_VIEW" },
-      { id: "apartment-status", label: "Trạng thái căn hộ", icon: CheckCircle2, permission: "APARTMENT_VIEW" },
-      { id: "rental-history", label: "Lịch sử thuê", icon: CalendarClock, permission: "APARTMENT_VIEW" }
-    ]
-  },
-  {
-    id: "contracts",
-    label: "Quản lý hợp đồng",
-    icon: FileText,
-    permission: "CONTRACT_VIEW",
-    items: [
-      { id: "contract-list", label: "Danh sách hợp đồng", icon: FileText, permission: "CONTRACT_VIEW" },
-      { id: "create-contract", label: "Tạo hợp đồng", icon: Plus, permission: "CONTRACT_CREATE" },
-      { id: "contract-renewal", label: "Gia hạn", icon: RefreshCw, permission: "CONTRACT_RENEW" },
-      { id: "contract-terminate", label: "Thanh lý", icon: X, permission: "CONTRACT_LIQUIDATE" },
-      { id: "deposits", label: "Tiền cọc", icon: CreditCard, permission: "CONTRACT_VIEW" }
+      { id: "contract-list", label: "Danh sách hợp đồng", icon: FileText, permission: "CONTRACT_VIEW" }
     ]
   },
   {
@@ -747,15 +716,9 @@ const CONTENT_TITLES = {
   "id-cards": ["CCCD / Hồ sơ", "Quản lý CCCD và hồ sơ cư dân"],
   "family-members": ["Thành viên hộ gia đình", "Quản lý thành viên trong hộ gia đình"],
   "residence-history": ["Lịch sử cư trú", "Xem lịch sử cư trú của cư dân"],
-  apartments: ["Danh sách căn hộ", "Quản lý căn hộ, trạng thái và thông tin liên quan."],
   buildings: ["Tòa nhà", "Quản lý thông tin tòa nhà"],
-  floors: ["Tầng", "Quản lý thông tin tầng"],
-  "apartment-status": ["Trạng thái căn hộ", "Xem trạng thái các căn hộ"],
-  "rental-history": ["Lịch sử thuê", "Lịch sử cho thuê căn hộ"],
+  residents: ["Quản lý cư dân", "Danh sách cư dân và thông tin cư trú"],
   "contract-list": ["Danh sách hợp đồng", "Quản lý hợp đồng thuê"],
-  "create-contract": ["Tạo hợp đồng", "Tạo hợp đồng thuê mới"],
-  "contract-renewal": ["Gia hạn hợp đồng", "Gia hạn hợp đồng thuê"],
-  "contract-terminate": ["Thanh lý hợp đồng", "Thanh lý hợp đồng thuê"],
   deposits: ["Tiền cọc", "Quản lý tiền cọc"],
   electricity: ["Điện", "Quản lý điện năng tiêu thụ"],
   water: ["Nước", "Quản lý nước tiêu thụ"],
@@ -1777,212 +1740,11 @@ export default function ApartmentManagementWeb() {
             <ScheduleNotification flash={flash} />
           )}
 
-          {/* RESIDENTS TAB - CÓ SUB-TABS */}
-          {(tab === "residents" || 
-            tab === "register-resident" || 
-            tab === "id-cards" || 
-            tab === "family-members" || 
-            tab === "residence-history") && (
+          {/* RESIDENTS TAB */}
+          {tab === "residents" && (
             <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-              {/* Header với sub-tabs */}
-              <Card className="p-5">
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-950">Quản lý cư dân</h3>
-                      <p className="text-sm text-slate-500">Quản lý hồ sơ cư dân, CCCD, thành viên và lịch sử cư trú</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button 
-                        variant="secondary" 
-                        onClick={() => {
-                          setSubTab('list');
-                          setTab('residents');
-                          fetchAllData();
-                        }}
-                      >
-                        <RefreshCw size={16} /> Làm mới
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Sub-tabs navigation */}
-                  <div className="flex flex-wrap gap-1 border-b border-slate-200">
-                    {[
-                      { id: 'list', label: 'Danh sách cư dân', icon: Users, tabId: 'residents' },
-                      { id: 'register', label: 'Đăng ký cư dân mới', icon: UserPlus, tabId: 'register-resident' },
-                      { id: 'identity', label: 'CCCD / Hồ sơ', icon: Shield, tabId: 'id-cards' },
-                      { id: 'family', label: 'Thành viên hộ gia đình', icon: Users, tabId: 'family-members' },
-                      { id: 'history', label: 'Lịch sử cư trú', icon: Clock, tabId: 'residence-history' },
-                    ].map(tabItem => {
-                      const Icon = tabItem.icon;
-                      const isActive = subTab === tabItem.id;
-                      return (
-                        <button
-                          key={tabItem.id}
-                          onClick={() => {
-                            setSubTab(tabItem.id);
-                            setTab('residents');
-                            if (tabItem.id !== 'list') {
-                              setSelectedResidentForDetail(null);
-                            }
-                          }}
-                          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition ${
-                            isActive
-                              ? 'border-[#1f4f46] text-[#1f4f46]'
-                              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                          }`}
-                        >
-                          <Icon size={16} />
-                          {tabItem.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </Card>
-
-              {/* Render content based on subTab */}
-              {subTab === 'list' && (
-                <ResidentManagement 
-                  flash={flash} 
-                  onSelectResident={(resident) => {
-                    setSelectedResidentForDetail(resident);
-                    setResidentDetailOpen(true);
-                  }}
-                />
-              )}
-
-              {subTab === 'register' && (
-                <RegisterResident 
-                  flash={flash} 
-                  onSuccess={() => {
-                    setSubTab('list');
-                    setTab('residents');
-                    fetchAllData();
-                  }}
-                />
-              )}
-
-              {subTab === 'identity' && (
-                <div className="space-y-4">
-                  {!selectedResidentForDetail ? (
-                    <Card className="p-8 text-center">
-                      <Shield size={48} className="text-slate-300 mx-auto" />
-                      <h3 className="mt-3 text-xl font-bold text-slate-900">Chọn cư dân</h3>
-                      <p className="text-sm text-slate-500">Vui lòng chọn một cư dân từ danh sách để xem CCCD</p>
-                      <div className="flex justify-center gap-3 mt-4">
-                        <Button 
-                          onClick={() => {
-                            setSubTab('list');
-                          }}
-                        >
-                          <Users size={16} /> Chọn từ danh sách
-                        </Button>
-                        <Button 
-                          variant="secondary"
-                          onClick={() => {
-                            setSubTab('register');
-                          }}
-                        >
-                          <UserPlus size={16} /> Đăng ký mới
-                        </Button>
-                      </div>
-                    </Card>
-                  ) : (
-                    <IdentityManagement 
-                      residentId={selectedResidentForDetail.ResidentID || selectedResidentForDetail.id} 
-                      flash={flash}
-                      onBack={() => {
-                        setSelectedResidentForDetail(null);
-                        setSubTab('list');
-                      }}
-                    />
-                  )}
-                </div>
-              )}
-
-              {subTab === 'family' && (
-                <div className="space-y-4">
-                  {!selectedResidentForDetail ? (
-                    <Card className="p-8 text-center">
-                      <Users size={48} className="text-slate-300 mx-auto" />
-                      <h3 className="mt-3 text-xl font-bold text-slate-900">Chọn cư dân</h3>
-                      <p className="text-sm text-slate-500">Vui lòng chọn một cư dân để xem thành viên hộ gia đình</p>
-                      <div className="flex justify-center gap-3 mt-4">
-                        <Button 
-                          onClick={() => {
-                            setSubTab('list');
-                          }}
-                        >
-                          <Users size={16} /> Chọn từ danh sách
-                        </Button>
-                        <Button 
-                          variant="secondary"
-                          onClick={() => {
-                            setSubTab('register');
-                          }}
-                        >
-                          <UserPlus size={16} /> Đăng ký mới
-                        </Button>
-                      </div>
-                    </Card>
-                  ) : (
-                    <FamilyMembers 
-                      residentId={selectedResidentForDetail.ResidentID || selectedResidentForDetail.id} 
-                      flash={flash}
-                      onBack={() => {
-                        setSelectedResidentForDetail(null);
-                        setSubTab('list');
-                      }}
-                    />
-                  )}
-                </div>
-              )}
-
-              {subTab === 'history' && (
-                <div className="space-y-4">
-                  {!selectedResidentForDetail ? (
-                    <Card className="p-8 text-center">
-                      <Clock size={48} className="text-slate-300 mx-auto" />
-                      <h3 className="mt-3 text-xl font-bold text-slate-900">Chọn cư dân</h3>
-                      <p className="text-sm text-slate-500">Vui lòng chọn một cư dân để xem lịch sử cư trú</p>
-                      <div className="flex justify-center gap-3 mt-4">
-                        <Button 
-                          onClick={() => {
-                            setSubTab('list');
-                          }}
-                        >
-                          <Users size={16} /> Chọn từ danh sách
-                        </Button>
-                        <Button 
-                          variant="secondary"
-                          onClick={() => {
-                            setSubTab('register');
-                          }}
-                        >
-                          <UserPlus size={16} /> Đăng ký mới
-                        </Button>
-                      </div>
-                    </Card>
-                  ) : (
-                    <ResidenceHistory 
-                      residentId={selectedResidentForDetail.ResidentID || selectedResidentForDetail.id} 
-                      flash={flash}
-                      onBack={() => {
-                        setSelectedResidentForDetail(null);
-                        setSubTab('list');
-                      }}
-                    />
-                  )}
-                </div>
-              )}
+              <ResidentManagement flash={flash} />
             </motion.section>
-          )}
-
-          {/* APARTMENTS TAB */}
-          {tab === "apartments" && (
-            <ApartmentManagement flash={flash} />
           )}
 
           {/* BUILDINGS TAB */}
@@ -1990,45 +1752,9 @@ export default function ApartmentManagementWeb() {
             <BuildingManagement flash={flash} />
           )}
 
-          {/* TAB: FLOORS */}
-          {tab === "floors" && (
-            <BuildingManagement flash={flash} />
-          )}
-
-          {/* TAB: APARTMENT STATUS - Sử dụng ApartmentManagement */}
-          {tab === "apartment-status" && (
-            <ApartmentManagement flash={flash} />
-          )}
-
-          {/* TAB: RENTAL HISTORY - Sử dụng ApartmentManagement */}
-          {tab === "rental-history" && (
-            <ApartmentManagement flash={flash} />
-          )}
-
           {/* CONTRACT LIST TAB */}
           {tab === "contract-list" && (
             <ContractList flash={flash} />
-          )}
-
-          {/* CREATE CONTRACT TAB */}
-          {tab === "create-contract" && (
-            <CreateContract 
-              flash={flash} 
-              onSuccess={() => {
-                setTab('contract-list');
-                flash('✅ Hợp đồng đã được tạo!');
-              }}
-            />
-          )}
-
-          {/* CONTRACT RENEWAL TAB */}
-          {tab === "contract-renewal" && (
-            <ContractRenewal flash={flash} />
-          )}
-
-          {/* CONTRACT TERMINATE TAB */}
-          {tab === "contract-terminate" && (
-            <ContractTerminate flash={flash} />
           )}
 
           {/* DEPOSIT MANAGEMENT TAB */}

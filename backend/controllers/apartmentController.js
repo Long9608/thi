@@ -49,11 +49,21 @@ exports.getApartments = async (req, res) => {
                         AND cr.MoveOutDate IS NULL
                 ) as CurrentResidents,
                 (
-                    SELECT TOP 1 c.ContractNumber
-                    FROM Contract c
-                    WHERE c.ApartmentID = a.ApartmentID
-                        AND c.StatusID = 2
-                    ORDER BY c.SignDate DESC
+                    SELECT TOP 1
+                        (SELECT 
+                            c.ContractID,
+                            c.ContractNumber,
+                            c.SignDate,
+                            c.StartDate,
+                            c.EndDate,
+                            c.Rent,
+                            c.Deposit,
+                            c.OwnerID
+                         FROM Contract c
+                         WHERE c.ApartmentID = a.ApartmentID
+                            AND c.StatusID = 2
+                         ORDER BY c.SignDate DESC
+                         FOR JSON PATH, WITHOUT_ARRAY_WRAPPER)
                 ) as CurrentContract,
                 (
                     SELECT TOP 1 c.Rent
@@ -207,6 +217,7 @@ exports.getApartmentById = async (req, res) => {
                 SELECT 
                     c.ContractID,
                     c.ContractNumber,
+                    c.OwnerID,
                     c.SignDate,
                     c.StartDate,
                     c.EndDate,

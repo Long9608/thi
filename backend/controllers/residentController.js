@@ -49,7 +49,7 @@ exports.getResidents = async (req, res) => {
                     JOIN Apartment a ON c2.ApartmentID = a.ApartmentID
                     WHERE cr2.ResidentID = r.ResidentID 
                         AND cr2.MoveOutDate IS NULL
-                        AND c2.StatusID = 2
+                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
                     ORDER BY c2.SignDate DESC
                 ) AS ApartmentCode,
                 (
@@ -61,7 +61,7 @@ exports.getResidents = async (req, res) => {
                     JOIN Building b ON f.BuildingID = b.BuildingID
                     WHERE cr2.ResidentID = r.ResidentID 
                         AND cr2.MoveOutDate IS NULL
-                        AND c2.StatusID = 2
+                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
                     ORDER BY c2.SignDate DESC
                 ) AS BuildingName,
                 (
@@ -72,7 +72,7 @@ exports.getResidents = async (req, res) => {
                     JOIN Floor f ON a.FloorID = f.FloorID
                     WHERE cr2.ResidentID = r.ResidentID 
                         AND cr2.MoveOutDate IS NULL
-                        AND c2.StatusID = 2
+                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
                     ORDER BY c2.SignDate DESC
                 ) AS FloorNumber,
                 (
@@ -83,7 +83,7 @@ exports.getResidents = async (req, res) => {
                     JOIN RoomStatus rs ON a.StatusID = rs.StatusID
                     WHERE cr2.ResidentID = r.ResidentID 
                         AND cr2.MoveOutDate IS NULL
-                        AND c2.StatusID = 2
+                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
                     ORDER BY c2.SignDate DESC
                 ) AS RoomStatus
             FROM Resident r
@@ -110,14 +110,14 @@ exports.getResidents = async (req, res) => {
             request.input('Status', sql.Bit, parseInt(status));
         }
 
-        if (apartmentId) {
+            if (apartmentId) {
             query += ` AND EXISTS (
                 SELECT 1 FROM ContractResident cr2
                 JOIN Contract c2 ON cr2.ContractID = c2.ContractID
                 WHERE cr2.ResidentID = r.ResidentID 
                     AND c2.ApartmentID = @ApartmentID
                     AND cr2.MoveOutDate IS NULL
-                    AND c2.StatusID = 2
+                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
             )`;
             countQuery += ` AND EXISTS (
                 SELECT 1 FROM ContractResident cr2
@@ -125,7 +125,7 @@ exports.getResidents = async (req, res) => {
                 WHERE cr2.ResidentID = r.ResidentID 
                     AND c2.ApartmentID = @ApartmentID
                     AND cr2.MoveOutDate IS NULL
-                    AND c2.StatusID = 2
+                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
             )`;
             request.input('ApartmentID', sql.Int, parseInt(apartmentId));
         }
@@ -231,6 +231,24 @@ exports.getResidentById = async (req, res) => {
                 ORDER BY c.SignDate DESC
             `);
         resident.Contracts = contractResult.recordset;
+
+        // Add current apartment info (if any active contract)
+        const currentApt = await pool.request()
+            .input('ResidentID', sql.Int, id)
+            .query(`
+                SELECT TOP 1 a.ApartmentID, a.ApartmentCode, b.BuildingName, f.FloorNumber, cs.StatusName as ContractStatus, cr.Relationship
+                FROM ContractResident cr
+                JOIN Contract c ON cr.ContractID = c.ContractID
+                JOIN ContractStatus cs ON c.StatusID = cs.StatusID
+                JOIN Apartment a ON c.ApartmentID = a.ApartmentID
+                JOIN Floor f ON a.FloorID = f.FloorID
+                JOIN Building b ON f.BuildingID = b.BuildingID
+                WHERE cr.ResidentID = @ResidentID
+                    AND cr.MoveOutDate IS NULL
+                    AND cs.StatusName = N'Đang hiệu lực'
+                ORDER BY c.SignDate DESC
+            `);
+        resident.CurrentApartment = currentApt.recordset[0] || null;
 
         // Lấy danh sách phương tiện của cư dân
         const vehicleResult = await pool.request()
