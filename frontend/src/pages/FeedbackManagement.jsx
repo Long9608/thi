@@ -7,6 +7,7 @@ import {
   Star, StarHalf, User, Home, Calendar, Clock,
   Send, Reply, Mail, Phone, FileText
 } from 'lucide-react';
+import { feedbackAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, formatDateTime, getInitials, timeAgo } from '../utils/formatters';
 
@@ -22,46 +23,36 @@ export default function FeedbackManagement({ flash }) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Dữ liệu mẫu
+  const fetchFeedbacks = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await feedbackAPI.getAll('', '', '', page, 999);
+      const data = res?.data || res || [];
+      const normalized = Array.isArray(data) ? data.map(item => ({
+        id: item.FeedbackID,
+        residentName: item.ResidentName,
+        apartmentCode: item.ApartmentCode,
+        title: item.Title,
+        content: item.Content,
+        rating: item.Rating,
+        reply: item.Reply,
+        createdAt: item.CreatedDate,
+        status: item.Reply ? 'replied' : 'pending'
+      })) : [];
+      setFeedbacks(normalized);
+      setTotalPages(res?.pagination?.totalPages || 1);
+    } catch (error) {
+      console.error('Error fetching feedbacks:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải dữ liệu phản ánh'));
+      setFeedbacks([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, flash]);
+
   useEffect(() => {
-    const mockData = [
-      {
-        id: 1,
-        residentName: 'Nguyễn Minh Anh',
-        apartmentCode: 'A-1201',
-        title: 'Góp ý bãi xe',
-        content: 'Thái độ bảo vệ bãi giữ xe ca tối cần thân thiện hơn với cư dân.',
-        rating: 4,
-        reply: 'Ban quản lý đã tiếp thu và nhắc nhở bộ phận an ninh bãi xe.',
-        createdAt: '2026-07-18 14:30:00',
-        status: 'replied'
-      },
-      {
-        id: 2,
-        residentName: 'Trần Quốc Bảo',
-        apartmentCode: 'B-0805',
-        title: 'Ý kiến về thang máy',
-        content: 'Thang máy Block B hay bị rung khi di chuyển, cần kiểm tra lại.',
-        rating: 3,
-        reply: null,
-        createdAt: '2026-07-17 09:15:00',
-        status: 'pending'
-      },
-      {
-        id: 3,
-        residentName: 'Lê Hoàng Yến',
-        apartmentCode: 'A-0903',
-        title: 'Khen ngợi nhân viên',
-        content: 'Nhân viên vệ sinh rất nhiệt tình và chu đáo. Xin cảm ơn!',
-        rating: 5,
-        reply: 'Cảm ơn phản hồi của bạn!',
-        createdAt: '2026-07-16 16:45:00',
-        status: 'replied'
-      }
-    ];
-    setFeedbacks(mockData);
-    setLoading(false);
-  }, []);
+    fetchFeedbacks();
+  }, [fetchFeedbacks]);
 
   const handleReply = async (e) => {
     e.preventDefault();
@@ -69,9 +60,10 @@ export default function FeedbackManagement({ flash }) {
       flash('⚠️ Vui lòng nhập nội dung phản hồi');
       return;
     }
-    
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await feedbackAPI.reply(selectedFeedback.id, replyForm.reply);
       const updated = feedbacks.map(f => 
         f.id === selectedFeedback.id 
           ? { ...f, reply: replyForm.reply, status: 'replied' }
@@ -80,9 +72,13 @@ export default function FeedbackManagement({ flash }) {
       setFeedbacks(updated);
       setModalOpen(false);
       setReplyForm({ reply: '' });
-      flash('✅ Đã gửi phản hồi thành công!');
+      if (flash) flash('✅ Đã gửi phản hồi thành công!');
+    } catch (error) {
+      console.error('Reply error:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể gửi phản hồi'));
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   const filteredData = useMemo(() => {

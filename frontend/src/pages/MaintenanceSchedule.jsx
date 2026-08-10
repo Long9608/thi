@@ -1,5 +1,5 @@
 // src/pages/MaintenanceSchedule.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Calendar, Plus, Search, Download, Edit, Trash2, Eye,
@@ -7,6 +7,7 @@ import {
   Clock, Wrench, Building2, Home, User,
   Zap, Droplet, Settings, FileText
 } from 'lucide-react';
+import { ticketAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, formatDateTime, getInitials } from '../utils/formatters';
 
@@ -16,64 +17,78 @@ export default function MaintenanceSchedule({ flash }) {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [statuses, setStatuses] = useState([]);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('view');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Dữ liệu mẫu
-  useEffect(() => {
-    const mockData = [
-      {
-        id: 1,
-        title: 'Bảo trì thang máy Block A',
-        description: 'Bảo trì định kỳ hệ thống thang máy Block A',
-        scheduledDate: '2026-05-15 09:00:00',
-        endDate: '2026-05-15 11:00:00',
-        type: 'Định kỳ',
-        status: 'completed',
-        assignedTo: 'Phạm Văn Sáng',
-        location: 'Block A',
-        priority: 'Trung bình'
-      },
-      {
-        id: 2,
-        title: 'Kiểm tra hệ thống PCCC',
-        description: 'Kiểm tra toàn bộ hệ thống báo cháy và chữa cháy',
-        scheduledDate: '2026-05-20 14:00:00',
-        endDate: '2026-05-20 17:00:00',
-        type: 'Định kỳ',
-        status: 'pending',
-        assignedTo: 'Trần Đức Vũ',
-        location: 'Toàn tòa nhà',
-        priority: 'Cao'
-      },
-      {
-        id: 3,
-        title: 'Sửa chữa đèn chiếu sáng tầng 8',
-        description: 'Thay thế bóng đèn hỏng tại hành lang tầng 8 Block B',
-        scheduledDate: '2026-05-18 08:30:00',
-        endDate: '2026-05-18 10:00:00',
-        type: 'Sửa chữa',
-        status: 'in_progress',
-        assignedTo: 'Phạm Văn Sáng',
-        location: 'Block B - Tầng 8',
-        priority: 'Thấp'
-      }
-    ];
-    setSchedules(mockData);
-    setLoading(false);
+  const STATUS_MAP = {
+    'Mới tiếp nhận': { status: 'pending', priority: 'Cao' },
+    'Đang xử lý': { status: 'in_progress', priority: 'Trung bình' },
+    'Hoàn tất': { status: 'completed', priority: 'Thấp' },
+    'Đã hủy': { status: 'cancelled', priority: 'Cao' }
+  };
+
+  const fetchSchedules = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await ticketAPI.getAll(statusFilter, 1, 999);
+      const data = res?.data || res || [];
+      const normalized = Array.isArray(data) ? data.map(item => {
+        const mapped = STATUS_MAP[item.StatusName] || { status: 'pending', priority: 'Trung bình' };
+        return {
+          id: item.RequestID,
+          title: item.Title,
+          description: item.Description,
+          scheduledDate: item.RequestDate,
+          endDate: item.RequestDate,
+          type: item.StatusName || 'Bảo trì',
+          status: mapped.status,
+          assignedTo: item.AssignedEmployeeName || 'Chưa phân công',
+          location: item.ApartmentCode || 'Không xác định',
+          priority: mapped.priority
+        };
+      }) : [];
+      setSchedules(normalized);
+      setTotalPages(res?.pagination?.totalPages || 1);
+    } catch (error) {
+      console.error('Error fetching maintenance schedule:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải lịch bảo trì'));
+      setSchedules([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, flash]);
+
+  const fetchStatuses = useCallback(async () => {
+    try {
+      const res = await ticketAPI.getStatuses();
+      const data = res?.data || res || [];
+      setStatuses(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching ticket statuses:', error);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchSchedules();
+    fetchStatuses();
+  }, [fetchSchedules, fetchStatuses]);
 
   const filteredData = useMemo(() => {
     const q = search.toLowerCase();
     return schedules.filter(item =>
-      item.title.toLowerCase().includes(q) ||
-      item.location.toLowerCase().includes(q) ||
-      item.assignedTo.toLowerCase().includes(q)
-    );
-  }, [schedules, search]);
+      (item.title || '').toLowerCase().includes(q) ||
+      (item.location || '').toLowerCase().includes(q) ||
+      (item.assignedTo || '').toLowerCase().includes(q)
+    ).filter(item => {
+      if (!statusFilter) return true;
+      return item.status === statusFilter;
+    });
+  }, [schedules, search, statusFilter]);
 
   const stats = useMemo(() => {
     const total = schedules.length;
@@ -132,11 +147,20 @@ export default function MaintenanceSchedule({ flash }) {
               placeholder="Tìm kiếm..."
               className="w-48"
             />
-            <Button onClick={() => flash('Đang phát triển...')}>
-              <Plus size={16} /> Thêm lịch
-            </Button>
-            <Button variant="secondary">
-              <RefreshCw size={16} />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+            >
+              <option value="">Tất cả trạng thái</option>
+              {statuses.map(status => (
+                <option key={status.StatusID} value={STATUS_MAP[status.StatusName]?.status || status.StatusName}>
+                  {status.StatusName}
+                </option>
+              ))}
+            </select>
+            <Button onClick={fetchSchedules} variant="secondary" disabled={loading}>
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
           </div>
         </div>

@@ -46,35 +46,26 @@ export default function ResidentManagement({ flash }) {
 
   // 🔥 Hàm helper xác định status - HỖ TRỢ CẢ BOOLEAN VÀ NUMBER
   const getStatusInfo = (resident) => {
-    // Status có thể là boolean (true/false) hoặc number (1/0) hoặc string ('true'/'false')
-    let isActive = false;
-     
-    if (resident.Status !== undefined && resident.Status !== null) {
-      // Nếu là boolean
-      if (typeof resident.Status === 'boolean') {
-        isActive = resident.Status === true;
-      } 
-      // Nếu là number
-      else if (typeof resident.Status === 'number') {
-        isActive = resident.Status === 1;
-      }
-      // Nếu là string
-      else if (typeof resident.Status === 'string') {
-        isActive = resident.Status === 'true' || resident.Status === '1';
-      }
-    }
-    
+    const isActive = isResidentActive(resident.Status);
     return {
       text: isActive ? 'Đang ở' : 'Đã rời',
       tone: isActive ? 'green' : 'red'
     };
   };
 
+  const isResidentActive = (status) => {
+    if (status === undefined || status === null) return false;
+    if (typeof status === 'boolean') return status === true;
+    if (typeof status === 'number') return status === 1;
+    if (typeof status === 'string') return status === 'true' || status === '1';
+    return false;
+  };
+
   // Fetch data
   const fetchResidents = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await residentAPI.getAll(search, page, 20);
+      const res = await residentAPI.getAll(search, page, 999);
       
       // 🔥 Log kiểm tra dữ liệu
       console.log('========================================');
@@ -189,11 +180,22 @@ export default function ResidentManagement({ flash }) {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Bạn có chắc muốn xóa cư dân này?')) return;
+  const handleDelete = async (id, status) => {
+    const active = isResidentActive(status);
+    const confirmMessage = active
+      ? 'Bạn có chắc muốn xóa mềm cư dân này?'
+      : 'Cư dân đã bị xóa mềm. Bạn có chắc muốn xóa vĩnh viễn? Hành động này không thể hoàn tác.';
+
+    if (!confirm(confirmMessage)) return;
+
     try {
-      await residentAPI.delete(id);
-      if (flash) flash('✅ Xóa cư dân thành công!');
+      if (active) {
+        await residentAPI.delete(id);
+        if (flash) flash('✅ Cư dân đã được xóa mềm thành công!');
+      } else {
+        await residentAPI.permanentDelete(id);
+        if (flash) flash('✅ Cư dân đã được xóa vĩnh viễn thành công!');
+      }
       fetchResidents();
     } catch (error) {
       console.error('Delete error:', error);
@@ -417,8 +419,12 @@ export default function ResidentManagement({ flash }) {
                     <Button variant="secondary" className="flex-1" onClick={() => openEditModal(resident)}>
                       <Edit size={14} /> Sửa
                     </Button>
-                    <Button variant="danger" className="flex-1" onClick={() => handleDelete(resident.ResidentID)}>
-                      <Trash2 size={14} />
+                    <Button
+                      variant="danger"
+                      className="flex-1"
+                      onClick={() => handleDelete(resident.ResidentID, resident.Status)}
+                    >
+                      <Trash2 size={14} /> {isResidentActive(resident.Status) ? 'Xóa' : 'Xóa vĩnh viễn'}
                     </Button>
                   </div>
                 </div>

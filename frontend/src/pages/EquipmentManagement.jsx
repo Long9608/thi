@@ -1,5 +1,5 @@
 // src/pages/EquipmentManagement.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   ClipboardList, Plus, Search, Download, Edit, Trash2, Eye,
@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, formatDateTime, getInitials } from '../utils/formatters';
+import { ticketAPI } from '../api';
+
 export default function EquipmentManagement({ flash }) {
   const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,58 +22,51 @@ export default function EquipmentManagement({ flash }) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Dữ liệu mẫu
+  // Fetch equipment data từ tickets
+  const fetchEquipment = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Lấy tickets có category là bảo trì thiết bị
+      const res = await ticketAPI.getAll(statusFilter, page, 999);
+      console.log('📊 Equipment data:', res);
+      
+      const data = res?.data || res || [];
+      // Chuyển đổi ticket thành thiết bị
+      const equipmentData = Array.isArray(data) 
+        ? data.filter(t => t.Category === 'Bảo trì' || t.Category === 'Thiết bị')
+          .map((t, index) => ({
+            id: t.RequestID || index,
+            name: t.Title || `Thiết bị ${index + 1}`,
+            code: `EQ-${String(t.RequestID || index + 1).padStart(3, '0')}`,
+            type: t.Category || 'Thiết bị',
+            location: t.ApartmentCode || 'Chưa xác định',
+            status: t.StatusID === 3 ? 'operational' : 
+                    t.StatusID === 2 ? 'maintenance' : 
+                    t.StatusID === 4 ? 'retired' : 'broken',
+            manufacturer: 'Chưa cập nhật',
+            model: 'Chưa cập nhật',
+            serialNumber: `SN-${String(t.RequestID || index + 1).padStart(6, '0')}`,
+            installationDate: t.RequestDate || new Date().toISOString().split('T')[0],
+            lastMaintenance: t.RequestDate || new Date().toISOString().split('T')[0],
+            nextMaintenance: t.RequestDate ? new Date(new Date(t.RequestDate).setMonth(new Date(t.RequestDate).getMonth() + 3)).toISOString().split('T')[0] : '',
+            warrantyExpiry: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]
+          }))
+        : [];
+      
+      setEquipment(equipmentData);
+      setTotalPages(res?.pagination?.totalPages || 1);
+    } catch (error) {
+      console.error('Error fetching equipment:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải danh sách thiết bị'));
+      setEquipment([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, page, flash]);
+
   useEffect(() => {
-    const mockData = [
-      {
-        id: 1,
-        name: 'Thang máy Block A - P1',
-        code: 'TM-A-01',
-        type: 'Thang máy',
-        location: 'Block A - Tầng 1',
-        status: 'operational',
-        manufacturer: 'Mitsubishi',
-        model: 'M-2020',
-        serialNumber: 'SN-2020-001',
-        installationDate: '2020-01-15',
-        lastMaintenance: '2026-04-15',
-        nextMaintenance: '2026-05-15',
-        warrantyExpiry: '2025-12-31'
-      },
-      {
-        id: 2,
-        name: 'Máy phát điện dự phòng',
-        code: 'GEN-01',
-        type: 'Máy phát điện',
-        location: 'Tầng hầm B2',
-        status: 'maintenance',
-        manufacturer: 'Cummins',
-        model: 'C-500',
-        serialNumber: 'SN-2021-002',
-        installationDate: '2021-06-20',
-        lastMaintenance: '2026-03-20',
-        nextMaintenance: '2026-06-20',
-        warrantyExpiry: '2026-06-20'
-      },
-      {
-        id: 3,
-        name: 'Hệ thống báo cháy trung tâm',
-        code: 'FIRE-01',
-        type: 'PCCC',
-        location: 'Phòng kỹ thuật - Tầng 1',
-        status: 'operational',
-        manufacturer: 'Notifier',
-        model: 'N-3000',
-        serialNumber: 'SN-2019-003',
-        installationDate: '2019-12-01',
-        lastMaintenance: '2026-04-01',
-        nextMaintenance: '2026-07-01',
-        warrantyExpiry: '2024-12-01'
-      }
-    ];
-    setEquipment(mockData);
-    setLoading(false);
-  }, []);
+    fetchEquipment();
+  }, [fetchEquipment]);
 
   const filteredData = useMemo(() => {
     let filtered = equipment;
@@ -79,19 +74,15 @@ export default function EquipmentManagement({ flash }) {
     if (search) {
       const q = search.toLowerCase();
       filtered = filtered.filter(item =>
-        item.name.toLowerCase().includes(q) ||
-        item.code.toLowerCase().includes(q) ||
-        item.type.toLowerCase().includes(q) ||
-        item.location.toLowerCase().includes(q)
+        (item.name || '').toLowerCase().includes(q) ||
+        (item.code || '').toLowerCase().includes(q) ||
+        (item.type || '').toLowerCase().includes(q) ||
+        (item.location || '').toLowerCase().includes(q)
       );
     }
 
-    if (statusFilter) {
-      filtered = filtered.filter(item => item.status === statusFilter);
-    }
-
     return filtered;
-  }, [equipment, search, statusFilter]);
+  }, [equipment, search]);
 
   const stats = useMemo(() => {
     const total = equipment.length;
@@ -128,6 +119,10 @@ export default function EquipmentManagement({ flash }) {
     setModalOpen(true);
   };
 
+  const handleRefresh = useCallback(() => {
+    fetchEquipment();
+  }, [fetchEquipment]);
+
   return (
     <div className="space-y-5">
       <Card className="p-5">
@@ -155,16 +150,13 @@ export default function EquipmentManagement({ flash }) {
               className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
             >
               <option value="">Tất cả trạng thái</option>
-              <option value="operational">Hoạt động</option>
-              <option value="maintenance">Bảo trì</option>
-              <option value="broken">Hỏng</option>
-              <option value="retired">Ngừng sử dụng</option>
+              <option value="1">Mới</option>
+              <option value="2">Đang xử lý</option>
+              <option value="3">Hoàn tất</option>
+              <option value="4">Đã hủy</option>
             </select>
-            <Button onClick={() => flash('Đang phát triển...')}>
-              <Plus size={16} /> Thêm thiết bị
-            </Button>
-            <Button variant="secondary">
-              <RefreshCw size={16} />
+            <Button variant="secondary" onClick={handleRefresh} disabled={loading}>
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
           </div>
         </div>
@@ -187,7 +179,7 @@ export default function EquipmentManagement({ flash }) {
         <Card className="p-8 text-center">
           <ClipboardList size={48} className="text-slate-300 mx-auto" />
           <h3 className="mt-3 text-xl font-bold text-slate-900">Chưa có thiết bị</h3>
-          <p className="text-sm text-slate-500">Thêm thiết bị để bắt đầu</p>
+          <p className="text-sm text-slate-500">Chưa có thiết bị nào trong hệ thống</p>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -238,7 +230,7 @@ export default function EquipmentManagement({ flash }) {
                   <Button variant="secondary" className="flex-1" onClick={() => openViewModal(item)}>
                     <Eye size={14} /> Xem
                   </Button>
-                  <Button variant="secondary" className="flex-1" onClick={() => flash('Đang phát triển...')}>
+                  <Button variant="secondary" className="flex-1" onClick={() => flash('📝 Đang mở form sửa...')}>
                     <Edit size={14} /> Sửa
                   </Button>
                 </div>

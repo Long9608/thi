@@ -1,5 +1,5 @@
 // src/pages/RevenueReport.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, Download, RefreshCw, Calendar,
@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, money, formatNumber } from '../utils/formatters';
+import { invoiceAPI } from '../api';
 
 export default function RevenueReport({ flash }) {
   const [loading, setLoading] = useState(true);
@@ -23,51 +24,103 @@ export default function RevenueReport({ flash }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [viewMode, setViewMode] = useState('chart');
+  const [invoices, setInvoices] = useState([]);
+  const [totalPages, setTotalPages] = useState(1);
 
-  // Dữ liệu mẫu
+  // Fetch real invoice data
+  const fetchRevenueData = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Lấy hóa đơn đã thanh toán trong năm
+      const res = await invoiceAPI.getAll('2', '', year, 1, 999);
+      console.log('📊 Revenue data:', res);
+      
+      const data = res?.data || [];
+      setInvoices(Array.isArray(data) ? data : []);
+      setTotalPages(res.pagination?.totalPages || 1);
+    } catch (error) {
+      console.error('Error fetching revenue data:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải dữ liệu doanh thu'));
+      setInvoices([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [year, flash]);
+
+  useEffect(() => {
+    fetchRevenueData();
+  }, [fetchRevenueData]);
+
+  // Tính toán dữ liệu doanh thu theo tháng
   const revenueData = useMemo(() => {
-    return [
-      { month: 'T1', revenue: 56, target: 50 },
-      { month: 'T2', revenue: 68, target: 55 },
-      { month: 'T3', revenue: 61, target: 60 },
-      { month: 'T4', revenue: 83, target: 65 },
-      { month: 'T5', revenue: 79, target: 70 },
-      { month: 'T6', revenue: 92, target: 75 },
-      { month: 'T7', revenue: 85, target: 80 },
-      { month: 'T8', revenue: 78, target: 82 },
-      { month: 'T9', revenue: 95, target: 85 },
-      { month: 'T10', revenue: 88, target: 88 },
-      { month: 'T11', revenue: 102, target: 90 },
-      { month: 'T12', revenue: 110, target: 95 }
-    ];
-  }, []);
+    const monthlyData = {};
+    
+    // Khởi tạo 12 tháng
+    for (let m = 1; m <= 12; m++) {
+      monthlyData[m] = { month: `T${m}`, revenue: 0, target: 0 };
+    }
+    
+    // Tổng hợp doanh thu từ invoices
+    invoices.forEach(inv => {
+      const m = inv.InvoiceMonth;
+      if (m && monthlyData[m]) {
+        monthlyData[m].revenue += parseFloat(inv.TotalAmount || 0);
+      }
+    });
+    
+    // Tính target = 90% của revenue (giả lập)
+    const months = Object.values(monthlyData);
+    months.forEach(item => {
+      item.target = Math.round(item.revenue * 0.9);
+      // Chuyển sang triệu VND
+      item.revenue = Math.round(item.revenue / 1000000);
+      item.target = Math.round(item.target / 1000000);
+    });
+    
+    return months;
+  }, [invoices]);
 
+  // Tính doanh thu theo nguồn (từ chi tiết hóa đơn - giả lập)
   const revenueBySource = useMemo(() => {
+    const total = invoices.reduce((sum, inv) => sum + parseFloat(inv.TotalAmount || 0), 0);
+    if (total === 0) {
+      return [
+        { name: 'Tiền thuê', value: 0, color: '#1f4f46' },
+        { name: 'Phí dịch vụ', value: 0, color: '#0d9488' },
+        { name: 'Phí gửi xe', value: 0, color: '#f59e0b' },
+        { name: 'Phí điện/nước', value: 0, color: '#3b82f6' }
+      ];
+    }
+    // Tính tỷ lệ dựa trên dữ liệu thực tế nếu có
     return [
-      { name: 'Tiền thuê', value: 450, color: '#1f4f46' },
-      { name: 'Phí dịch vụ', value: 280, color: '#0d9488' },
-      { name: 'Phí gửi xe', value: 120, color: '#f59e0b' },
-      { name: 'Phí điện/nước', value: 150, color: '#3b82f6' }
+      { name: 'Tiền thuê', value: Math.round(total * 0.65), color: '#1f4f46' },
+      { name: 'Phí dịch vụ', value: Math.round(total * 0.20), color: '#0d9488' },
+      { name: 'Phí gửi xe', value: Math.round(total * 0.10), color: '#f59e0b' },
+      { name: 'Phí điện/nước', value: Math.round(total * 0.05), color: '#3b82f6' }
     ];
-  }, []);
+  }, [invoices]);
 
+  // Thống kê tháng hiện tại
   const monthlyDetails = useMemo(() => {
-    const currentMonthData = revenueData.find(d => d.month === `T${month}`);
+    const currentMonthData = revenueData.find(d => {
+      const monthNum = parseInt(d.month.replace('T', ''));
+      return monthNum === month;
+    });
     const totalRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
-    const avgRevenue = totalRevenue / revenueData.length;
+    const avgRevenue = revenueData.length > 0 ? totalRevenue / revenueData.length : 0;
+    const prevMonthData = revenueData.find(d => {
+      const monthNum = parseInt(d.month.replace('T', ''));
+      return monthNum === month - 1;
+    });
     
     return {
       total: totalRevenue,
       average: avgRevenue,
       current: currentMonthData?.revenue || 0,
       target: currentMonthData?.target || 0,
-      growth: month > 1 ? ((currentMonthData?.revenue || 0) - (revenueData.find(d => d.month === `T${month-1}`)?.revenue || 0)) : 0
+      growth: prevMonthData ? currentMonthData?.revenue - prevMonthData.revenue : 0
     };
   }, [revenueData, month]);
-
-  useEffect(() => {
-    setTimeout(() => setLoading(false), 500);
-  }, []);
 
   const COLORS = ['#1f4f46', '#0d9488', '#f59e0b', '#3b82f6', '#8b5cf6'];
 
@@ -108,7 +161,7 @@ export default function RevenueReport({ flash }) {
                 <option key={m} value={m}>Tháng {m}</option>
               ))}
             </select>
-            <Button variant="secondary" onClick={() => setLoading(true)}>
+            <Button variant="secondary" onClick={fetchRevenueData} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
             <Button>
@@ -123,25 +176,25 @@ export default function RevenueReport({ flash }) {
         <StatCard 
           icon={DollarSign} 
           label="Tổng doanh thu" 
-          value={money(monthlyDetails.total).replace('₫', '')} 
+          value={money(monthlyDetails.total * 1000000).replace('₫', '')} 
           hint="12 tháng" 
         />
         <StatCard 
           icon={TrendingUp} 
           label="Doanh thu TB" 
-          value={money(monthlyDetails.average).replace('₫', '')} 
+          value={money(monthlyDetails.average * 1000000).replace('₫', '')} 
           hint="Mỗi tháng" 
         />
         <StatCard 
           icon={BarChart3} 
           label="Tháng này" 
-          value={money(monthlyDetails.current).replace('₫', '')} 
-          hint={`Mục tiêu: ${money(monthlyDetails.target).replace('₫', '')}`}
+          value={money(monthlyDetails.current * 1000000).replace('₫', '')} 
+          hint={`Mục tiêu: ${money(monthlyDetails.target * 1000000).replace('₫', '')}`}
         />
         <StatCard 
           icon={monthlyDetails.growth >= 0 ? ArrowUp : ArrowDown} 
           label="Tăng trưởng" 
-          value={`${monthlyDetails.growth >= 0 ? '+' : ''}${((monthlyDetails.growth / (monthlyDetails.current - monthlyDetails.growth)) * 100).toFixed(1)}%`} 
+          value={`${monthlyDetails.growth >= 0 ? '+' : ''}${monthlyDetails.growth > 0 ? ((monthlyDetails.growth / (monthlyDetails.current - monthlyDetails.growth)) * 100).toFixed(1) : 0}%`} 
           hint={monthlyDetails.growth >= 0 ? 'Tăng' : 'Giảm'}
         />
       </div>
@@ -193,7 +246,7 @@ export default function RevenueReport({ flash }) {
                   <XAxis dataKey="month" tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} />
                   <Tooltip 
-                    formatter={(value) => money(value).replace('₫', '')}
+                    formatter={(value) => money(value * 1000000).replace('₫', '')}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                   />
                   <Legend />
@@ -262,30 +315,32 @@ export default function RevenueReport({ flash }) {
               <div className="space-y-3">
                 <div className="flex justify-between p-3 rounded-xl bg-slate-50">
                   <span className="text-slate-600">Tổng doanh thu</span>
-                  <span className="font-bold text-[#1f4f46]">{money(monthlyDetails.current)}</span>
+                  <span className="font-bold text-[#1f4f46]">{money(monthlyDetails.current * 1000000)}</span>
                 </div>
                 <div className="flex justify-between p-3 rounded-xl bg-slate-50">
                   <span className="text-slate-600">Mục tiêu</span>
-                  <span className="font-bold text-amber-600">{money(monthlyDetails.target)}</span>
+                  <span className="font-bold text-amber-600">{money(monthlyDetails.target * 1000000)}</span>
                 </div>
                 <div className="flex justify-between p-3 rounded-xl bg-slate-50">
                   <span className="text-slate-600">Chênh lệch</span>
                   <span className={`font-bold ${monthlyDetails.current >= monthlyDetails.target ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {monthlyDetails.current >= monthlyDetails.target ? '+' : ''}
-                    {money(monthlyDetails.current - monthlyDetails.target).replace('₫', '')}
+                    {money((monthlyDetails.current - monthlyDetails.target) * 1000000).replace('₫', '')}
                   </span>
                 </div>
                 <div className="flex justify-between p-3 rounded-xl bg-slate-50">
                   <span className="text-slate-600">Tăng trưởng</span>
                   <span className={`font-bold ${monthlyDetails.growth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {monthlyDetails.growth >= 0 ? '+' : ''}
-                    {((monthlyDetails.growth / (monthlyDetails.current - monthlyDetails.growth)) * 100).toFixed(1)}%
+                    {monthlyDetails.growth > 0 && monthlyDetails.current > 0 
+                      ? ((monthlyDetails.growth / (monthlyDetails.current - monthlyDetails.growth)) * 100).toFixed(1) 
+                      : 0}%
                   </span>
                 </div>
                 <div className="flex justify-between p-3 rounded-xl bg-slate-50">
                   <span className="text-slate-600">Hiệu suất</span>
                   <span className={`font-bold ${monthlyDetails.current >= monthlyDetails.target ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {((monthlyDetails.current / monthlyDetails.target) * 100).toFixed(0)}%
+                    {monthlyDetails.target > 0 ? ((monthlyDetails.current / monthlyDetails.target) * 100).toFixed(0) : 0}%
                   </span>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 // src/pages/PoolManagement.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Waves, Users, Calendar, Clock, CheckCircle2,
@@ -9,66 +9,76 @@ import {
 } from 'lucide-react';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, getInitials } from '../utils/formatters';
+import { serviceAPI, contractAPI } from '../api';
 
 export default function PoolManagement({ flash }) {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('create');
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [contracts, setContracts] = useState([]);
+  const [poolServiceId, setPoolServiceId] = useState(null);
   const [form, setForm] = useState({
     fullName: '',
     phone: '',
     email: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: '',
-    status: 1
+    status: 1, totalVisits: 50, contractId: ''
   });
 
-  // Dữ liệu mẫu
-  useEffect(() => {
-    const mockData = [
-      {
-        id: 1,
-        fullName: 'Phạm Văn D',
-        phone: '0912345678',
-        email: 'vand@example.com',
-        startDate: '2025-01-15',
-        endDate: '2025-07-15',
-        status: 1,
-        visits: 12,
-        totalVisits: 30
-      },
-      {
-        id: 2,
-        fullName: 'Hoàng Thị E',
-        phone: '0987654321',
-        email: 'thie@example.com',
-        startDate: '2025-03-01',
-        endDate: '2025-09-01',
-        status: 1,
-        visits: 8,
-        totalVisits: 25
-      }
-    ];
-    setMembers(mockData);
-    setLoading(false);
-  }, []);
+  // Fetch pool members
+  const fetchPoolMembers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await serviceAPI.getPoolMembers('', 1, 999);
+      setMembers((response?.data || []).map((member) => ({ id: member.RegistrationID, fullName: member.FullName, phone: member.Phone || '', email: member.Email || '', startDate: member.StartDate, endDate: member.EndDate, status: member.RegistrationStatus ? 1 : 0, visits: member.Visits || 0, totalVisits: member.TotalVisits || 1 })));
+    } catch (error) {
+      console.error('Error fetching pool members:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải danh sách thành viên Hồ bơi'));
+      setMembers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [flash]);
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    fetchPoolMembers();
+  }, [fetchPoolMembers]);
+
+  const isMemberActive = (member) => member.status === 1 && (!member.endDate || new Date(member.endDate).setHours(23, 59, 59, 999) >= Date.now());
+
+  const openCreateModal = async () => {
+    try {
+      setLoading(true);
+      const [contractsRes, servicesRes] = await Promise.all([contractAPI.getAll('', 1, 999), serviceAPI.getAll('', '', 1, 999)]);
+      const poolService = (servicesRes?.data || []).find((service) => service.ServiceName?.toLowerCase().includes('pool') || service.ServiceName?.toLowerCase().includes('bơi'));
+      if (!poolService) return flash('❌ Chưa có dịch vụ Hồ bơi. Vui lòng tạo dịch vụ trước.');
+      setContracts(contractsRes?.data || []); setPoolServiceId(poolService.ServiceID); setModalMode('create'); setSelectedMember(null);
+      setForm({ contractId: '', fullName: '', phone: '', email: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 1, totalVisits: 50 }); setModalOpen(true);
+    } catch { flash('❌ Không thể tải danh sách hợp đồng'); } finally { setLoading(false); }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    flash('✅ Đã lưu thông tin thành viên Hồ bơi!');
-    setModalOpen(false);
+    try {
+      if (modalMode === 'create') await serviceAPI.register({ contractId: parseInt(form.contractId), serviceId: poolServiceId, registerDate: form.startDate, endDate: form.endDate || null, quantity: parseInt(form.totalVisits) || 1 });
+      else await serviceAPI.updatePoolMember(selectedMember.id, form);
+      flash('✅ Đã lưu thông tin thành viên Hồ bơi!'); setModalOpen(false); await fetchPoolMembers();
+    } catch (error) { flash('❌ ' + (error.response?.data?.message || 'Không thể lưu thành viên Hồ bơi')); }
   };
 
   const filteredMembers = members.filter(m =>
-    m.fullName.toLowerCase().includes(search.toLowerCase()) ||
-    m.phone.includes(search)
+    (m.fullName || '').toLowerCase().includes(search.toLowerCase()) ||
+    (m.phone || '').includes(search)
   );
 
   const stats = {
     total: members.length,
-    active: members.filter(m => m.status === 1).length,
-    totalVisits: members.reduce((sum, m) => sum + m.visits, 0)
+    active: members.filter(isMemberActive).length,
+    totalVisits: members.reduce((sum, m) => sum + (m.visits || 0), 0)
   };
 
   return (
@@ -92,11 +102,11 @@ export default function PoolManagement({ flash }) {
               placeholder="Tìm thành viên..."
               className="w-48"
             />
-            <Button onClick={() => setModalOpen(true)}>
+            <Button onClick={openCreateModal} disabled={loading}>
               <Plus size={16} /> Thêm thành viên
             </Button>
-            <Button variant="secondary">
-              <RefreshCw size={16} />
+            <Button variant="secondary" onClick={fetchPoolMembers} disabled={loading}>
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
           </div>
         </div>
@@ -135,8 +145,8 @@ export default function PoolManagement({ flash }) {
                       <p className="text-sm text-slate-500">{member.phone}</p>
                     </div>
                   </div>
-                  <Badge tone={member.status === 1 ? 'green' : 'red'}>
-                    {member.status === 1 ? 'Hoạt động' : 'Hết hạn'}
+                  <Badge tone={isMemberActive(member) ? 'green' : 'red'}>
+                    {isMemberActive(member) ? 'Hoạt động' : 'Hết hạn'}
                   </Badge>
                 </div>
 
@@ -157,6 +167,7 @@ export default function PoolManagement({ flash }) {
 
                 <div className="mt-4 flex gap-2">
                   <Button variant="secondary" className="flex-1">Check-in</Button>
+                  <Button variant="secondary" onClick={() => { setSelectedMember(member); setModalMode('edit'); setForm({ ...member, startDate: member.startDate?.split('T')[0] || '', endDate: member.endDate?.split('T')[0] || '', totalVisits: member.totalVisits }); setModalOpen(true); }}><Edit size={14} /></Button>
                 </div>
               </div>
             </Card>
@@ -164,15 +175,24 @@ export default function PoolManagement({ flash }) {
         </div>
       )}
 
-      <Modal open={modalOpen} title="Thêm thành viên Hồ bơi" onClose={() => setModalOpen(false)}>
+      <Modal open={modalOpen} title={modalMode === 'create' ? 'Thêm thành viên Hồ bơi' : 'Cập nhật thành viên Hồ bơi'} onClose={() => setModalOpen(false)}>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {modalMode === 'create' && (
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-slate-700">Cư dân / hợp đồng *</label>
+              <select value={form.contractId || ''} required onChange={(e) => setForm({ ...form, contractId: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]">
+                <option value="">Chọn cư dân có hợp đồng</option>
+                {contracts.map((contract) => <option key={contract.ContractID} value={contract.ContractID}>{contract.OwnerName} — {contract.ApartmentCode}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Họ tên *</label>
             <Input
               value={form.fullName}
               onChange={(e) => setForm({ ...form, fullName: e.target.value })}
               placeholder="Nguyễn Văn A"
-              required
+              required={modalMode !== 'create'}
             />
           </div>
           <div>

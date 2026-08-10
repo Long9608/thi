@@ -27,7 +27,7 @@ export default function ContractList({ flash }) {
   const fetchContracts = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await contractAPI.getAll(statusFilter, page, 20);
+      const res = await contractAPI.getAll(statusFilter, page, 999);
       console.log('📊 Contracts:', res);
       
       if (res && res.data) {

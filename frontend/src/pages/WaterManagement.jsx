@@ -71,32 +71,42 @@ export default function WaterManagement({ flash }) {
     fetchApartments();
   }, [fetchReadings, fetchApartments]);
 
-  const handleSubmit = async (e) => {
+// src/pages/WaterManagement.jsx
+const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const data = {
-        apartmentId: parseInt(form.apartmentId),
-        utilityTypeId: 2,
-        readingMonth: parseInt(form.readingMonth),
-        readingYear: parseInt(form.readingYear),
-        oldIndex: parseFloat(form.oldIndex) || 0,
-        newIndex: parseFloat(form.newIndex),
-        readingDate: form.readingDate
-      };
+        const data = {
+            apartmentId: parseInt(form.apartmentId),
+            utilityTypeId: 2, // 🔥 ĐIỂM KHÁC DUY NHẤT: 2 cho nước
+            readingMonth: parseInt(form.readingMonth),
+            readingYear: parseInt(form.readingYear),
+            oldIndex: parseFloat(form.oldIndex) || 0,
+            newIndex: parseFloat(form.newIndex),
+            readingDate: form.readingDate
+        };
 
-      await utilityAPI.createReading(data);
-      if (flash) flash('✅ Thêm chỉ số nước thành công!');
-      setModalOpen(false);
-      resetForm();
-      fetchReadings();
+        const res = await utilityAPI.createReading(data);
+        console.log('📊 Create water reading response:', res);
+
+        if (res?.data?.invoiceId) {
+            const total = res.data.totalAmount || 0;
+            const msg = `✅ Thêm chỉ số nước thành công! Hóa đơn #${res.data.invoiceId} được tạo với tổng ${total.toLocaleString('vi-VN')} đ`;
+            if (flash) flash(msg);
+        } else {
+            if (flash) flash('✅ Thêm chỉ số nước thành công!');
+        }
+        setModalOpen(false);
+        resetForm();
+        fetchReadings();
     } catch (error) {
-      console.error('Submit error:', error);
-      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể thêm chỉ số nước'));
+        console.error('Submit error:', error);
+        const errMsg = error.response?.data?.message || error.message || 'Không thể thêm chỉ số nước';
+        if (flash) flash('❌ ' + errMsg);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   const resetForm = () => {
     setForm({

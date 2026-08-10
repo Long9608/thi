@@ -173,7 +173,7 @@ export const authAPI = {
 
 // ============ APARTMENT API ============
 export const apartmentAPI = {
-  getAll: (search = '', statusId = '', page = 1, limit = 20, buildingId = '', floorId = '') => {
+  getAll: (search = '', statusId = '', page = 1, limit = 999, buildingId = '', floorId = '') => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     if (statusId) params.set('statusId', statusId);
@@ -234,7 +234,7 @@ export const apartmentAPI = {
 
 // ============ CONTRACT API ============
 export const contractAPI = {
-  getAll: (statusId = '', page = 1, limit = 20) => {
+  getAll: (statusId = '', page = 1, limit = 999) => {
     const params = new URLSearchParams();
     if (statusId) params.set('statusId', statusId);
     params.set('page', page);
@@ -258,7 +258,7 @@ export const contractAPI = {
 
 // ============ INVOICE API ============
 export const invoiceAPI = {
-  getAll: (statusId = '', month = '', year = '', page = 1, limit = 20) => {
+  getAll: (statusId = '', month = '', year = '', page = 1, limit = 999) => {
     const params = new URLSearchParams();
     if (statusId) params.set('statusId', statusId);
     if (month) params.set('month', month);
@@ -286,7 +286,7 @@ export const invoiceAPI = {
 
 // ============ RESIDENT API ============
 export const residentAPI = {
-  getAll: (search = '', page = 1, limit = 20) => {
+  getAll: (search = '', page = 1, limit = 999) => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     params.set('page', page);
@@ -303,6 +303,9 @@ export const residentAPI = {
     body: JSON.stringify(data),
   }),
   delete: (id) => request(`/residents/${id}`, {
+    method: 'DELETE',
+  }),
+  permanentDelete: (id) => request(`/residents/${id}/permanent`, {
     method: 'DELETE',
   }),
   getBirthdays: (monthDay) => request(`/residents/birthdays?monthDay=${monthDay}`),
@@ -337,12 +340,31 @@ export const residentAPI = {
   getResidenceHistory: (residentId) => request(`/residents/${residentId}/residence-history`),
 };
 
+// ============ FEEDBACK API ============
+export const feedbackAPI = {
+  getAll: (search = '', rating = '', status = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (rating) params.set('rating', rating);
+    if (status) params.set('status', status);
+    params.set('page', page);
+    params.set('limit', limit);
+    return request(`/feedbacks?${params.toString()}`);
+  },
+  reply: (id, reply) => request(`/feedbacks/${id}/reply`, {
+    method: 'PUT',
+    body: JSON.stringify({ reply }),
+  }),
+};
+
 // ============ SERVICE API ============
 export const serviceAPI = {
-  getAll: (search = '', categoryId = '') => {
+  getAll: (search = '', categoryId = '', page = 1, limit = 999) => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     if (categoryId) params.set('categoryId', categoryId);
+    params.set('page', page);
+    params.set('limit', limit);
     return request(`/services?${params.toString()}`);
   },
   getById: (id) => request(`/services/${id}`),
@@ -365,11 +387,28 @@ export const serviceAPI = {
   unregister: (id) => request(`/services/unregister/${id}`, {
     method: 'PUT',
   }),
+  getGymMembers: (search = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams({ page, limit });
+    if (search) params.set('search', search);
+    return request(`/services/gym/members?${params.toString()}`);
+  },
+  updateGymMember: (id, data) => request(`/services/gym/members/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  getPoolMembers: (search = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams({ page, limit });
+    if (search) params.set('search', search);
+    return request(`/services/pool/members?${params.toString()}`);
+  },
+  updatePoolMember: (id, data) => request(`/services/pool/members/${id}`, {
+    method: 'PUT', body: JSON.stringify(data),
+  }),
 };
 
 // ============ TICKET API ============
 export const ticketAPI = {
-  getAll: (statusId = '', page = 1, limit = 20) => {
+  getAll: (statusId = '', page = 1, limit = 999) => {
     const params = new URLSearchParams();
     if (statusId) params.set('statusId', statusId);
     params.set('page', page);
@@ -407,7 +446,7 @@ export const vehicleAPI = {
    * @param {number} limit - Số lượng mỗi trang
    * @returns {Promise<{data: Array, pagination: Object}>}
    */
-  getAll: async (residentId = '', vehicleTypeId = '', status = '', page = 1, limit = 20) => {
+  getAll: async (residentId = '', vehicleTypeId = '', status = '', page = 1, limit = 999) => {
     try {
       const params = new URLSearchParams();
       if (residentId) params.set('residentId', residentId);
@@ -598,11 +637,21 @@ export const vehicleAPI = {
       throw error;
     }
   },
+
+  getParkingHistory: async () => {
+    try {
+      const response = await request('/vehicles/history');
+      return response;
+    } catch (error) {
+      console.error('❌ VehicleAPI.getParkingHistory error:', error);
+      throw error;
+    }
+  },
 };
 
 // ============ NOTIFICATION API ============
 export const notificationAPI = {
-  getAll: (isRead = '', page = 1, limit = 20) => {
+  getAll: (isRead = '', page = 1, limit = 999) => {
     const params = new URLSearchParams();
     if (isRead !== '') params.set('isRead', isRead);
     params.set('page', page);

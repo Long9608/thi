@@ -1,5 +1,5 @@
 // src/pages/ParkingHistory.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Clock, Search, Download, RefreshCw, Calendar,
@@ -7,6 +7,7 @@ import {
   CheckCircle2, X, Filter, Printer, FileText,
   AlertCircle, Home, Users, Eye
 } from 'lucide-react';
+import { vehicleAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDateTime, getInitials, timeAgo } from '../utils/formatters';
 
@@ -21,63 +22,35 @@ export default function ParkingHistory({ flash }) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Dữ liệu mẫu - sẽ kết nối với API sau
+  const fetchHistory = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await vehicleAPI.getParkingHistory();
+      const data = res?.data || res || [];
+      const normalized = Array.isArray(data) ? data.map(item => ({
+        id: item.CardID || item.SlotID || item.PlateNumber || Math.random(),
+        plateNumber: item.PlateNumber || item.PlateNumber || '',
+        ownerName: item.OwnerName || '',
+        vehicleType: item.VehicleType || '',
+        slotNumber: item.SlotNumber || '',
+        action: item.Action || (item.Status === 1 ? 'Vào' : 'Ra'),
+        timestamp: item.Timestamp || item.IssueDate || item.ExpiredDate || '',
+        status: item.Status === 1 ? 'completed' : 'pending'
+      })) : [];
+      setHistory(normalized);
+      setTotalPages(res?.pagination?.totalPages || 1);
+    } catch (error) {
+      console.error('Error fetching parking history:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải lịch sử bãi xe'));
+      setHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [flash]);
+
   useEffect(() => {
-    const mockData = [
-      {
-        id: 1,
-        plateNumber: '30H-123.45',
-        ownerName: 'Nguyễn Minh Anh',
-        vehicleType: 'Ô tô',
-        slotNumber: 'B1-021',
-        action: 'Vào',
-        timestamp: '2026-04-28 08:30:00',
-        status: 'completed'
-      },
-      {
-        id: 2,
-        plateNumber: '29X1-456.78',
-        ownerName: 'Lê Hoàng Yến',
-        vehicleType: 'Xe máy',
-        slotNumber: 'M-118',
-        action: 'Ra',
-        timestamp: '2026-04-28 07:15:00',
-        status: 'completed'
-      },
-      {
-        id: 3,
-        plateNumber: '30K-888.99',
-        ownerName: 'Trần Quốc Bảo',
-        vehicleType: 'Ô tô',
-        slotNumber: 'B2-015',
-        action: 'Vào',
-        timestamp: '2026-04-27 22:00:00',
-        status: 'pending'
-      },
-      {
-        id: 4,
-        plateNumber: '30H-123.45',
-        ownerName: 'Nguyễn Minh Anh',
-        vehicleType: 'Ô tô',
-        slotNumber: 'B1-021',
-        action: 'Ra',
-        timestamp: '2026-04-27 18:45:00',
-        status: 'completed'
-      },
-      {
-        id: 5,
-        plateNumber: '29X1-456.78',
-        ownerName: 'Lê Hoàng Yến',
-        vehicleType: 'Xe máy',
-        slotNumber: 'M-118',
-        action: 'Vào',
-        timestamp: '2026-04-27 14:20:00',
-        status: 'completed'
-      }
-    ];
-    setHistory(mockData);
-    setLoading(false);
-  }, []);
+    fetchHistory();
+  }, [fetchHistory]);
 
   const filteredHistory = useMemo(() => {
     let filtered = history;
@@ -138,12 +111,9 @@ export default function ParkingHistory({ flash }) {
     setModalOpen(true);
   };
 
-  const handleRefresh = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      if (flash) flash('✅ Đã làm mới dữ liệu');
-    }, 500);
+  const handleRefresh = async () => {
+    await fetchHistory();
+    if (flash) flash('✅ Đã làm mới dữ liệu');
   };
 
   return (

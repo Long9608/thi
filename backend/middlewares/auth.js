@@ -1,6 +1,7 @@
 // backend/middlewares/auth.js
 const jwt = require('jsonwebtoken');
 const { getPool, sql } = require('../config/db');
+const { derivePermissions } = require('../utils/permissionUtils');
 
 const authMiddleware = async (req, res, next) => {
     try {
@@ -63,7 +64,8 @@ const authMiddleware = async (req, res, next) => {
                 ORDER BY m.SortOrder, p.PermissionCode
             `);
 
-        const permissions = permResult.recordset ? permResult.recordset.map(p => p.PermissionCode) : [];
+        const rawPermissions = permResult.recordset ? permResult.recordset.map(p => p.PermissionCode) : [];
+        const permissions = derivePermissions(rawPermissions);
         const moduleCodes = [...new Set(permResult.recordset ? permResult.recordset.map(p => p.ModuleCode) : [])];
 
         req.user = {
@@ -142,4 +144,27 @@ const checkPermission = (permissionCode) => {
     };
 };
 
-module.exports = { authMiddleware, checkRole, checkPermission };
+const checkAnyPermission = (...permissionCodes) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Not authenticated' 
+            });
+        }
+
+        const permissions = req.user.Permissions || [];
+        const hasAny = permissionCodes.some(code => permissions.includes(code));
+
+        if (!hasAny) {
+            return res.status(403).json({ 
+                success: false, 
+                message: `Missing required permission: ${permissionCodes.join(' or ')}` 
+            });
+        }
+
+        next();
+    };
+};
+
+module.exports = { authMiddleware, checkRole, checkPermission, checkAnyPermission };

@@ -35,49 +35,36 @@ export default function ScheduleNotification({ flash }) {
     status: 'pending'
   });
 
-  // Dữ liệu mẫu cho lịch gửi
   useEffect(() => {
-    const mockData = [
-      {
-        id: 1,
-        title: 'Bảo trì thang máy Block A',
-        content: 'Ban quản lý thông báo thang máy Block A bảo trì từ 09:00 đến 11:00.',
-        targetScope: 'BUILDING',
-        scheduledDate: '2026-05-15 09:00:00',
-        endDate: '2026-05-15 11:00:00',
-        timezone: 'Asia/Ho_Chi_Minh',
-        status: 'sent',
-        recipientsCount: 45,
-        sentCount: 45
-      },
-      {
-        id: 2,
-        title: 'Họp cư dân thường niên 2026',
-        content: 'Họp thông qua kế hoạch cải tạo nâng cấp cảnh quan vườn treo khu B.',
-        targetScope: 'ALL',
-        scheduledDate: '2026-05-20 19:00:00',
-        endDate: '2026-05-20 21:00:00',
-        timezone: 'Asia/Ho_Chi_Minh',
-        status: 'pending',
-        recipientsCount: 120,
-        sentCount: 0
-      },
-      {
-        id: 3,
-        title: 'Thông báo lịch nghỉ lễ 30/4 - 1/5',
-        content: 'Văn phòng ban quản lý nghỉ lễ từ ngày 30/4 đến 1/5.',
-        targetScope: 'ALL',
-        scheduledDate: '2026-04-29 17:00:00',
-        endDate: '2026-04-29 18:00:00',
-        timezone: 'Asia/Ho_Chi_Minh',
-        status: 'sent',
-        recipientsCount: 120,
-        sentCount: 118
+    const fetchSchedules = async () => {
+      try {
+        setLoading(true);
+        const res = await notificationAPI.getAll('', 1, 999);
+        const data = res?.data || res || [];
+        const normalized = Array.isArray(data) ? data.map(item => ({
+          id: item.NotificationID,
+          title: item.Title,
+          content: item.Content,
+          targetScope: item.TargetScope,
+          scheduledDate: item.CreatedDate,
+          endDate: item.CreatedDate,
+          timezone: 'Asia/Ho_Chi_Minh',
+          status: 'sent',
+          recipientsCount: item.RecipientsCount || 0,
+          sentCount: item.RecipientsCount || 0
+        })) : [];
+        setSchedules(normalized);
+      } catch (error) {
+        console.error('Error fetching notification schedules:', error);
+        if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải lịch gửi thông báo'));
+        setSchedules([]);
+      } finally {
+        setLoading(false);
       }
-    ];
-    setSchedules(mockData);
-    setLoading(false);
-  }, []);
+    };
+
+    fetchSchedules();
+  }, [flash]);
 
   const filteredData = useMemo(() => {
     let filtered = schedules;
@@ -168,23 +155,44 @@ export default function ScheduleNotification({ flash }) {
     setModalOpen(true);
   };
 
-  const handleCreateSchedule = (e) => {
+  const handleCreateSchedule = async (e) => {
     e.preventDefault();
     if (!form.title || !form.content || !form.scheduledDate) {
       flash('⚠️ Vui lòng nhập đầy đủ thông tin');
       return;
     }
 
-    const newSchedule = {
-      id: schedules.length + 1,
-      ...form,
-      recipientsCount: 120,
-      sentCount: 0,
-      status: 'pending'
-    };
-    setSchedules([newSchedule, ...schedules]);
-    setModalOpen(false);
-    flash('✅ Đã tạo lịch gửi thông báo!');
+    try {
+      setLoading(true);
+      const payload = {
+        title: form.title,
+        content: form.content,
+        targetScope: form.targetScope,
+        targetUserIds: form.targetScope === 'USER' ? form.targetUserIds || [] : undefined,
+        targetBuildingIds: form.targetScope === 'BUILDING' ? form.targetBuildingIds || [] : undefined
+      };
+      const res = await notificationAPI.create(payload);
+      const newSchedule = {
+        id: res?.data?.notificationId || Date.now(),
+        title: form.title,
+        content: form.content,
+        targetScope: form.targetScope,
+        scheduledDate: new Date().toISOString(),
+        endDate: form.endDate || form.scheduledDate,
+        timezone: form.timezone,
+        status: 'sent',
+        recipientsCount: res?.data?.recipientsCount || 0,
+        sentCount: res?.data?.recipientsCount || 0
+      };
+      setSchedules([newSchedule, ...schedules]);
+      setModalOpen(false);
+      flash('✅ Đã tạo lịch gửi thông báo!');
+    } catch (error) {
+      console.error('Create schedule error:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tạo lịch gửi'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

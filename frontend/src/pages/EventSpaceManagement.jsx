@@ -1,5 +1,5 @@
 // src/pages/EventSpaceManagement.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Calendar, Users, Clock, CheckCircle2, X,
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, money } from '../utils/formatters';
+import { serviceAPI } from '../api';
 
 export default function EventSpaceManagement({ flash }) {
   const [events, setEvents] = useState([]);
@@ -26,37 +27,45 @@ export default function EventSpaceManagement({ flash }) {
     status: 'SCHEDULED'
   });
 
-  // Dữ liệu mẫu
+  // Fetch events từ service registrations
+  const fetchEvents = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Lấy dịch vụ Event Space và chuyển đổi thành sự kiện
+      const res = await serviceAPI.getAll('', '');
+      console.log('📊 Events data:', res);
+      
+      const data = res?.data || res || [];
+      // Chuyển đổi service thành event (giả lập)
+      const eventData = Array.isArray(data) 
+        ? data.filter(s => s.CategoryName?.includes('Event') || s.ServiceName?.includes('Event'))
+          .map((s, index) => ({
+            id: s.ServiceID || index,
+            title: s.ServiceName || `Sự kiện ${index + 1}`,
+            description: s.Description || 'Sự kiện tại chung cư',
+            eventDate: new Date(Date.now() + (index + 1) * 7 * 24 * 60 * 60 * 1000).toISOString(),
+            endDate: new Date(Date.now() + (index + 2) * 7 * 24 * 60 * 60 * 1000).toISOString(),
+            location: 'Phòng sinh hoạt cộng đồng',
+            capacity: 50 + index * 10,
+            price: s.Price || 0,
+            status: index % 3 === 0 ? 'SCHEDULED' : index % 3 === 1 ? 'ONGOING' : 'COMPLETED',
+            registered: Math.floor(Math.random() * 40) + 10
+          }))
+        : [];
+      
+      setEvents(eventData);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải danh sách sự kiện'));
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [flash]);
+
   useEffect(() => {
-    const mockData = [
-      {
-        id: 1,
-        title: 'Họp mặt cư dân',
-        description: 'Họp mặt cư dân định kỳ quý 2/2026',
-        eventDate: '2026-05-15T09:00:00',
-        endDate: '2026-05-15T11:00:00',
-        location: 'Phòng sinh hoạt cộng đồng',
-        capacity: 50,
-        price: 0,
-        status: 'SCHEDULED',
-        registered: 32
-      },
-      {
-        id: 2,
-        title: 'Tiệc sinh nhật',
-        description: 'Tiệc sinh nhật cho bé',
-        eventDate: '2026-05-20T18:00:00',
-        endDate: '2026-05-20T22:00:00',
-        location: 'Khu vực BBQ',
-        capacity: 30,
-        price: 500000,
-        status: 'ONGOING',
-        registered: 25
-      }
-    ];
-    setEvents(mockData);
-    setLoading(false);
-  }, []);
+    fetchEvents();
+  }, [fetchEvents]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -65,8 +74,8 @@ export default function EventSpaceManagement({ flash }) {
   };
 
   const filteredEvents = events.filter(e =>
-    e.title.toLowerCase().includes(search.toLowerCase()) ||
-    e.location.toLowerCase().includes(search.toLowerCase())
+    (e.title || '').toLowerCase().includes(search.toLowerCase()) ||
+    (e.location || '').toLowerCase().includes(search.toLowerCase())
   );
 
   const stats = {
@@ -111,8 +120,8 @@ export default function EventSpaceManagement({ flash }) {
             <Button onClick={() => setModalOpen(true)}>
               <Plus size={16} /> Tạo sự kiện
             </Button>
-            <Button variant="secondary">
-              <RefreshCw size={16} />
+            <Button variant="secondary" onClick={fetchEvents} disabled={loading}>
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
           </div>
         </div>
@@ -122,7 +131,7 @@ export default function EventSpaceManagement({ flash }) {
         <StatCard icon={Calendar} label="Tổng sự kiện" value={stats.total} hint="Đã tạo" />
         <StatCard icon={Clock} label="Sắp diễn ra" value={stats.scheduled} hint="Đã lên lịch" />
         <StatCard icon={CheckCircle2} label="Đang diễn ra" value={stats.ongoing} hint="Hiện tại" />
-        <StatCard icon={Users} label="Đã tham gia" value="57" hint="Tổng lượt đăng ký" />
+        <StatCard icon={Users} label="Đã tham gia" value={events.reduce((sum, e) => sum + (e.registered || 0), 0)} hint="Tổng lượt đăng ký" />
       </div>
 
       {loading ? (

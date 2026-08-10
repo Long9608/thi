@@ -798,6 +798,93 @@ exports.deleteResident = async (req, res) => {
     }
 };
 
+// Xóa cư dân vĩnh viễn (hard delete)
+exports.permanentDeleteResident = async (req, res) => {
+    let transaction;
+    try {
+        const { id } = req.params;
+        const pool = await getPool();
+
+        const checkResult = await pool.request()
+            .input('ResidentID', sql.Int, id)
+            .query('SELECT ResidentID FROM Resident WHERE ResidentID = @ResidentID');
+
+        if (!checkResult.recordset[0]) {
+            return res.status(404).json({
+                success: false,
+                message: 'Resident not found'
+            });
+        }
+
+        const contractOwnerCheck = await pool.request()
+            .input('ResidentID', sql.Int, id)
+            .query('SELECT TOP 1 ContractID FROM Contract WHERE OwnerID = @ResidentID');
+
+        if (contractOwnerCheck.recordset[0]) {
+            return res.status(400).json({
+                success: false,
+                message: 'Resident cannot be permanently deleted because they are listed as a contract owner'
+            });
+        }
+
+        const userResult = await pool.request()
+            .input('ResidentID', sql.Int, id)
+            .query('SELECT UserID FROM Resident WHERE ResidentID = @ResidentID');
+
+        const userId = userResult.recordset[0]?.UserID || null;
+
+        transaction = new sql.Transaction(pool);
+        await transaction.begin();
+        const txRequest = transaction.request();
+        txRequest.input('ResidentID', sql.Int, id);
+        if (userId) {
+            txRequest.input('UserID', sql.Int, userId);
+        }
+
+        await txRequest.query(`
+            DELETE FROM MaintenanceRequest WHERE ResidentID = @ResidentID;
+            DELETE FROM Feedback WHERE ResidentID = @ResidentID;
+            DELETE FROM ContractResident WHERE ResidentID = @ResidentID;
+            DELETE FROM Vehicle WHERE ResidentID = @ResidentID;
+            ${userId ? 'DELETE FROM UserRole WHERE UserID = @UserID; DELETE FROM Users WHERE UserID = @UserID;' : ''}
+            DELETE FROM Resident WHERE ResidentID = @ResidentID;
+        `);
+
+        await transaction.commit();
+
+        await pool.request()
+            .input('UserID', sql.Int, req.userId || null)
+            .input('Action', sql.VarChar, 'DELETE')
+            .input('TableName', sql.VarChar, 'Resident')
+            .input('RecordID', sql.Int, id)
+            .input('IPAddress', sql.VarChar, req.ip || req.connection.remoteAddress)
+            .query(`
+                INSERT INTO AuditLog (UserID, Action, TableName, RecordID, Timestamp, IPAddress)
+                VALUES (@UserID, @Action, @TableName, @RecordID, GETDATE(), @IPAddress)
+            `);
+
+        res.json({
+            success: true,
+            message: 'Resident permanently deleted successfully'
+        });
+
+    } catch (error) {
+        if (transaction) {
+            try {
+                await transaction.rollback();
+            } catch (rollbackError) {
+                console.error('Rollback error:', rollbackError);
+            }
+        }
+        console.error('Permanent delete resident error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to permanently delete resident',
+            error: error.message
+        });
+    }
+};
+
 // Lấy cư dân theo ngày sinh
 exports.getResidentsByBirthday = async (req, res) => {
     try {
@@ -820,7 +907,7 @@ exports.getResidentsByBirthday = async (req, res) => {
                     r.FullName,
                     r.BirthDate,
                     r.Phone,
-                    r.Email,
+                    r.Email,s
                     r.Address,
                     a.ApartmentCode,
                     b.BuildingName

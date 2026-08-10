@@ -2,15 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Info, Server, Database, Clock, Shield,
-  CheckCircle2, AlertCircle, RefreshCw,
-  HardDrive, Cpu, Globe, Lock, Users,
-  Building2, FileText, CreditCard, Wrench,
-  Activity, BarChart3, PieChart,
-  Car, Bell  // ✅ THÊM Car VÀ Bell
+  Info, Server, Database, Clock,
+  RefreshCw, Activity, BarChart3,
+  PieChart, Bell
 } from 'lucide-react';
 import { Card, Button, Badge, StatCard } from '../components/UI';
 import { formatDate } from '../utils/formatters';
+import { userAPI } from '../api';
 
 export default function SystemInfo({ flash }) {
   const [loading, setLoading] = useState(true);
@@ -24,62 +22,59 @@ export default function SystemInfo({ flash }) {
   const fetchSystemInfo = async () => {
     try {
       setLoading(true);
-      
-      // Giả lập dữ liệu hệ thống
-      const mockSystemInfo = {
-        name: 'Đức Vũ Tower - Property Management System',
-        version: '2.0.0',
-        build: '2026.07.26.001',
-        environment: 'Production',
+
+      const response = await userAPI.getSystemInfo();
+      const data = response?.data || response;
+
+      setSystemInfo({
+        name: data.systemName || 'Hệ thống quản lý',
+        version: data.version || data.nodeVersion || 'N/A',
+        build: data.build || 'N/A',
+        environment: data.environment || 'Production',
         server: {
-          node: 'v18.17.0',
-          express: '4.18.2',
-          database: 'SQL Server 2022',
-          os: 'Windows Server 2022',
-          uptime: '15 ngày 7 giờ 32 phút'
+          node: data.nodeVersion || 'N/A',
+          express: data.expressVersion || 'N/A',
+          database: data.databaseVersion || 'SQL Server',
+          os: data.operatingSystem || 'N/A',
+          uptime: data.serverUptime || 'N/A'
         },
         database: {
-          name: 'ApartmentManagement',
-          size: '256 MB',
-          tables: 28,
-          records: 1524,
-          lastBackup: '2026-07-25 02:00:00'
+          name: data.databaseName || 'N/A',
+          size: data.databaseSize || 'N/A',
+          tables: data.tableCount || 0,
+          records: data.recordCount || 0,
+          lastBackup: data.lastBackup || null
         },
         features: {
-          apartments: 150,
-          residents: 248,
-          contracts: 45,
-          invoices: 320,
-          services: 12,
-          tickets: 56,
-          vehicles: 89,
-          notifications: 125
+          apartments: data.apartmentsCount || 0,
+          residents: data.residentsCount || 0,
+          contracts: data.contractsCount || 0,
+          invoices: data.invoicesCount || 0,
+          services: data.servicesCount || 0,
+          tickets: data.ticketsCount || 0,
+          vehicles: data.vehiclesCount || 0,
+          notifications: data.notificationsCount || 0
         },
         status: {
-          database: 'Connected',
-          api: 'Running',
-          storage: 'Healthy',
-          cache: 'Active'
+          database: data.databaseStatus || 'Connected',
+          api: data.apiStatus || 'Running',
+          storage: data.storageStatus || 'Healthy',
+          cache: data.cacheStatus || 'Active'
         },
-        lastMaintenance: '2026-07-20 03:00:00',
-        nextMaintenance: '2026-08-20 03:00:00'
-      };
-      
-      setSystemInfo(mockSystemInfo);
-      
-      // Giả lập thống kê
-      const mockStats = {
-        totalUsers: 15,
-        activeUsers: 12,
-        totalModules: 13,
-        activeModules: 13,
-        totalPermissions: 45,
-        apiCalls: 2847,
-        errors: 23,
-        responseTime: '142ms'
-      };
-      setStats(mockStats);
-      
+        lastMaintenance: data.lastMaintenance || null,
+        nextMaintenance: data.nextMaintenance || null
+      });
+
+      setStats({
+        totalUsers: data.totalUsers || 0,
+        activeUsers: data.activeUsers || 0,
+        totalModules: data.totalModules || 0,
+        activeModules: data.activeModules || 0,
+        totalPermissions: data.totalPermissions || 0,
+        apiCalls: data.apiCalls || 0,
+        errors: data.errors || 0,
+        responseTime: data.responseTime || 'N/A'
+      });
     } catch (error) {
       console.error('Error fetching system info:', error);
       if (flash) flash('❌ Không thể tải thông tin hệ thống');

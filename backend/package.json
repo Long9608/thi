@@ -5,6 +5,7 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
+    "migrate:meter-reading-permission": "node scripts/runMeterReadingPermissionMigration.js",
     "start": "node server.js",
     "dev": "nodemon server.js"
   },

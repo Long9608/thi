@@ -1,3 +1,4 @@
+// backend/controllers/utilityController.js
 const { getPool, sql } = require('../config/db');
 
 exports.getUtilityTypes = async (req, res) => {
@@ -70,8 +71,9 @@ exports.getPriceTiers = async (req, res) => {
 };
 
 exports.createMeterReading = async (req, res) => {
+    let transaction;
     try {
-        const { 
+        const {
             apartmentId,
             utilityTypeId,
             readingMonth,
@@ -84,45 +86,27 @@ exports.createMeterReading = async (req, res) => {
         if (!apartmentId || !utilityTypeId || !readingMonth || !readingYear || newIndex === undefined) {
             return res.status(400).json({
                 success: false,
-                message: 'Missing required fields'
+                message: 'Missing required fields: apartmentId, utilityTypeId, readingMonth, readingYear, newIndex'
+            });
+        }
+
+        const parsedNew = parseFloat(newIndex);
+        const parsedOld = parseFloat(oldIndex) || 0;
+        if (parsedNew < parsedOld) {
+            return res.status(400).json({
+                success: false,
+                message: 'New index must be >= old index'
             });
         }
 
         const pool = await getPool();
+        transaction = new sql.Transaction(pool);
+        await transaction.begin();
 
-        // Check if reading already exists for this period
-        const checkResult = await pool.request()
-            .input('ApartmentID', sql.Int, apartmentId)
-            .input('UtilityTypeID', sql.Int, utilityTypeId)
-            .input('ReadingMonth', sql.Int, readingMonth)
-            .input('ReadingYear', sql.Int, readingYear)
-            .query(`
-                SELECT ReadingID 
-                FROM MeterReading 
-                WHERE ApartmentID = @ApartmentID 
-                    AND UtilityTypeID = @UtilityTypeID 
-                    AND ReadingMonth = @ReadingMonth 
-                    AND ReadingYear = @ReadingYear
-            `);
-
-        if (checkResult.recordset[0]) {
-            return res.status(400).json({
-                success: false,
-                message: 'Meter reading already exists for this period'
-            });
-        }
-
-        // Get employee ID
-        const employeeResult = await pool.request()
-            .input('UserID', sql.Int, req.userId)
-            .query('SELECT EmployeeID FROM Employee WHERE UserID = @UserID');
-
-        const employeeId = employeeResult.recordset[0]?.EmployeeID || null;
-
-        // Get previous reading if not provided
-        let previousReading = oldIndex;
-        if (previousReading === undefined) {
-            const prevResult = await pool.request()
+        // 1. Lấy chỉ số cũ
+        let previousReading = parsedOld;
+        if (oldIndex === undefined || oldIndex === null) {
+            const prevResult = await transaction.request()
                 .input('ApartmentID', sql.Int, apartmentId)
                 .input('UtilityTypeID', sql.Int, utilityTypeId)
                 .query(`
@@ -135,14 +119,48 @@ exports.createMeterReading = async (req, res) => {
             previousReading = prevResult.recordset[0]?.LastIndex || 0;
         }
 
-        const result = await pool.request()
+        // 2. Kiểm tra trùng
+        const checkReading = await transaction.request()
+            .input('ApartmentID', sql.Int, apartmentId)
+            .input('UtilityTypeID', sql.Int, utilityTypeId)
+            .input('ReadingMonth', sql.Int, readingMonth)
+            .input('ReadingYear', sql.Int, readingYear)
+            .query(`
+                SELECT ReadingID FROM MeterReading 
+                WHERE ApartmentID = @ApartmentID 
+                    AND UtilityTypeID = @UtilityTypeID 
+                    AND ReadingMonth = @ReadingMonth 
+                    AND ReadingYear = @ReadingYear
+            `);
+
+        if (checkReading.recordset[0]) {
+            await transaction.rollback();
+            return res.status(400).json({
+                success: false,
+                message: 'Meter reading for this period already exists'
+            });
+        }
+
+        // 3. Lấy EmployeeID
+        let employeeId = null;
+        if (req.userId) {
+            const empResult = await transaction.request()
+                .input('UserID', sql.Int, req.userId)
+                .query('SELECT EmployeeID FROM Employee WHERE UserID = @UserID');
+            if (empResult.recordset[0]) {
+                employeeId = empResult.recordset[0].EmployeeID;
+            }
+        }
+
+        // 4. Insert MeterReading
+        const insertReading = await transaction.request()
             .input('ApartmentID', sql.Int, apartmentId)
             .input('EmployeeID', sql.Int, employeeId)
             .input('UtilityTypeID', sql.Int, utilityTypeId)
             .input('ReadingMonth', sql.Int, readingMonth)
             .input('ReadingYear', sql.Int, readingYear)
             .input('OldIndex', sql.Decimal, previousReading)
-            .input('NewIndex', sql.Decimal, newIndex)
+            .input('NewIndex', sql.Decimal, parsedNew)
             .input('ReadingDate', sql.Date, readingDate || new Date())
             .query(`
                 INSERT INTO MeterReading (
@@ -156,18 +174,172 @@ exports.createMeterReading = async (req, res) => {
                 )
             `);
 
-        const readingId = result.recordset[0].ReadingID;
+        const readingId = insertReading.recordset[0].ReadingID;
+        const consumption = parsedNew - previousReading;
+
+        let invoiceId = null;
+        let totalAmount = 0;
+
+        // 5. Tạo hóa đơn nếu consumption > 0 và có hợp đồng hiệu lực
+        if (consumption > 0) {
+            const contractRes = await transaction.request()
+                .input('ApartmentID', sql.Int, apartmentId)
+                .query(`
+                    SELECT TOP 1 ContractID, Rent
+                    FROM Contract
+                    WHERE ApartmentID = @ApartmentID AND StatusID = 2
+                    ORDER BY StartDate DESC
+                `);
+
+            const contract = contractRes.recordset[0];
+            if (contract) {
+                // Kiểm tra hóa đơn đã tồn tại
+                const checkInvoice = await transaction.request()
+                    .input('ContractID', sql.Int, contract.ContractID)
+                    .input('InvoiceMonth', sql.Int, readingMonth)
+                    .input('InvoiceYear', sql.Int, readingYear)
+                    .query(`
+                        SELECT InvoiceID FROM Invoice 
+                        WHERE ContractID = @ContractID 
+                            AND InvoiceMonth = @InvoiceMonth 
+                            AND InvoiceYear = @InvoiceYear
+                    `);
+
+                if (!checkInvoice.recordset[0]) {
+                    // Lấy bảng giá
+                    const priceTiers = await transaction.request()
+                        .input('UtilityTypeID', sql.Int, utilityTypeId)
+                        .query(`
+                            SELECT PriceTierID, FromValue, ToValue, UnitPrice
+                            FROM UtilityPriceTier
+                            WHERE UtilityTypeID = @UtilityTypeID
+                                AND EffectiveDate = (
+                                    SELECT MAX(EffectiveDate) 
+                                    FROM UtilityPriceTier 
+                                    WHERE UtilityTypeID = @UtilityTypeID
+                                )
+                            ORDER BY FromValue
+                        `);
+
+                    const details = [];
+                    let remaining = consumption;
+
+                    if (priceTiers.recordset.length === 0) {
+                        // Fallback: giá mặc định
+                        details.push({
+                            chargeType: utilityTypeId === 1 ? 'ELECTRIC' : 'WATER',
+                            description: utilityTypeId === 1 ? 'Tiền điện' : 'Tiền nước',
+                            quantity: remaining,
+                            unitPrice: 0.5,
+                            amount: remaining * 0.5
+                        });
+                    } else {
+                        for (const tier of priceTiers.recordset) {
+                            if (remaining <= 0) break;
+                            const from = parseFloat(tier.FromValue);
+                            const to = tier.ToValue !== null ? parseFloat(tier.ToValue) : Infinity;
+                            const unitPrice = parseFloat(tier.UnitPrice);
+                            let qty = 0;
+                            if (to === Infinity) {
+                                qty = remaining;
+                            } else {
+                                const limit = to - from;
+                                if (remaining > limit) {
+                                    qty = limit;
+                                } else {
+                                    qty = remaining;
+                                }
+                            }
+                            if (qty > 0) {
+                                details.push({
+                                    chargeType: utilityTypeId === 1 ? 'ELECTRIC' : 'WATER',
+                                    description: utilityTypeId === 1 
+                                        ? `Tiền điện bậc ${tier.PriceTierID}` 
+                                        : `Tiền nước bậc ${tier.PriceTierID}`,
+                                    quantity: qty,
+                                    unitPrice: unitPrice,
+                                    amount: qty * unitPrice
+                                });
+                                remaining -= qty;
+                            }
+                        }
+                    }
+
+                    if (details.length > 0) {
+                        totalAmount = details.reduce((sum, d) => sum + d.amount, 0);
+
+                        const invoiceDate = new Date();
+                        const dueDate = new Date(invoiceDate);
+                        dueDate.setDate(dueDate.getDate() + 30);
+
+                        const invoiceType = utilityTypeId === 1 ? 'ELECTRIC' : 'WATER';
+
+                        const insertInvoice = await transaction.request()
+                            .input('ContractID', sql.Int, contract.ContractID)
+                            .input('InvoiceMonth', sql.Int, readingMonth)
+                            .input('InvoiceYear', sql.Int, readingYear)
+                            .input('InvoiceDate', sql.Date, invoiceDate)
+                            .input('DueDate', sql.Date, dueDate)
+                            .input('TotalAmount', sql.Decimal, totalAmount)
+                            .input('StatusID', sql.Int, 1)
+                            .input('InvoiceType', sql.VarChar, invoiceType)
+                            .query(`
+                                INSERT INTO Invoice (
+                                    ContractID, InvoiceMonth, InvoiceYear, 
+                                    InvoiceDate, DueDate, TotalAmount, StatusID, InvoiceType
+                                )
+                                OUTPUT INSERTED.InvoiceID
+                                VALUES (
+                                    @ContractID, @InvoiceMonth, @InvoiceYear,
+                                    @InvoiceDate, @DueDate, @TotalAmount, @StatusID, @InvoiceType
+                                )
+                            `);
+
+                        invoiceId = insertInvoice.recordset[0].InvoiceID;
+
+                        for (const detail of details) {
+                            await transaction.request()
+                                .input('InvoiceID', sql.Int, invoiceId)
+                                .input('ChargeType', sql.VarChar, detail.chargeType)
+                                .input('Description', sql.NVarChar, detail.description)
+                                .input('Quantity', sql.Decimal, detail.quantity)
+                                .input('UnitPrice', sql.Decimal, detail.unitPrice)
+                                .input('Amount', sql.Decimal, detail.amount)
+                                .query(`
+                                    INSERT INTO InvoiceDetail (
+                                        InvoiceID, ChargeType, Description, Quantity, UnitPrice, Amount
+                                    )
+                                    VALUES (
+                                        @InvoiceID, @ChargeType, @Description, @Quantity, @UnitPrice, @Amount
+                                    )
+                                `);
+                        }
+                    }
+                }
+            }
+        }
+
+        await transaction.commit();
 
         res.status(201).json({
             success: true,
-            message: 'Meter reading created successfully',
-            data: { 
+            message: invoiceId ? 'Meter reading created and invoice generated' : 'Meter reading created successfully',
+            data: {
                 readingId,
-                consumption: newIndex - previousReading
+                consumption,
+                invoiceId,
+                totalAmount
             }
         });
 
     } catch (error) {
+        if (transaction) {
+            try {
+                await transaction.rollback();
+            } catch (rollbackError) {
+                console.error('Rollback error:', rollbackError);
+            }
+        }
         console.error('Create meter reading error:', error);
         res.status(500).json({
             success: false,

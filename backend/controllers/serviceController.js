@@ -442,3 +442,120 @@ exports.unregisterService = async (req, res) => {
         });
     }
 };
+
+exports.getGymMembers = async (req, res) => {
+    try {
+        const { search = '', page = 1, limit = 999 } = req.query;
+        const pool = await getPool();
+        const offset = (Math.max(parseInt(page) || 1, 1) - 1) * Math.min(Math.max(parseInt(limit) || 999, 1), 999);
+        const pageSize = Math.min(Math.max(parseInt(limit) || 999, 1), 999);
+        const request = pool.request()
+            .input('Search', sql.NVarChar, `%${search}%`)
+            .input('Offset', sql.Int, offset)
+            .input('Limit', sql.Int, pageSize);
+        const where = `
+            WHERE LOWER(s.ServiceName) LIKE '%gym%'
+              AND (@Search = '%%' OR r.FullName LIKE @Search OR r.Phone LIKE @Search OR r.Email LIKE @Search)
+        `;
+        const countResult = await request.query(`
+            SELECT COUNT(*) AS total
+            FROM ServiceRegistration sr
+            JOIN Service s ON s.ServiceID = sr.ServiceID
+            JOIN Contract c ON c.ContractID = sr.ContractID
+            JOIN Resident r ON r.ResidentID = c.OwnerID
+            ${where}
+        `);
+        const result = await request.query(`
+            SELECT sr.RegistrationID, sr.ContractID, sr.RegisterDate AS StartDate, sr.EndDate,
+                   sr.Quantity AS TotalCheckIns, sr.Status AS RegistrationStatus,
+                   r.ResidentID, r.FullName, r.Phone, r.Email, a.ApartmentCode,
+                   CAST(0 AS INT) AS CheckIns
+            FROM ServiceRegistration sr
+            JOIN Service s ON s.ServiceID = sr.ServiceID
+            JOIN Contract c ON c.ContractID = sr.ContractID
+            JOIN Resident r ON r.ResidentID = c.OwnerID
+            LEFT JOIN Apartment a ON a.ApartmentID = c.ApartmentID
+            ${where}
+            ORDER BY sr.RegisterDate DESC, sr.RegistrationID DESC
+            OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY
+        `);
+        res.json({ success: true, data: result.recordset, pagination: { total: countResult.recordset[0].total, page: parseInt(page), limit: pageSize } });
+    } catch (error) {
+        console.error('Get gym members error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch gym members' });
+    }
+};
+
+exports.updateGymMember = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { fullName, phone, email, startDate, endDate, status, totalCheckIns } = req.body;
+        if (!fullName || !startDate || (endDate && new Date(endDate) < new Date(startDate))) {
+            return res.status(400).json({ success: false, message: 'Thông tin thành viên hoặc thời hạn đăng ký không hợp lệ' });
+        }
+        const pool = await getPool();
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+        try {
+            const registration = await new sql.Request(transaction).input('RegistrationID', sql.Int, id).query(`
+                SELECT sr.RegistrationID, c.OwnerID
+                FROM ServiceRegistration sr
+                JOIN Service s ON s.ServiceID = sr.ServiceID
+                JOIN Contract c ON c.ContractID = sr.ContractID
+                WHERE sr.RegistrationID = @RegistrationID AND LOWER(s.ServiceName) LIKE '%gym%'
+            `);
+            if (!registration.recordset[0]) {
+                await transaction.rollback();
+                return res.status(404).json({ success: false, message: 'Không tìm thấy thành viên Gym' });
+            }
+            const residentId = registration.recordset[0].OwnerID;
+            await new sql.Request(transaction)
+                .input('ResidentID', sql.Int, residentId).input('FullName', sql.NVarChar, fullName)
+                .input('Phone', sql.VarChar, phone || null).input('Email', sql.VarChar, email || null)
+                .query('UPDATE Resident SET FullName = @FullName, Phone = @Phone, Email = @Email WHERE ResidentID = @ResidentID');
+            await new sql.Request(transaction)
+                .input('RegistrationID', sql.Int, id).input('StartDate', sql.Date, startDate)
+                .input('EndDate', sql.Date, endDate || null).input('Status', sql.Bit, status ? 1 : 0)
+                .input('Quantity', sql.Int, Math.max(parseInt(totalCheckIns) || 1, 1))
+                .query('UPDATE ServiceRegistration SET RegisterDate = @StartDate, EndDate = @EndDate, Status = @Status, Quantity = @Quantity WHERE RegistrationID = @RegistrationID');
+            await transaction.commit();
+            res.json({ success: true, message: 'Cập nhật thành viên Gym thành công' });
+        } catch (error) { await transaction.rollback(); throw error; }
+    } catch (error) {
+        console.error('Update gym member error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update gym member' });
+    }
+};
+
+async function getSpecialServiceMembers(req, res, servicePattern) {
+    try {
+        const { search = '', page = 1, limit = 999 } = req.query;
+        const pageSize = Math.min(Math.max(parseInt(limit) || 999, 1), 999);
+        const offset = (Math.max(parseInt(page) || 1, 1) - 1) * pageSize;
+        const request = (await getPool()).request().input('Search', sql.NVarChar, `%${search}%`).input('Offset', sql.Int, offset).input('Limit', sql.Int, pageSize);
+        const where = `WHERE LOWER(s.ServiceName) LIKE @ServicePattern AND (@Search = '%%' OR r.FullName LIKE @Search OR r.Phone LIKE @Search OR r.Email LIKE @Search)`;
+        request.input('ServicePattern', sql.NVarChar, servicePattern);
+        const count = await request.query(`SELECT COUNT(*) AS total FROM ServiceRegistration sr JOIN Service s ON s.ServiceID = sr.ServiceID JOIN Contract c ON c.ContractID = sr.ContractID JOIN Resident r ON r.ResidentID = c.OwnerID ${where}`);
+        const result = await request.query(`SELECT sr.RegistrationID, sr.RegisterDate AS StartDate, sr.EndDate, sr.Quantity AS TotalVisits, sr.Status AS RegistrationStatus, r.FullName, r.Phone, r.Email, a.ApartmentCode, CAST(0 AS INT) AS Visits FROM ServiceRegistration sr JOIN Service s ON s.ServiceID = sr.ServiceID JOIN Contract c ON c.ContractID = sr.ContractID JOIN Resident r ON r.ResidentID = c.OwnerID LEFT JOIN Apartment a ON a.ApartmentID = c.ApartmentID ${where} ORDER BY sr.RegisterDate DESC, sr.RegistrationID DESC OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY`);
+        res.json({ success: true, data: result.recordset, pagination: { total: count.recordset[0].total, page: parseInt(page), limit: pageSize } });
+    } catch (error) { console.error('Get special-service members error:', error); res.status(500).json({ success: false, message: 'Failed to fetch service members' }); }
+}
+
+async function updateSpecialServiceMember(req, res, servicePattern) {
+    try {
+        const { id } = req.params;
+        const { fullName, phone, email, startDate, endDate, status, totalVisits } = req.body;
+        if (!fullName || !startDate || (endDate && new Date(endDate) < new Date(startDate))) return res.status(400).json({ success: false, message: 'Thông tin thành viên hoặc thời hạn đăng ký không hợp lệ' });
+        const pool = await getPool(), transaction = new sql.Transaction(pool); await transaction.begin();
+        try {
+            const registration = await new sql.Request(transaction).input('RegistrationID', sql.Int, id).input('ServicePattern', sql.NVarChar, servicePattern).query(`SELECT c.OwnerID FROM ServiceRegistration sr JOIN Service s ON s.ServiceID = sr.ServiceID JOIN Contract c ON c.ContractID = sr.ContractID WHERE sr.RegistrationID = @RegistrationID AND LOWER(s.ServiceName) LIKE @ServicePattern`);
+            if (!registration.recordset[0]) { await transaction.rollback(); return res.status(404).json({ success: false, message: 'Không tìm thấy thành viên dịch vụ' }); }
+            await new sql.Request(transaction).input('ResidentID', sql.Int, registration.recordset[0].OwnerID).input('FullName', sql.NVarChar, fullName).input('Phone', sql.VarChar, phone || null).input('Email', sql.VarChar, email || null).query('UPDATE Resident SET FullName=@FullName, Phone=@Phone, Email=@Email WHERE ResidentID=@ResidentID');
+            await new sql.Request(transaction).input('RegistrationID', sql.Int, id).input('StartDate', sql.Date, startDate).input('EndDate', sql.Date, endDate || null).input('Status', sql.Bit, status ? 1 : 0).input('Quantity', sql.Int, Math.max(parseInt(totalVisits) || 1, 1)).query('UPDATE ServiceRegistration SET RegisterDate=@StartDate, EndDate=@EndDate, Status=@Status, Quantity=@Quantity WHERE RegistrationID=@RegistrationID');
+            await transaction.commit(); res.json({ success: true, message: 'Cập nhật thành viên thành công' });
+        } catch (error) { await transaction.rollback(); throw error; }
+    } catch (error) { console.error('Update special-service member error:', error); res.status(500).json({ success: false, message: 'Failed to update service member' }); }
+}
+
+exports.getPoolMembers = (req, res) => getSpecialServiceMembers(req, res, '%bơi%');
+exports.updatePoolMember = (req, res) => updateSpecialServiceMember(req, res, '%bơi%');

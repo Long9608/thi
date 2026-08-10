@@ -47,6 +47,7 @@ router.get('/:id', authMiddleware, checkPermission('RESIDENT_VIEW'), residentCon
 router.post('/', authMiddleware, checkPermission('RESIDENT_CREATE'), residentController.createResident);
 router.put('/:id', authMiddleware, checkPermission('RESIDENT_UPDATE'), residentController.updateResident);
 router.delete('/:id', authMiddleware, checkPermission('RESIDENT_DELETE'), residentController.deleteResident);
+router.delete('/:id/permanent', authMiddleware, checkPermission('RESIDENT_DELETE'), residentController.permanentDeleteResident);
 
 // ============================================
 // 🔥 CCCD / HỒ SƠ

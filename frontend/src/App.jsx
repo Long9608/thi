@@ -71,8 +71,9 @@ import RevenueReport from './pages/RevenueReport';
 import DebtReport from './pages/DebtReport';
 import ApartmentReport from './pages/ApartmentReport';
 import ServiceReport from './pages/ServiceReport';
-import ExportExcel from './pages/ExportExcel';
-import ExportPDF from './pages/ExportPDF';
+import Fees from './pages/Fees';
+import Payments from './pages/Payments';
+import FeeCollection from './pages/FeeCollection';
 
 // 🔥 THÊM IMPORTS COMPONENT CÀI ĐẶT
 import Profile from './pages/Profile';
@@ -675,9 +676,7 @@ const MENU_STRUCTURE = [
       { id: "revenue-report", label: "Doanh thu", icon: TrendingUp, permission: "REPORT_VIEW" },
       { id: "debt-report", label: "Công nợ", icon: AlertCircle, permission: "REPORT_VIEW" },
       { id: "apartment-report", label: "Căn hộ", icon: Building2, permission: "REPORT_VIEW" },
-      { id: "service-report", label: "Dịch vụ", icon: Wrench, permission: "REPORT_VIEW" },
-      { id: "export-excel", label: "Excel", icon: FileSpreadsheet, permission: "REPORT_EXCEL" },
-      { id: "export-pdf", label: "PDF", icon: FileText, permission: "REPORT_PDF" }
+      { id: "service-report", label: "Dịch vụ", icon: Wrench, permission: "REPORT_VIEW" }
     ]
   },
   {
@@ -704,6 +703,8 @@ const MENU_STRUCTURE = [
     ]
   }
 ];
+
+const getMenuViewPermission = (menuId) => `MENU_${menuId.toUpperCase().replace(/-/g, '_')}_VIEW`;
 
 // ============================================================
 // CONTENT TITLES
@@ -751,8 +752,6 @@ const CONTENT_TITLES = {
   "debt-report": ["Báo cáo công nợ", "Báo cáo công nợ chi tiết"],
   "apartment-report": ["Báo cáo căn hộ", "Báo cáo căn hộ"],
   "service-report": ["Báo cáo dịch vụ", "Báo cáo dịch vụ"],
-  "export-excel": ["Xuất Excel", "Xuất báo cáo Excel"],
-  "export-pdf": ["Xuất PDF", "Xuất báo cáo PDF"],
   "ai-chat": ["Chat AI", "Trò chuyện với AI"],
   "ai-stats": ["Thống kê AI", "Thống kê từ AI"],
   "ai-predict": ["Dự đoán hợp đồng", "Dự đoán từ AI"],
@@ -889,18 +888,22 @@ export default function ApartmentManagementWeb() {
 
     return MENU_STRUCTURE
       .filter(menu => {
-        if (menu.permission && !userPermissions.includes(menu.permission)) {
-          const hasChildWithPermission = menu.items.some(item => 
-            !item.permission || userPermissions.includes(item.permission)
-          );
-          return hasChildWithPermission;
+        // Nếu menu cha có permission và user có permission đó → giữ menu
+        if (menu.permission && userPermissions.includes(menu.permission)) {
+          return true;
         }
-        return true;
+        // Nếu menu cha không có permission hoặc user không có, kiểm tra children
+        const hasChildWithPermission = menu.items.some(item => 
+          userPermissions.includes(item.permission) ||
+          userPermissions.includes(getMenuViewPermission(item.id))
+        );
+        return hasChildWithPermission;
       })
       .map(menu => ({
         ...menu,
         items: menu.items.filter(item => 
-          !item.permission || userPermissions.includes(item.permission)
+          userPermissions.includes(item.permission) ||
+          userPermissions.includes(getMenuViewPermission(item.id))
         )
       }))
       .filter(menu => menu.items.length > 0);
@@ -916,7 +919,7 @@ export default function ApartmentManagementWeb() {
     for (const menu of MENU_STRUCTURE) {
       for (const item of menu.items) {
         if (item.id === tabId) {
-          return !item.permission || userPermissions.includes(item.permission);
+          return userPermissions.includes(getMenuViewPermission(item.id));
         }
       }
     }
@@ -984,9 +987,10 @@ export default function ApartmentManagementWeb() {
 
   // ===== API Functions =====
   const fetchAllData = useCallback(async () => {
+    const canLoad = (permission) => userPermissions.includes('ADMIN') || userPermissions.includes(permission);
     try {
       setLoadingApartments(true);
-      try {
+      if (canLoad('APARTMENT_VIEW')) try {
         const aptData = await apartmentAPI.getAll('', '', 1, 999);
         const data = aptData?.data || aptData || [];
         const mappedApartments = data.map((item) => ({
@@ -1008,10 +1012,10 @@ export default function ApartmentManagementWeb() {
         console.error('❌ Error fetching apartments:', e);
       } finally {
         setLoadingApartments(false);
-      }
+      } else { setApartments([]); setLoadingApartments(false); }
 
       setLoadingResidents(true);
-      try {
+      if (canLoad('RESIDENT_VIEW')) try {
         const resData = await residentAPI.getAll('', 1, 999);
         const data = resData?.data || resData || [];
         const mappedResidents = data.map((item) => ({
@@ -1037,10 +1041,10 @@ export default function ApartmentManagementWeb() {
         console.error('❌ Error fetching residents:', e);
       } finally {
         setLoadingResidents(false);
-      }
+      } else { setResidents([]); setLoadingResidents(false); }
 
       setLoadingFees(true);
-      try {
+      if (canLoad('INVOICE_VIEW')) try {
         const invData = await invoiceAPI.getAll('', '', '', 1, 999);
         const data = invData?.data || invData || [];
         const mappedFees = data.map((item) => ({
@@ -1060,10 +1064,10 @@ export default function ApartmentManagementWeb() {
         console.error('❌ Error fetching invoices:', e);
       } finally {
         setLoadingFees(false);
-      }
+      } else { setFees([]); setLoadingFees(false); }
 
       setLoadingTickets(true);
-      try {
+      if (canLoad('TICKET_VIEW')) try {
         const tickData = await ticketAPI.getAll('', 1, 999);
         const data = tickData?.data || tickData || [];
         const mappedTickets = data.map((item) => ({
@@ -1081,10 +1085,10 @@ export default function ApartmentManagementWeb() {
         console.error('❌ Error fetching tickets:', e);
       } finally {
         setLoadingTickets(false);
-      }
+      } else { setTickets([]); setLoadingTickets(false); }
 
       setLoadingVehicles(true);
-      try {
+      if (canLoad('PARKING_VIEW')) try {
         const vehData = await vehicleAPI.getAll('', '', '', 1, 999);
         const data = vehData?.data || vehData || [];
         const mappedVehicles = data.map((item) => ({
@@ -1101,7 +1105,7 @@ export default function ApartmentManagementWeb() {
         console.error('❌ Error fetching vehicles:', e);
       } finally {
         setLoadingVehicles(false);
-      }
+      } else { setVehicles([]); setLoadingVehicles(false); }
 
       try {
         const historyData = await notificationAPI.getAll('', 1, 999);
@@ -1117,7 +1121,7 @@ export default function ApartmentManagementWeb() {
       console.error('❌ Lỗi khi tải dữ liệu:', error);
       flash('Không thể tải dữ liệu từ máy chủ!');
     }
-  }, [flash]);
+  }, [flash, userPermissions]);
 
   // ===== Business Functions =====
   const validateNotice = useCallback(() => {
@@ -1210,10 +1214,15 @@ export default function ApartmentManagementWeb() {
   useEffect(() => {
     if (!user) return;
     fetchAllData();
-    userAPI.getAuditLogs({ limit: 50 }).then(res => {
-      if (res?.data) setAuditLogs(res.data);
-    }).catch(() => {});
-  }, [user, fetchAllData]);
+    // Nhật ký hệ thống là dữ liệu quản trị; không gọi API này cho cư dân.
+    if (userPermissions.includes('SYSTEM_SETTING')) {
+      userAPI.getAuditLogs({ limit: 50 }).then(res => {
+        if (res?.data) setAuditLogs(res.data);
+      }).catch(() => {});
+    } else {
+      setAuditLogs([]);
+    }
+  }, [user, userPermissions, fetchAllData]);
 
   // ===== Filtered Data =====
   const filteredResidents = useMemo(() => {
@@ -1334,7 +1343,9 @@ export default function ApartmentManagementWeb() {
                       {menu.items.map((item) => {
                         const ItemIcon = item.icon;
                         const isItemActive = tab === item.id;
-                        const hasPermission = !item.permission || userPermissions.includes(item.permission);
+                        const hasPermission = !item.permission || 
+                                               userPermissions.includes(item.permission) || 
+                                               userPermissions.includes(getMenuViewPermission(item.id));
                         
                         if (!hasPermission) return null;
 
@@ -1764,12 +1775,12 @@ export default function ApartmentManagementWeb() {
 
           {/* ELECTRICITY TAB */}
           {tab === "electricity" && (
-            <ElectricityManagement flash={flash} />
+            <ElectricityManagement flash={flash} onInvoiceCreated={(invoiceId) => { handleTabChange('fees'); }} />
           )}
 
           {/* WATER TAB */}
           {tab === "water" && (
-            <WaterManagement flash={flash} />
+            <WaterManagement flash={flash} onInvoiceCreated={(invoiceId) => { handleTabChange('fees'); }} />
           )}
 
           {/* REGISTER SERVICE TAB */}
@@ -1838,12 +1849,12 @@ export default function ApartmentManagementWeb() {
           )}
 
           {/* 🔥 BÁO CÁO DOANH THU */}
-          {tab === "revenue-report" && (
+          {(tab === "revenue-report" || tab === "revenue") && (
             <RevenueReport flash={flash} />
           )}
 
           {/* 🔥 BÁO CÁO CÔNG NỢ */}
-          {tab === "debt-report" && (
+          {(tab === "debt-report" || tab === "debts") && (
             <DebtReport flash={flash} />
           )}
 
@@ -1855,16 +1866,6 @@ export default function ApartmentManagementWeb() {
           {/* 🔥 BÁO CÁO DỊCH VỤ */}
           {tab === "service-report" && (
             <ServiceReport flash={flash} />
-          )}
-
-          {/* 🔥 XUẤT EXCEL */}
-          {tab === "export-excel" && (
-            <ExportExcel flash={flash} />
-          )}
-
-          {/* 🔥 XUẤT PDF */}
-          {tab === "export-pdf" && (
-            <ExportPDF flash={flash} />
           )}
 
           {/* 🔥 PROFILE TAB - HỒ SƠ */}
@@ -1884,82 +1885,17 @@ export default function ApartmentManagementWeb() {
 
           {/* FEES TAB */}
           {tab === "fees" && (
-            <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-3">
-                <StatCard icon={WalletCards} label="Tổng phí tháng" value={money(totalFees).replace("₫", "")} hint="Phí dịch vụ + gửi xe + nước" />
-                <StatCard icon={AlertCircle} label="Chưa thu" value={money(unpaidFees).replace("₫", "")} hint="Cần gửi nhắc thanh toán" />
-                <StatCard icon={CheckCircle2} label="Đã thanh toán" value={fees.filter((f) => f.status === "Đã thanh toán").length} hint="Số căn đã hoàn tất" />
-              </div>
+            <Fees flash={flash} />
+          )}
 
-              <Card className="overflow-hidden">
-                <div className="flex flex-col justify-between gap-3 border-b border-slate-200 p-5 md:flex-row md:items-center">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-950">Bảng phí dịch vụ</h3>
-                    <p className="text-sm text-slate-500">Cập nhật thanh toán và gửi nhắc phí nhanh.</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={() => {
-                      exportSheet("bang-phi-dich-vu.xlsx", "PhiDichVu", fees.map((f) => ({
-                        MaPhi: f.id,
-                        CanHo: f.apartment,
-                        ChuHo: f.owner,
-                        Thang: f.month,
-                        PhiDichVu: f.service,
-                        PhiGuiXe: f.parking,
-                        TienNuoc: f.water,
-                        TongCong: (f.service || 0) + (f.parking || 0) + (f.water || 0),
-                        TrangThai: f.status,
-                      })));
-                    }}><Download size={16} /> Xuất Excel</Button>
-                    <Button variant="secondary"><FileText size={16} /> Xuất hóa đơn</Button>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[900px] text-left text-sm">
-                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="px-5 py-3">Căn hộ</th>
-                        <th className="px-5 py-3">Chủ hộ</th>
-                        <th className="px-5 py-3">Tháng</th>
-                        <th className="px-5 py-3">Dịch vụ</th>
-                        <th className="px-5 py-3">Gửi xe</th>
-                        <th className="px-5 py-3">Nước</th>
-                        <th className="px-5 py-3">Tổng</th>
-                        <th className="px-5 py-3">Trạng thái</th>
-                        <th className="px-5 py-3">Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
-                      {filteredFees.map((fee) => {
-                        const total = (fee.service || 0) + (fee.parking || 0) + (fee.water || 0);
-                        return (
-                          <tr key={fee.id} className="hover:bg-slate-50/80">
-                            <td className="px-5 py-4 font-bold text-slate-950">{fee.apartment}</td>
-                            <td className="px-5 py-4 text-slate-600">{fee.owner}</td>
-                            <td className="px-5 py-4 text-slate-600">{fee.month}</td>
-                            <td className="px-5 py-4 text-slate-600">{money(fee.service)}</td>
-                            <td className="px-5 py-4 text-slate-600">{money(fee.parking)}</td>
-                            <td className="px-5 py-4 text-slate-600">{money(fee.water)}</td>
-                            <td className="px-5 py-4 font-bold text-slate-950">{money(total)}</td>
-                            <td className="px-5 py-4"><Badge tone={fee.status === "Đã thanh toán" ? "green" : fee.status === "Quá hạn" ? "red" : "amber"}>{fee.status}</Badge></td>
-                            <td className="px-5 py-4">
-                              {fee.status === "Đã thanh toán" ? (
-                                <Button variant="secondary" onClick={() => flash("Đã tải hóa đơn mẫu.")}><Download size={15} /> Hóa đơn</Button>
-                              ) : (
-                                <div className="flex gap-2">
-                                  <Button variant="secondary" onClick={() => flash(`Đã gửi nhắc phí đến ${fee.owner}.`)}><Send size={15} /> Nhắc</Button>
-                                  <Button onClick={() => markFeePaid(fee.id)}>Đã thu</Button>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </motion.section>
+          {/* PAYMENTS TAB */}
+          {tab === "payments" && (
+            <Payments flash={flash} />
+          )}
+
+          {/* FEE COLLECTION TAB */}
+          {tab === "fee-collection" && (
+            <FeeCollection flash={flash} />
           )}
 
           {/* EMPLOYEES TAB */}
@@ -2039,10 +1975,6 @@ export default function ApartmentManagementWeb() {
 
           {/* Placeholder cho các tab khác chưa có component */}
           {[ 
-            "payments", 
-            "debts", 
-            "fee-collection", 
-            "revenue",
             "ai-chat", 
             "ai-stats", 
             "ai-predict", 

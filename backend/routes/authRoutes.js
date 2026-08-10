@@ -4,6 +4,7 @@ const router = express.Router();
 const { getPool, sql } = require('../config/db');
 const jwt = require('jsonwebtoken');
 const { authMiddleware } = require('../middlewares/auth');
+const { derivePermissions } = require('../utils/permissionUtils');
 
 // ============================================
 // 🔥 ĐĂNG NHẬP
@@ -119,6 +120,7 @@ router.post('/login', async (req, res) => {
             `);
 
         const permissions = permResult.recordset ? permResult.recordset.map(row => row.PermissionCode) : [];
+        const derivedPermissions = derivePermissions(permissions);
 
         res.json({
             success: true,
@@ -135,7 +137,7 @@ router.post('/login', async (req, res) => {
                     createdAt: user.CreatedAt,
                     roles: user.RoleNames ? user.RoleNames.split(',') : [],
                     roleCodes: user.RoleCodes ? user.RoleCodes.split(',') : [],
-                    permissions: permissions,
+                    permissions: derivedPermissions,
                     employee: employee ? {
                         fullName: employee.FullName,
                         employeeId: employee.EmployeeID
@@ -302,13 +304,14 @@ router.get('/permissions', authMiddleware, async (req, res) => {
             `);
         
         const permissions = result.recordset ? result.recordset.map(row => row.PermissionCode) : [];
+        const derivedPermissions = derivePermissions(permissions);
         
         res.json({
             success: true,
             data: {
-                permissions: permissions,
+                permissions: derivedPermissions,
                 permissionsDetail: result.recordset || [],
-                count: permissions.length
+                count: derivedPermissions.length
             }
         });
 

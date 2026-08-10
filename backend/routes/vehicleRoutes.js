@@ -6,6 +6,7 @@ const { authMiddleware, checkRole, checkPermission } = require('../middlewares/a
 router.get('/', authMiddleware, vehicleController.getAllVehicles);
 router.get('/types', authMiddleware, vehicleController.getVehicleTypes);
 router.get('/parking-slots', authMiddleware, vehicleController.getParkingSlots);
+router.get('/history', authMiddleware, vehicleController.getParkingHistory);
 router.get('/:id', authMiddleware, vehicleController.getVehicleById);
 
 // Dùng checkPermission

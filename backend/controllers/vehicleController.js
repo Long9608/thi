@@ -467,6 +467,47 @@ exports.getVehicleTypes = async (req, res) => {
     }
 };
 
+exports.getParkingHistory = async (req, res) => {
+    try {
+        const pool = await getPool();
+
+        const result = await pool.query(`
+            SELECT
+                pc.CardID,
+                pc.CardCode,
+                pc.IssueDate,
+                pc.ExpiredDate,
+                pc.Status,
+                ps.SlotNumber,
+                v.PlateNumber,
+                vt.TypeName AS VehicleType,
+                r.FullName AS OwnerName,
+                a.ApartmentCode,
+                CASE WHEN pc.Status = 1 THEN 'Vào' ELSE 'Ra' END AS Action,
+                CASE WHEN pc.Status = 1 THEN pc.IssueDate ELSE pc.ExpiredDate END AS Timestamp
+            FROM ParkingCard pc
+            LEFT JOIN Vehicle v ON pc.VehicleID = v.VehicleID
+            LEFT JOIN VehicleType vt ON v.VehicleTypeID = vt.VehicleTypeID
+            LEFT JOIN Resident r ON v.ResidentID = r.ResidentID
+            LEFT JOIN Apartment a ON r.ResidentID = a.ApartmentID
+            LEFT JOIN ParkingSlot ps ON pc.SlotID = ps.SlotID
+            ORDER BY pc.IssueDate DESC
+        `);
+
+        res.json({
+            success: true,
+            data: result.recordset || []
+        });
+    } catch (error) {
+        console.error('Get parking history error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch parking history',
+            error: error.message
+        });
+    }
+};
+
 exports.getParkingSlots = async (req, res) => {
     try {
         const { areaId, vehicleTypeId, isOccupied } = req.query;

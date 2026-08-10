@@ -10,26 +10,27 @@ import {
 import { PieChart as RePieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Card, Button, Input, Badge, StatCard } from '../components/UI';
 import { formatDate, money, formatNumber } from '../utils/formatters';
+import { apartmentAPI } from '../api';
 
 // Constants
 const STATUS_CONFIG = {
-  'occupied': { tone: 'green', label: 'Đang ở', color: '#1f4f46' },
-  'rented': { tone: 'blue', label: 'Đang thuê', color: '#0d9488' },
-  'vacant': { tone: 'slate', label: 'Còn trống', color: '#94a3b8' },
-  'maintenance': { tone: 'amber', label: 'Bảo trì', color: '#f59e0b' }
+  1: { tone: 'slate', label: 'Còn trống', color: '#94a3b8' },
+  2: { tone: 'green', label: 'Đang ở', color: '#1f4f46' },
+  3: { tone: 'amber', label: 'Bảo trì', color: '#f59e0b' },
+  4: { tone: 'blue', label: 'Đang thuê', color: '#0d9488' }
 };
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Tất cả trạng thái' },
-  { value: 'occupied', label: 'Đang ở' },
-  { value: 'rented', label: 'Đang thuê' },
-  { value: 'vacant', label: 'Còn trống' },
-  { value: 'maintenance', label: 'Bảo trì' }
+  { value: '1', label: 'Còn trống' },
+  { value: '2', label: 'Đang ở' },
+  { value: '3', label: 'Bảo trì' },
+  { value: '4', label: 'Đang thuê' }
 ];
 
 // Memoized StatusBadge component
-const StatusBadge = React.memo(({ status }) => {
-  const config = STATUS_CONFIG[status] || { tone: 'slate', label: status };
+const StatusBadge = React.memo(({ statusId }) => {
+  const config = STATUS_CONFIG[statusId] || { tone: 'slate', label: 'Chưa xác định' };
   return <Badge tone={config.tone}>{config.label}</Badge>;
 });
 
@@ -60,20 +61,23 @@ const ApartmentTable = React.memo(({ data }) => {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {data.map((apt) => (
-            <tr key={apt.id} className="hover:bg-slate-50 transition-colors">
-              <td className="px-3 py-2 font-medium text-slate-950">{apt.code}</td>
-              <td className="px-3 py-2 text-slate-600">{apt.building}</td>
-              <td className="px-3 py-2 text-slate-600">{apt.floor}</td>
-              <td className="px-3 py-2 text-slate-600">{apt.area} m²</td>
-              <td className="px-3 py-2">
-                <StatusBadge status={apt.status} />
-              </td>
-              <td className="px-3 py-2 text-slate-600">
-                {apt.owner || <span className="text-slate-400">—</span>}
-              </td>
-            </tr>
-          ))}
+          {data.map((apt) => {
+            const statusConfig = STATUS_CONFIG[apt.StatusID] || { label: apt.Status || 'Chưa xác định' };
+            return (
+              <tr key={apt.ApartmentID} className="hover:bg-slate-50 transition-colors">
+                <td className="px-3 py-2 font-medium text-slate-950">{apt.ApartmentCode}</td>
+                <td className="px-3 py-2 text-slate-600">{apt.BuildingName}</td>
+                <td className="px-3 py-2 text-slate-600">{apt.FloorNumber}</td>
+                <td className="px-3 py-2 text-slate-600">{apt.Area} m²</td>
+                <td className="px-3 py-2">
+                  <StatusBadge statusId={apt.StatusID} />
+                </td>
+                <td className="px-3 py-2 text-slate-600">
+                  {apt.CurrentResidents || <span className="text-slate-400">—</span>}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -87,98 +91,91 @@ export default function ApartmentReport({ flash }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [apartments, setApartments] = useState([]);
+  const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
 
-  // Dữ liệu mẫu
-  const apartmentData = useMemo(() => {
-    return [
-      { id: 1, code: 'A-1201', building: 'Block A', floor: 12, area: 75.5, status: 'occupied', rent: 15000000, owner: 'Nguyễn Minh Anh' },
-      { id: 2, code: 'B-0805', building: 'Block B', floor: 8, area: 92.0, status: 'occupied', rent: 18000000, owner: 'Trần Quốc Bảo' },
-      { id: 3, code: 'A-0903', building: 'Block A', floor: 9, area: 68.2, status: 'rented', rent: 13500000, owner: 'Lê Hoàng Yến' },
-      { id: 4, code: 'C-0301', building: 'Block C', floor: 3, area: 110.0, status: 'occupied', rent: 20000000, owner: 'Phạm Gia Huy' },
-      { id: 5, code: 'A-0101', building: 'Block A', floor: 1, area: 75.5, status: 'vacant', rent: 0, owner: '' },
-      { id: 6, code: 'A-1202', building: 'Block A', floor: 12, area: 85.0, status: 'maintenance', rent: 0, owner: '' }
-    ];
-  }, []);
+  // Fetch real data
+  const fetchApartments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await apartmentAPI.getAll(search, statusFilter, 1, 999);
+      console.log('📊 Apartment report data:', res);
+      
+      if (res && res.data) {
+        const data = Array.isArray(res.data) ? res.data : [];
+        setApartments(data);
+        setTotalPages(res.pagination?.totalPages || 1);
+      } else {
+        setApartments([]);
+      }
+    } catch (error) {
+      console.error('Error fetching apartments:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải dữ liệu căn hộ'));
+      setApartments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, statusFilter, flash]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Filter data
-  const filteredData = useMemo(() => {
-    let filtered = apartmentData;
-    
-    if (search) {
-      const q = search.toLowerCase().trim();
-      filtered = filtered.filter(a =>
-        a.code.toLowerCase().includes(q) ||
-        a.building.toLowerCase().includes(q) ||
-        a.owner.toLowerCase().includes(q)
-      );
-    }
-
-    if (statusFilter) {
-      filtered = filtered.filter(a => a.status === statusFilter);
-    }
-
-    return filtered;
-  }, [apartmentData, search, statusFilter]);
+    fetchApartments();
+  }, [fetchApartments]);
 
   // Pagination
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(start, start + itemsPerPage);
-  }, [filteredData, currentPage]);
+    return apartments.slice(start, start + itemsPerPage);
+  }, [apartments, currentPage]);
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const totalPagesFromData = Math.ceil(apartments.length / itemsPerPage);
 
   // Statistics
   const stats = useMemo(() => {
-    const total = apartmentData.length;
-    const occupied = apartmentData.filter(a => a.status === 'occupied' || a.status === 'rented').length;
-    const vacant = apartmentData.filter(a => a.status === 'vacant').length;
-    const maintenance = apartmentData.filter(a => a.status === 'maintenance').length;
-    const totalArea = apartmentData.reduce((sum, a) => sum + a.area, 0);
-    const totalRent = apartmentData.reduce((sum, a) => sum + a.rent, 0);
+    const total = apartments.length;
+    const occupied = apartments.filter(a => a.StatusID === 2 || a.StatusID === 4).length;
+    const vacant = apartments.filter(a => a.StatusID === 1).length;
+    const maintenance = apartments.filter(a => a.StatusID === 3).length;
+    const totalArea = apartments.reduce((sum, a) => sum + (parseFloat(a.Area) || 0), 0);
+    // Tính tổng doanh thu từ căn hộ đang thuê
+    const totalRent = apartments.reduce((sum, a) => sum + (parseFloat(a.CurrentRent) || 0), 0);
     return { total, occupied, vacant, maintenance, totalArea, totalRent };
-  }, [apartmentData]);
+  }, [apartments]);
 
   // Status distribution for chart
   const statusDistribution = useMemo(() => {
-    const counts = apartmentData.reduce((acc, a) => {
-      const label = STATUS_CONFIG[a.status]?.label || a.status;
+    const counts = apartments.reduce((acc, a) => {
+      const config = STATUS_CONFIG[a.StatusID];
+      const label = config?.label || a.Status || 'Chưa xác định';
       acc[label] = (acc[label] || 0) + 1;
       return acc;
     }, {});
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [apartmentData]);
+  }, [apartments]);
 
   // Chart colors
-  const COLORS = Object.values(STATUS_CONFIG).map(config => config.color);
+  const COLORS = ['#1f4f46', '#0d9488', '#f59e0b', '#94a3b8'];
 
   // Handlers
   const handleRefresh = useCallback(() => {
-    setLoading(true);
-    setTimeout(() => setLoading(false), 500);
-  }, []);
+    fetchApartments();
+  }, [fetchApartments]);
 
   const handleExport = useCallback(() => {
     try {
-      const headers = ['Mã căn hộ', 'Tòa nhà', 'Tầng', 'Diện tích (m²)', 'Trạng thái', 'Chủ sở hữu', 'Giá thuê'];
-      const rows = filteredData.map(apt => [
-        apt.code,
-        apt.building,
-        apt.floor,
-        apt.area,
-        STATUS_CONFIG[apt.status]?.label || apt.status,
-        apt.owner || 'Trống',
-        apt.rent > 0 ? money(apt.rent) : '0'
+      const headers = ['Mã căn hộ', 'Tòa nhà', 'Tầng', 'Diện tích (m²)', 'Trạng thái', 'Cư dân', 'Giá thuê'];
+      const rows = apartments.map(apt => [
+        apt.ApartmentCode,
+        apt.BuildingName,
+        apt.FloorNumber,
+        apt.Area,
+        STATUS_CONFIG[apt.StatusID]?.label || apt.Status || 'Chưa xác định',
+        apt.CurrentResidents || 'Trống',
+        apt.CurrentRent ? money(apt.CurrentRent) : '0'
       ]);
 
       const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // UTF-8 BOM for Vietnamese
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -188,20 +185,16 @@ export default function ApartmentReport({ flash }) {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      if (flash) {
-        flash.success('Xuất báo cáo thành công!');
-      }
+      if (flash) flash('✅ Xuất báo cáo thành công!');
     } catch (error) {
-      if (flash) {
-        flash.error('Có lỗi khi xuất báo cáo');
-      }
+      if (flash) flash('❌ Có lỗi khi xuất báo cáo');
       console.error('Export error:', error);
     }
-  }, [filteredData, flash]);
+  }, [apartments, flash]);
 
   const handlePageChange = useCallback((newPage) => {
-    setCurrentPage(Math.max(1, Math.min(newPage, totalPages)));
-  }, [totalPages]);
+    setCurrentPage(Math.max(1, Math.min(newPage, totalPagesFromData)));
+  }, [totalPagesFromData]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -323,14 +316,14 @@ export default function ApartmentReport({ flash }) {
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-bold text-slate-950">Danh sách căn hộ</h4>
               <span className="text-sm text-slate-500">
-                Hiển thị {paginatedData.length}/{filteredData.length} căn
+                Hiển thị {paginatedData.length}/{apartments.length} căn
               </span>
             </div>
             
             <ApartmentTable data={paginatedData} />
 
             {/* Pagination */}
-            {totalPages > 1 && (
+            {totalPagesFromData > 1 && (
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
                 <Button
                   variant="secondary"
@@ -342,13 +335,13 @@ export default function ApartmentReport({ flash }) {
                   Trước
                 </Button>
                 <span className="text-sm text-slate-600">
-                  Trang {currentPage} / {totalPages}
+                  Trang {currentPage} / {totalPagesFromData}
                 </span>
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
+                  disabled={currentPage === totalPagesFromData}
                   className="text-sm"
                 >
                   Sau

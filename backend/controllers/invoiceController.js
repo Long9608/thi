@@ -1,5 +1,6 @@
 const { getPool, sql } = require('../config/db');
 
+// backend/controllers/invoiceController.js
 exports.getAllInvoices = async (req, res) => {
     try {
         const { 
@@ -15,6 +16,22 @@ exports.getAllInvoices = async (req, res) => {
 
         const pool = await getPool();
         const offset = (page - 1) * limit;
+        const safeLimit = parseInt(limit) || 20;
+
+        // Kiểm tra cột InvoiceType có tồn tại không
+        let invoiceTypeField = 'NULL AS InvoiceType';
+        try {
+            const checkColumn = await pool.request().query(`
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = 'Invoice' AND COLUMN_NAME = 'InvoiceType'
+            `);
+            if (checkColumn.recordset[0]) {
+                invoiceTypeField = 'i.InvoiceType';
+            }
+        } catch (e) {
+            console.warn('InvoiceType column not found, using NULL');
+        }
 
         let query = `
             SELECT 
@@ -25,6 +42,7 @@ exports.getAllInvoices = async (req, res) => {
                 i.DueDate,
                 i.TotalAmount,
                 i.StatusID,
+                ${invoiceTypeField},
                 ist.StatusName AS InvoiceStatus,
                 c.ContractNumber,
                 c.Rent,
@@ -34,7 +52,7 @@ exports.getAllInvoices = async (req, res) => {
                     SELECT SUM(Amount) 
                     FROM InvoiceDetail 
                     WHERE InvoiceID = i.InvoiceID
-                ) AS TotalAmount,
+                ) AS CalculatedTotal,
                 (
                     SELECT SUM(Amount) 
                     FROM Payment 
@@ -92,32 +110,44 @@ exports.getAllInvoices = async (req, res) => {
             request.input('ToDate', sql.Date, toDate);
         }
 
+        // Lấy tổng số bản ghi
         const countResult = await request.query(countQuery);
-        const total = countResult.recordset[0].total;
+        const total = countResult.recordset[0]?.total || 0;
 
+        // Thêm phân trang
         query += `
             ORDER BY i.InvoiceDate DESC
             OFFSET @Offset ROWS
             FETCH NEXT @Limit ROWS ONLY
         `;
         request.input('Offset', sql.Int, parseInt(offset));
-        request.input('Limit', sql.Int, parseInt(limit));
+        request.input('Limit', sql.Int, safeLimit);
 
         const result = await request.query(query);
 
+        // Xử lý kết quả
+        const invoices = result.recordset.map(inv => {
+            // Nếu TotalAmount là NULL, lấy từ CalculatedTotal
+            if (inv.TotalAmount === null || inv.TotalAmount === undefined || inv.TotalAmount === 0) {
+                inv.TotalAmount = inv.CalculatedTotal || 0;
+            }
+            return inv;
+        });
+
         res.json({
             success: true,
-            data: result.recordset,
+            data: invoices,
             pagination: {
                 total,
                 page: parseInt(page),
-                limit: parseInt(limit),
-                totalPages: Math.ceil(total / limit)
+                limit: safeLimit,
+                totalPages: Math.ceil(total / safeLimit)
             }
         });
 
     } catch (error) {
-        console.error('Get invoices error:', error);
+        console.error('❌ Get invoices error:', error);
+        console.error('Stack:', error.stack);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch invoices',

@@ -1,5 +1,5 @@
 // src/pages/DebtReport.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   AlertCircle, Download, RefreshCw, Search,
@@ -9,107 +9,91 @@ import {
 } from 'lucide-react';
 import { Card, Button, Input, Badge, StatCard } from '../components/UI';
 import { formatDate, money, formatNumber } from '../utils/formatters';
+import { invoiceAPI } from '../api';
 
 export default function DebtReport({ flash }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [invoices, setInvoices] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statuses, setStatuses] = useState([]);
 
-  // Dữ liệu mẫu
-  const debtData = useMemo(() => {
-    return [
-      {
-        id: 1,
-        apartment: 'A-1201',
-        owner: 'Nguyễn Minh Anh',
-        month: '04/2026',
-        totalDebt: 1500000,
-        overdue: 30,
-        status: 'overdue',
-        items: [
-          { name: 'Phí dịch vụ', amount: 800000 },
-          { name: 'Phí gửi xe', amount: 350000 },
-          { name: 'Tiền nước', amount: 350000 }
-        ]
-      },
-      {
-        id: 2,
-        apartment: 'B-0805',
-        owner: 'Trần Quốc Bảo',
-        month: '04/2026',
-        totalDebt: 0,
-        overdue: 0,
-        status: 'paid',
-        items: []
-      },
-      {
-        id: 3,
-        apartment: 'A-0903',
-        owner: 'Lê Hoàng Yến',
-        month: '03/2026',
-        totalDebt: 2500000,
-        overdue: 45,
-        status: 'overdue',
-        items: [
-          { name: 'Phí dịch vụ', amount: 1200000 },
-          { name: 'Phí gửi xe', amount: 500000 },
-          { name: 'Tiền điện', amount: 400000 },
-          { name: 'Tiền nước', amount: 400000 }
-        ]
-      },
-      {
-        id: 4,
-        apartment: 'C-0301',
-        owner: 'Phạm Gia Huy',
-        month: '04/2026',
-        totalDebt: 800000,
-        overdue: 15,
-        status: 'pending',
-        items: [
-          { name: 'Phí dịch vụ', amount: 800000 }
-        ]
+  // Fetch real data
+  const fetchDebtData = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Lấy hóa đơn chưa thanh toán và quá hạn
+      const res = await invoiceAPI.getAll(statusFilter, '', '', page, 999);
+      console.log('📊 Debt report data:', res);
+      
+      if (res && res.data) {
+        const data = Array.isArray(res.data) ? res.data : [];
+        // Lọc hóa đơn chưa thanh toán hoặc quá hạn
+        const debtInvoices = data.filter(inv => inv.StatusID === 1 || inv.StatusID === 3);
+        setInvoices(debtInvoices);
+        setTotalPages(res.pagination?.totalPages || 1);
+      } else {
+        setInvoices([]);
       }
-    ];
+    } catch (error) {
+      console.error('Error fetching debt data:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải dữ liệu công nợ'));
+      setInvoices([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, page, flash]);
+
+  const fetchStatuses = useCallback(async () => {
+    try {
+      const res = await invoiceAPI.getStatuses();
+      const data = res?.data || res || [];
+      setStatuses(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching statuses:', error);
+    }
   }, []);
 
   useEffect(() => {
-    setTimeout(() => setLoading(false), 500);
-  }, []);
+    fetchDebtData();
+    fetchStatuses();
+  }, [fetchDebtData, fetchStatuses]);
 
   const filteredData = useMemo(() => {
-    let filtered = debtData;
+    let filtered = invoices;
     
     if (search) {
       const q = search.toLowerCase();
       filtered = filtered.filter(d =>
-        d.apartment.toLowerCase().includes(q) ||
-        d.owner.toLowerCase().includes(q)
+        (d.ApartmentCode || '').toLowerCase().includes(q) ||
+        (d.OwnerName || '').toLowerCase().includes(q)
       );
     }
 
-    if (statusFilter) {
-      filtered = filtered.filter(d => d.status === statusFilter);
-    }
-
     return filtered;
-  }, [debtData, search, statusFilter]);
+  }, [invoices, search]);
 
   const stats = useMemo(() => {
-    const total = debtData.length;
-    const totalDebt = debtData.reduce((sum, d) => sum + d.totalDebt, 0);
-    const overdue = debtData.filter(d => d.status === 'overdue').length;
-    const pending = debtData.filter(d => d.status === 'pending').length;
-    const paid = debtData.filter(d => d.status === 'paid').length;
-    return { total, totalDebt, overdue, pending, paid };
-  }, [debtData]);
+    const total = invoices.length;
+    const totalDebt = invoices.reduce((sum, d) => {
+      const paid = d.PaidAmount || 0;
+      return sum + ((d.TotalAmount || 0) - paid);
+    }, 0);
+    const overdue = invoices.filter(d => d.StatusID === 3).length;
+    const pending = invoices.filter(d => d.StatusID === 1).length;
+    return { total, totalDebt, overdue, pending };
+  }, [invoices]);
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (statusId) => {
     const map = {
-      'overdue': { tone: 'red', label: 'Quá hạn' },
-      'pending': { tone: 'amber', label: 'Chưa thanh toán' },
-      'paid': { tone: 'green', label: 'Đã thanh toán' }
+      1: { tone: 'amber', label: 'Chưa thanh toán' },
+      3: { tone: 'red', label: 'Quá hạn' },
+      2: { tone: 'green', label: 'Đã thanh toán' },
+      4: { tone: 'slate', label: 'Đã hủy' }
     };
-    const info = map[status] || { tone: 'slate', label: status };
+    const info = map[statusId] || { tone: 'slate', label: 'Chưa xác định' };
     return <Badge tone={info.tone}>{info.label}</Badge>;
   };
 
@@ -140,14 +124,14 @@ export default function DebtReport({ flash }) {
               className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
             >
               <option value="">Tất cả trạng thái</option>
-              <option value="overdue">Quá hạn</option>
-              <option value="pending">Chưa thanh toán</option>
-              <option value="paid">Đã thanh toán</option>
+              {statuses.map(s => (
+                <option key={s.StatusID} value={s.StatusID}>{s.StatusName}</option>
+              ))}
             </select>
-            <Button variant="secondary">
+            <Button variant="secondary" onClick={fetchDebtData} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
-            <Button>
+            <Button onClick={() => flash('📊 Đang xuất báo cáo...')}>
               <Download size={16} /> Xuất báo cáo
             </Button>
           </div>
@@ -158,7 +142,7 @@ export default function DebtReport({ flash }) {
         <StatCard icon={AlertCircle} label="Tổng công nợ" value={money(stats.totalDebt).replace('₫', '')} hint="Tất cả" />
         <StatCard icon={Clock} label="Quá hạn" value={stats.overdue} hint="Cần xử lý gấp" />
         <StatCard icon={CreditCard} label="Chưa thanh toán" value={stats.pending} hint="Chờ thu" />
-        <StatCard icon={CheckCircle2} label="Đã thanh toán" value={stats.paid} hint="Hoàn tất" />
+        <StatCard icon={CheckCircle2} label="Đã thanh toán" value={invoices.filter(d => d.StatusID === 2).length} hint="Hoàn tất" />
       </div>
 
       {loading ? (
@@ -182,36 +166,35 @@ export default function DebtReport({ flash }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredData.map((debt) => (
-                  <tr key={debt.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-5 py-4 font-bold text-slate-950">{debt.apartment}</td>
-                    <td className="px-5 py-4 text-slate-600">{debt.owner}</td>
-                    <td className="px-5 py-4 text-slate-600">{debt.month}</td>
-                    <td className="px-5 py-4 font-bold text-[#1f4f46]">
-                      {money(debt.totalDebt)}
-                    </td>
-                    <td className="px-5 py-4">
-                      {debt.overdue > 0 ? (
-                        <span className="text-rose-600 font-semibold">{debt.overdue} ngày</span>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">{getStatusBadge(debt.status)}</td>
-                    <td className="px-5 py-4">
-                      {debt.items.length > 0 && (
-                        <div className="space-y-1 text-xs">
-                          {debt.items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between">
-                              <span className="text-slate-500">{item.name}</span>
-                              <span className="font-medium">{money(item.amount)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {filteredData.map((debt) => {
+                  const paid = debt.PaidAmount || 0;
+                  const remaining = (debt.TotalAmount || 0) - paid;
+                  const daysOverdue = debt.DueDate && new Date(debt.DueDate) < new Date() 
+                    ? Math.ceil((new Date() - new Date(debt.DueDate)) / (1000 * 60 * 60 * 24))
+                    : 0;
+                  
+                  return (
+                    <tr key={debt.InvoiceID} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-5 py-4 font-bold text-slate-950">{debt.ApartmentCode}</td>
+                      <td className="px-5 py-4 text-slate-600">{debt.OwnerName}</td>
+                      <td className="px-5 py-4 text-slate-600">{debt.InvoiceMonth}/{debt.InvoiceYear}</td>
+                      <td className="px-5 py-4 font-bold text-[#1f4f46]">
+                        {money(remaining)}
+                      </td>
+                      <td className="px-5 py-4">
+                        {daysOverdue > 0 ? (
+                          <span className="text-rose-600 font-semibold">{daysOverdue} ngày</span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">{getStatusBadge(debt.StatusID)}</td>
+                      <td className="px-5 py-4">
+                        <Button variant="secondary" size="sm">Xem chi tiết</Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

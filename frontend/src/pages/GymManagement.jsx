@@ -1,5 +1,5 @@
 // src/pages/GymManagement.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Dumbbell, Users, Calendar, Clock, CheckCircle2,
@@ -8,8 +8,8 @@ import {
 } from 'lucide-react';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, getInitials } from '../utils/formatters';
+import { serviceAPI, contractAPI } from '../api';
 
-// Dữ liệu mẫu cho Gym - sẽ kết nối với API sau
 export default function GymManagement({ flash }) {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,79 +17,126 @@ export default function GymManagement({ flash }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('view');
+  const [contracts, setContracts] = useState([]);
+  const [gymServiceId, setGymServiceId] = useState(null);
   const [form, setForm] = useState({
     fullName: '',
     phone: '',
     email: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: '',
-    status: 1
+    status: 1,
+    totalCheckIns: 100
   });
 
-  // Dữ liệu mẫu
-  useEffect(() => {
-    const mockData = [
-      {
-        id: 1,
-        fullName: 'Nguyễn Văn A',
-        phone: '0912345678',
-        email: 'vana@example.com',
-        startDate: '2025-01-01',
-        endDate: '2025-12-31',
-        status: 1,
-        checkIns: 45,
-        totalCheckIns: 120
-      },
-      {
-        id: 2,
-        fullName: 'Trần Thị B',
-        phone: '0987654321',
-        email: 'thib@example.com',
-        startDate: '2025-02-15',
-        endDate: '2025-08-15',
-        status: 1,
-        checkIns: 23,
-        totalCheckIns: 80
-      },
-      {
-        id: 3,
-        fullName: 'Lê Văn C',
-        phone: '0905123456',
-        email: 'levanc@example.com',
-        startDate: '2024-09-01',
-        endDate: '2025-03-01',
-        status: 0,
-        checkIns: 67,
-        totalCheckIns: 150
+  const openCreateModal = async () => {
+    try {
+      setLoading(true);
+      const [contractsRes, servicesRes] = await Promise.all([
+        contractAPI.getAll('', 1, 999), serviceAPI.getAll('', '', 1, 999)
+      ]);
+      const gymService = (servicesRes?.data || []).find((service) => service.ServiceName?.toLowerCase().includes('gym'));
+      if (!gymService) {
+        flash('❌ Chưa có dịch vụ Gym. Vui lòng tạo dịch vụ trước.');
+        return;
       }
-    ];
-    setMembers(mockData);
-    setLoading(false);
-  }, []);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    flash('✅ Đã lưu thông tin thành viên Gym!');
-    setModalOpen(false);
+      setContracts(contractsRes?.data || []);
+      setGymServiceId(gymService.ServiceID);
+      setSelectedMember(null);
+      setModalMode('create');
+      setForm({ contractId: '', fullName: '', phone: '', email: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 1, totalCheckIns: 100 });
+      setModalOpen(true);
+    } catch (error) {
+      console.error('Load Gym registration data error:', error);
+      flash('❌ Không thể tải danh sách hợp đồng để đăng ký Gym');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDelete = (id) => {
+  // Fetch gym members từ service registrations
+  const fetchGymMembers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await serviceAPI.getGymMembers('', 1, 999);
+      const data = response?.data || [];
+      setMembers(data.map((member) => ({
+        id: member.RegistrationID,
+        fullName: member.FullName,
+        phone: member.Phone || '',
+        email: member.Email || '',
+        apartmentCode: member.ApartmentCode || '',
+        startDate: member.StartDate,
+        endDate: member.EndDate,
+        status: member.RegistrationStatus ? 1 : 0,
+        checkIns: member.CheckIns || 0,
+        totalCheckIns: member.TotalCheckIns || 1
+      })));
+    } catch (error) {
+      console.error('Error fetching gym members:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải danh sách thành viên Gym'));
+      setMembers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [flash]);
+
+  useEffect(() => {
+    fetchGymMembers();
+  }, [fetchGymMembers]);
+
+  const isMemberActive = (member) => {
+    if (member.status !== 1) return false;
+    if (!member.endDate) return true;
+    const endDate = new Date(member.endDate);
+    endDate.setHours(23, 59, 59, 999);
+    return !Number.isNaN(endDate.getTime()) && endDate >= new Date();
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      if (modalMode === 'create') {
+        await serviceAPI.register({ contractId: parseInt(form.contractId), serviceId: gymServiceId, registerDate: form.startDate, endDate: form.endDate || null, quantity: parseInt(form.totalCheckIns) || 1 });
+        flash('✅ Đã đăng ký thành viên Gym!');
+      } else {
+        await serviceAPI.updateGymMember(selectedMember.id, form);
+        flash('✅ Đã cập nhật thông tin thành viên Gym!');
+      }
+      setModalOpen(false);
+      await fetchGymMembers();
+    } catch (error) {
+      console.error('Update gym member error:', error);
+      flash('❌ ' + (error.response?.data?.message || 'Không thể cập nhật thành viên Gym'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
     if (!confirm('Bạn có chắc muốn xóa thành viên này?')) return;
-    setMembers(members.filter(m => m.id !== id));
-    flash('✅ Xóa thành viên thành công!');
+    try {
+      await serviceAPI.unregister(id);
+      flash('✅ Đã hủy đăng ký Gym của thành viên!');
+      await fetchGymMembers();
+    } catch (error) {
+      console.error('Unregister gym member error:', error);
+      flash('❌ ' + (error.response?.data?.message || 'Không thể hủy đăng ký Gym'));
+    }
   };
 
   const filteredMembers = members.filter(m =>
-    m.fullName.toLowerCase().includes(search.toLowerCase()) ||
-    m.phone.includes(search) ||
-    m.email.toLowerCase().includes(search.toLowerCase())
+    (m.fullName || '').toLowerCase().includes(search.toLowerCase()) ||
+    (m.phone || '').includes(search) ||
+    (m.email || '').toLowerCase().includes(search.toLowerCase())
   );
 
   const stats = {
     total: members.length,
-    active: members.filter(m => m.status === 1).length,
-    inactive: members.filter(m => m.status === 0).length,
-    totalCheckIns: members.reduce((sum, m) => sum + m.checkIns, 0)
+    active: members.filter(isMemberActive).length,
+    inactive: members.filter(m => !isMemberActive(m)).length,
+    totalCheckIns: members.reduce((sum, m) => sum + (m.checkIns || 0), 0)
   };
 
   return (
@@ -113,21 +160,10 @@ export default function GymManagement({ flash }) {
               placeholder="Tìm thành viên..."
               className="w-48"
             />
-            <Button onClick={() => {
-              setModalMode('create');
-              setForm({
-                fullName: '',
-                phone: '',
-                email: '',
-                startDate: new Date().toISOString().split('T')[0],
-                endDate: '',
-                status: 1
-              });
-              setModalOpen(true);
-            }}>
+            <Button onClick={openCreateModal} disabled={loading}>
               <Plus size={16} /> Thêm thành viên
             </Button>
-            <Button variant="secondary" onClick={() => setLoading(true)}>
+            <Button variant="secondary" onClick={fetchGymMembers} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
           </div>
@@ -167,8 +203,8 @@ export default function GymManagement({ flash }) {
                       <p className="text-sm text-slate-500">{member.phone}</p>
                     </div>
                   </div>
-                  <Badge tone={member.status === 1 ? 'green' : 'red'}>
-                    {member.status === 1 ? 'Hoạt động' : 'Hết hạn'}
+                  <Badge tone={isMemberActive(member) ? 'green' : 'red'}>
+                    {isMemberActive(member) ? 'Hoạt động' : 'Hết hạn'}
                   </Badge>
                 </div>
 
@@ -189,6 +225,22 @@ export default function GymManagement({ flash }) {
 
                 <div className="mt-4 flex gap-2">
                   <Button variant="secondary" className="flex-1">Check-in</Button>
+                  <Button variant="secondary" onClick={() => {
+                    setSelectedMember(member);
+                    setModalMode('edit');
+                    setForm({
+                      fullName: member.fullName,
+                      phone: member.phone,
+                      email: member.email,
+                      startDate: member.startDate?.split('T')[0] || '',
+                      endDate: member.endDate?.split('T')[0] || '',
+                      status: member.status,
+                      totalCheckIns: member.totalCheckIns
+                    });
+                    setModalOpen(true);
+                  }}>
+                    <Edit size={14} />
+                  </Button>
                   <Button variant="danger" className="flex-1" onClick={() => handleDelete(member.id)}>
                     <Trash2 size={14} />
                   </Button>
@@ -201,10 +253,20 @@ export default function GymManagement({ flash }) {
 
       <Modal
         open={modalOpen}
-        title={modalMode === 'create' ? 'Thêm thành viên Gym' : 'Cập nhật thành viên'}
+        title={modalMode === 'create' ? 'Thêm thành viên Gym' : 'Cập nhật thành viên Gym'}
         onClose={() => setModalOpen(false)}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          {modalMode === 'create' && (
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-slate-700">Cư dân / hợp đồng *</label>
+              <select value={form.contractId || ''} required onChange={(e) => setForm({ ...form, contractId: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]">
+                <option value="">Chọn cư dân có hợp đồng</option>
+                {contracts.map((contract) => <option key={contract.ContractID} value={contract.ContractID}>{contract.OwnerName} — {contract.ApartmentCode}</option>)}
+              </select>
+            </div>
+          )}
+          {modalMode !== 'create' && <>
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Họ tên *</label>
             <Input
@@ -231,6 +293,7 @@ export default function GymManagement({ flash }) {
               placeholder="email@example.com"
             />
           </div>
+          </>}
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">Ngày bắt đầu</label>
@@ -248,6 +311,15 @@ export default function GymManagement({ flash }) {
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
               />
             </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Số lượt tập tối đa</label>
+            <Input
+              type="number"
+              min="1"
+              value={form.totalCheckIns}
+              onChange={(e) => setForm({ ...form, totalCheckIns: parseInt(e.target.value) || 1 })}
+            />
           </div>
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Trạng thái</label>

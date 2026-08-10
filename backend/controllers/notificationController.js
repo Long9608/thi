@@ -25,7 +25,12 @@ exports.getAllNotifications = async (req, res) => {
                 CASE 
                     WHEN nr.ReceiverID IS NOT NULL THEN 1 
                     ELSE 0 
-                END AS IsReceived
+                END AS IsReceived,
+                (
+                    SELECT COUNT(*) 
+                    FROM NotificationReceiver nr2 
+                    WHERE nr2.NotificationID = n.NotificationID
+                ) AS RecipientsCount
             FROM Notification n
             LEFT JOIN Employee e ON n.SenderID = e.EmployeeID
             LEFT JOIN NotificationReceiver nr ON n.NotificationID = nr.NotificationID 

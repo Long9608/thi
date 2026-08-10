@@ -5,6 +5,10 @@ const { authMiddleware, checkRole, checkPermission } = require('../middlewares/a
 
 router.get('/', authMiddleware, serviceController.getAllServices);
 router.get('/categories', authMiddleware, serviceController.getServiceCategories);
+router.get('/gym/members', authMiddleware, checkPermission('SERVICE_VIEW'), serviceController.getGymMembers);
+router.put('/gym/members/:id', authMiddleware, checkPermission('SERVICE_UPDATE'), serviceController.updateGymMember);
+router.get('/pool/members', authMiddleware, checkPermission('SERVICE_VIEW'), serviceController.getPoolMembers);
+router.put('/pool/members/:id', authMiddleware, checkPermission('SERVICE_UPDATE'), serviceController.updatePoolMember);
 router.get('/:id', authMiddleware, serviceController.getServiceById);
 
 // Dùng checkPermission

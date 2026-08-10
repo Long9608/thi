@@ -72,32 +72,43 @@ export default function ElectricityManagement({ flash }) {
     fetchApartments();
   }, [fetchReadings, fetchApartments]);
 
-  const handleSubmit = async (e) => {
+  // src/pages/ElectricityManagement.jsx
+const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const data = {
-        apartmentId: parseInt(form.apartmentId),
-        utilityTypeId: 1,
-        readingMonth: parseInt(form.readingMonth),
-        readingYear: parseInt(form.readingYear),
-        oldIndex: parseFloat(form.oldIndex) || 0,
-        newIndex: parseFloat(form.newIndex),
-        readingDate: form.readingDate
-      };
+        const data = {
+            apartmentId: parseInt(form.apartmentId),
+            utilityTypeId: 1, // hoặc 2 cho nước
+            readingMonth: parseInt(form.readingMonth),
+            readingYear: parseInt(form.readingYear),
+            oldIndex: parseFloat(form.oldIndex) || 0,
+            newIndex: parseFloat(form.newIndex),
+            readingDate: form.readingDate
+        };
 
-      await utilityAPI.createReading(data);
-      if (flash) flash('✅ Thêm chỉ số điện thành công!');
-      setModalOpen(false);
-      resetForm();
-      fetchReadings();
+        const res = await utilityAPI.createReading(data);
+        console.log('📊 Create reading response:', res);
+
+        if (res?.data?.invoiceId) {
+            // Hiển thị thông báo có hóa đơn
+            const total = res.data.totalAmount || 0;
+            const msg = `✅ Thêm chỉ số thành công! Hóa đơn #${res.data.invoiceId} được tạo với tổng ${total.toLocaleString('vi-VN')} đ`;
+            if (flash) flash(msg);
+        } else {
+            if (flash) flash('✅ Thêm chỉ số thành công!');
+        }
+        setModalOpen(false);
+        resetForm();
+        fetchReadings();
     } catch (error) {
-      console.error('Submit error:', error);
-      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể thêm chỉ số điện'));
+        console.error('Submit error:', error);
+        const errMsg = error.response?.data?.message || error.message || 'Không thể thêm chỉ số';
+        if (flash) flash('❌ ' + errMsg);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   const resetForm = () => {
     setForm({

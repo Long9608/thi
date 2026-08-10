@@ -1,0 +1,78 @@
+const MENU_TO_PERMISSION_MAP = {
+  MENU_DASHBOARD_VIEW: ['DASHBOARD_VIEW'],
+  MENU_QUICK_REPORT_VIEW: ['REPORT_VIEW'],
+  MENU_RESIDENTS_VIEW: ['RESIDENT_VIEW'],
+  MENU_BUILDINGS_VIEW: ['APARTMENT_VIEW'],
+  MENU_CONTRACT_LIST_VIEW: ['CONTRACT_VIEW'],
+  MENU_ELECTRICITY_VIEW: ['SERVICE_VIEW'],
+  MENU_WATER_VIEW: ['SERVICE_VIEW'],
+  MENU_REGISTER_SERVICE_VIEW: ['SERVICE_CREATE'],
+  MENU_GYM_VIEW: ['SERVICE_VIEW'],
+  MENU_POOL_VIEW: ['SERVICE_VIEW'],
+  MENU_EVENT_SPACE_VIEW: ['SERVICE_VIEW'],
+  MENU_FEES_VIEW: ['INVOICE_VIEW'],
+  MENU_PAYMENTS_VIEW: ['PAYMENT_CREATE'],
+  MENU_DEBTS_VIEW: ['DEBT_VIEW'],
+  MENU_FEE_COLLECTION_VIEW: ['PAYMENT_CREATE'],
+  MENU_REVENUE_VIEW: ['REPORT_VIEW'],
+  MENU_VEHICLES_VIEW: ['PARKING_VIEW'],
+  MENU_VEHICLE_CARDS_VIEW: ['CARD_CREATE'],
+  MENU_PARKING_LOT_VIEW: ['PARKING_VIEW'],
+  MENU_PARKING_HISTORY_VIEW: ['PARKING_HISTORY'],
+  MENU_TICKETS_VIEW: ['TICKET_VIEW'],
+  MENU_MAINTENANCE_VIEW: ['MAINTENANCE_UPDATE'],
+  MENU_FEEDBACKS_VIEW: ['TICKET_VIEW'],
+  MENU_MAINTENANCE_SCHEDULE_VIEW: ['MAINTENANCE_UPDATE'],
+  MENU_EQUIPMENT_VIEW: ['DEVICE_MANAGE'],
+  MENU_NOTIFICATIONS_VIEW: ['NOTIFICATION_VIEW'],
+  MENU_SEND_NOTIFICATION_VIEW: ['NOTIFICATION_SEND'],
+  MENU_SCHEDULE_NOTIFICATION_VIEW: ['NOTIFICATION_SEND'],
+  MENU_EMPLOYEES_VIEW: ['EMPLOYEE_VIEW'],
+  MENU_PERMISSIONS_VIEW: ['PERMISSION_MANAGE'],
+  MENU_ROLES_VIEW: ['ROLE_MANAGE'],
+  MENU_SYSTEM_LOGS_VIEW: ['SYSTEM_SETTING'],
+  MENU_REVENUE_REPORT_VIEW: ['REPORT_VIEW'],
+  MENU_DEBT_REPORT_VIEW: ['REPORT_VIEW'],
+  MENU_APARTMENT_REPORT_VIEW: ['REPORT_VIEW'],
+  MENU_SERVICE_REPORT_VIEW: ['REPORT_VIEW'],
+  MENU_EXPORT_EXCEL_VIEW: ['REPORT_EXCEL'],
+  MENU_EXPORT_PDF_VIEW: ['REPORT_PDF'],
+  MENU_AI_CHAT_VIEW: ['AI_CHAT'],
+  MENU_AI_STATS_VIEW: ['AI_STATISTIC'],
+  MENU_AI_PREDICT_VIEW: ['AI_PREDICT'],
+  MENU_AI_SEARCH_VIEW: ['AI_SEARCH'],
+  MENU_PROFILE_VIEW: ['PROFILE_UPDATE'],
+  MENU_CHANGE_PASSWORD_VIEW: ['PASSWORD_CHANGE'],
+  MENU_SYSTEM_INFO_VIEW: ['SYSTEM_SETTING']
+};
+
+const getMenuViewPermissionCode = (permissionCode) => {
+  if (!permissionCode || typeof permissionCode !== 'string') return null;
+  if (!permissionCode.endsWith('_VIEW')) return null;
+  const base = permissionCode.replace('_VIEW', '').toUpperCase();
+  return `MENU_${base}_VIEW`;
+};
+
+const derivePermissions = (permissions = []) => {
+  const normalized = permissions.map((code) => code && String(code).toUpperCase()).filter(Boolean);
+  const derived = new Set(normalized);
+
+  normalized.forEach((code) => {
+    if (MENU_TO_PERMISSION_MAP[code]) {
+      MENU_TO_PERMISSION_MAP[code].forEach((mapped) => derived.add(mapped));
+    }
+
+    if (code.endsWith('_VIEW')) {
+      const menuCode = getMenuViewPermissionCode(code);
+      if (menuCode) derived.add(menuCode);
+    }
+  });
+
+  return [...derived];
+};
+
+module.exports = {
+  derivePermissions,
+  getMenuViewPermissionCode,
+  MENU_TO_PERMISSION_MAP
+};

@@ -29,6 +29,80 @@ const moduleIcons = {
   SETTING: Settings
 };
 
+const permissionLabels = {
+  DASHBOARD_VIEW: 'Dashboard',
+  REPORT_VIEW: 'Báo cáo',
+  RESIDENT_VIEW: 'Danh sách cư dân',
+  RESIDENT_CREATE: 'Thêm cư dân',
+  RESIDENT_UPDATE: 'Sửa cư dân',
+  RESIDENT_DELETE: 'Xóa cư dân',
+  APARTMENT_VIEW: 'Tòa nhà',
+  APARTMENT_CREATE: 'Thêm căn hộ',
+  APARTMENT_UPDATE: 'Sửa căn hộ',
+  APARTMENT_DELETE: 'Xóa căn hộ',
+  CONTRACT_VIEW: 'Danh sách hợp đồng',
+  CONTRACT_CREATE: 'Tạo hợp đồng',
+  CONTRACT_RENEW: 'Gia hạn hợp đồng',
+  CONTRACT_LIQUIDATE: 'Thanh lý hợp đồng',
+  CONTRACT_UPDATE: 'Cập nhật hợp đồng',
+  SERVICE_VIEW: 'Dịch vụ',
+  SERVICE_CREATE: 'Đăng ký dịch vụ',
+  SERVICE_UPDATE: 'Sửa dịch vụ',
+  SERVICE_DELETE: 'Xóa dịch vụ',
+  METER_READING_CREATE: 'Nhập chỉ số điện nước',
+  INVOICE_VIEW: 'Hóa đơn',
+  INVOICE_CREATE: 'Tạo hóa đơn',
+  PAYMENT_CREATE: 'Thu phí',
+  DEBT_VIEW: 'Công nợ',
+  PARKING_VIEW: 'Xe cư dân',
+  VEHICLE_CREATE: 'Thêm xe',
+  CARD_CREATE: 'Cấp thẻ xe',
+  PARKING_HISTORY: 'Lịch sử ra vào',
+  TICKET_VIEW: 'Ticket',
+  TICKET_CREATE: 'Tạo ticket',
+  MAINTENANCE_UPDATE: 'Quản lý bảo trì',
+  DEVICE_MANAGE: 'Quản lý thiết bị',
+  NOTIFICATION_VIEW: 'Thông báo',
+  NOTIFICATION_SEND: 'Gửi thông báo',
+  EMPLOYEE_VIEW: 'Nhân viên',
+  EMPLOYEE_CREATE: 'Thêm nhân viên',
+  ROLE_MANAGE: 'Quản lý vai trò',
+  PERMISSION_MANAGE: 'Phân quyền',
+  SYSTEM_SETTING: 'Cài đặt hệ thống',
+  AI_CHAT: 'Chat AI',
+  AI_STATISTIC: 'Thống kê AI',
+  AI_SEARCH: 'AI tìm kiếm',
+  AI_PREDICT: 'Dự đoán AI',
+  PROFILE_UPDATE: 'Hồ sơ cá nhân',
+  PASSWORD_CHANGE: 'Đổi mật khẩu'
+};
+
+// Các mục đúng theo thanh menu. Mã quyền kỹ thuật chỉ được dùng nội bộ để lưu.
+const menuPermissionGroups = [
+  ['Tổng quan', [['Dashboard',['DASHBOARD_VIEW']], ['Báo cáo nhanh',['REPORT_VIEW']]]],
+  ['Quản lý chung cư', [['Danh sách cư dân',['RESIDENT_VIEW','RESIDENT_CREATE','RESIDENT_UPDATE','RESIDENT_DELETE']], ['Tòa nhà',['APARTMENT_VIEW','APARTMENT_CREATE','APARTMENT_UPDATE','APARTMENT_DELETE']], ['Danh sách hợp đồng',['CONTRACT_VIEW','CONTRACT_CREATE','CONTRACT_UPDATE','CONTRACT_RENEW','CONTRACT_LIQUIDATE']]]],
+  ['Dịch vụ công ích', [['Điện',['SERVICE_VIEW','METER_READING_CREATE']], ['Nước',['SERVICE_VIEW','METER_READING_CREATE']], ['Đăng ký dịch vụ',['SERVICE_CREATE','SERVICE_UPDATE','SERVICE_DELETE']], ['Gym',['SERVICE_VIEW','SERVICE_CREATE','SERVICE_UPDATE','SERVICE_DELETE']], ['Hồ bơi',['SERVICE_VIEW','SERVICE_CREATE','SERVICE_UPDATE','SERVICE_DELETE']], ['Event Space',['SERVICE_VIEW','SERVICE_CREATE','SERVICE_UPDATE','SERVICE_DELETE']]]],
+  ['Hóa đơn & Tài chính', [['Hóa đơn',['INVOICE_VIEW','INVOICE_CREATE']], ['Thanh toán',['PAYMENT_CREATE']], ['Công nợ',['DEBT_VIEW']], ['Thu phí',['PAYMENT_CREATE']], ['Doanh thu',['REPORT_VIEW']]]],
+  ['Gửi xe', [['Xe cư dân',['PARKING_VIEW','VEHICLE_CREATE']], ['Thẻ xe',['CARD_CREATE']], ['Bãi xe',['PARKING_VIEW']], ['Lịch sử ra/vào',['PARKING_HISTORY']]]],
+  ['Vận hành', [['Ticket hỗ trợ',['TICKET_VIEW','TICKET_CREATE']], ['Bảo trì',['MAINTENANCE_UPDATE']], ['Phản ánh',['TICKET_VIEW']], ['Lịch bảo trì',['MAINTENANCE_UPDATE']], ['Thiết bị',['DEVICE_MANAGE']]]],
+  ['Thông báo', [['Danh sách',['NOTIFICATION_VIEW']], ['Gửi thông báo',['NOTIFICATION_SEND']], ['Lịch gửi',['NOTIFICATION_SEND']]]],
+  ['Nhân sự', [['Nhân viên',['EMPLOYEE_VIEW','EMPLOYEE_CREATE']], ['Phân quyền',['PERMISSION_MANAGE']], ['Vai trò',['ROLE_MANAGE']], ['Nhật ký hệ thống',['SYSTEM_SETTING']]]],
+  ['Báo cáo', [['Doanh thu',['REPORT_VIEW']], ['Công nợ',['REPORT_VIEW']], ['Căn hộ',['REPORT_VIEW']], ['Dịch vụ',['REPORT_VIEW']]]],
+  ['AI Assistant', [['Chat AI',['AI_CHAT']], ['Thống kê AI',['AI_STATISTIC']], ['Dự đoán hợp đồng',['AI_PREDICT']], ['AI tìm kiếm',['AI_SEARCH']]]],
+  ['Cài đặt', [['Hồ sơ',['PROFILE_UPDATE']], ['Đổi mật khẩu',['PASSWORD_CHANGE']], ['Thông tin hệ thống',['SYSTEM_SETTING']]]]
+];
+
+const menuItemIds = [
+  ['dashboard','quick-report'], ['residents','buildings','contract-list'], ['electricity','water','register-service','gym','pool','event-space'],
+  ['fees','payments','debts','fee-collection','revenue'], ['vehicles','vehicle-cards','parking-lot','parking-history'], ['tickets','maintenance','feedbacks','maintenance-schedule','equipment'],
+  ['notifications','send-notification','schedule-notification'], ['employees','permissions','roles','system-logs'], ['revenue-report','debt-report','apartment-report','service-report'],
+  ['ai-chat','ai-stats','ai-predict','ai-search'], ['profile','change-password','system-info']
+];
+
+const menuViewCode = (id) => `MENU_${id.toUpperCase().replace(/-/g, '_')}_VIEW`;
+
+const actionName = (code) => ({ VIEW: 'Xem', CREATE: 'Thêm', UPDATE: 'Sửa', DELETE: 'Xóa', RENEW: 'Gia hạn', LIQUIDATE: 'Thanh lý', SEND: 'Gửi', MANAGE: 'Quản lý', CREATE: 'Thêm' })[code.split('_').pop()] || 'Cho phép';
+
 export default function PermissionManagement({ flash }) {
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
@@ -86,19 +160,21 @@ export default function PermissionManagement({ flash }) {
       }
 
       // Xử lý modules
+      let loadedModules = [];
       if (modulesRes && modulesRes.data) {
         if (Array.isArray(modulesRes.data)) {
-          setModules(modulesRes.data);
+          loadedModules = modulesRes.data;
         } else if (modulesRes.data.data && Array.isArray(modulesRes.data.data)) {
-          setModules(modulesRes.data.data);
+          loadedModules = modulesRes.data.data;
         } else if (modulesRes.data.recordset && Array.isArray(modulesRes.data.recordset)) {
-          setModules(modulesRes.data.recordset);
+          loadedModules = modulesRes.data.recordset;
         }
       }
+      setModules(loadedModules);
 
       // Mở rộng tất cả module mặc định
       const expanded = {};
-      modules.forEach(mod => {
+      loadedModules.forEach(mod => {
         expanded[mod.ModuleID || mod.id] = true;
       });
       setExpandedModules(expanded);
@@ -374,7 +450,7 @@ export default function PermissionManagement({ flash }) {
           {/* Select all / Deselect all */}
           <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
             <span className="text-sm font-medium text-slate-700">
-              Đã chọn: <span className="font-bold text-[#1f4f46]">{selectedPermissions.length}</span> / {permissions.length} quyền
+              Đã chọn: <span className="font-bold text-[#1f4f46]">{selectedPermissions.length}</span> quyền trên 45 chức năng menu
             </span>
             <div className="flex gap-2">
               <Button 
@@ -397,82 +473,30 @@ export default function PermissionManagement({ flash }) {
             </div>
           </div>
 
-          {/* Modules and Permissions */}
-          {modules.map(mod => {
-            const moduleId = mod.ModuleID || mod.id;
-            const moduleName = getModuleName(mod);
-            const moduleCode = getModuleCode(mod);
-            const modulePerms = getModulePermissions(moduleId);
-            const fullSelected = isModuleFullySelected(moduleId);
-            const partialSelected = isModulePartiallySelected(moduleId);
-            const isExpanded = expandedModules[moduleId] !== false;
-            const Icon = moduleIcons[moduleCode] || Shield;
-
-            if (modulePerms.length === 0) return null;
-
-            return (
-              <div key={moduleId} className="border border-slate-200 rounded-xl overflow-hidden">
-                {/* Module header */}
-                <div 
-                  className="flex items-center justify-between p-3 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors"
-                  onClick={() => toggleModule(moduleId)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1f4f46]/10 text-[#1f4f46]">
-                      <Icon size={16} />
+          {/* 45 mục trên thanh menu, mỗi mục chỉ hiển thị các thao tác có ý nghĩa. */}
+          {menuPermissionGroups.map(([groupName, items], groupIndex) => (
+            <section key={groupName} className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-slate-50 font-semibold text-slate-900">{groupName}</div>
+              <div className="divide-y divide-slate-100">
+                {items.map(([itemName, codes], itemIndex) => (
+                  <div key={`${groupName}-${itemName}`} className="flex flex-col gap-2 p-3 md:flex-row md:items-center">
+                    <span className="w-48 text-sm font-medium text-slate-800">{itemName}</span>
+                    <div className="flex flex-wrap gap-2">
+                      {[menuViewCode(menuItemIds[groupIndex][itemIndex]), ...codes.filter((code) => !code.endsWith('_VIEW'))].map((code) => {
+                        const permission = permissions.find((p) => (p.PermissionCode || p.permissionCode) === code);
+                        if (!permission) return null;
+                        const permissionId = permission.PermissionID || permission.id;
+                        return <label key={code} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer ${selectedPermissions.includes(permissionId) ? 'border-[#1f4f46] bg-[#1f4f46]/5' : 'border-slate-200'}`}>
+                          <input type="checkbox" checked={selectedPermissions.includes(permissionId)} onChange={() => togglePermission(permissionId)} className="accent-[#1f4f46]" />
+                          {actionName(code)}
+                        </label>;
+                      })}
                     </div>
-                    <span className="font-semibold text-slate-900">{moduleName}</span>
-                    <Badge tone="slate" className="text-xs">
-                      {modulePerms.filter(p => selectedPermissions.includes(p.PermissionID || p.id)).length}/{modulePerms.length}
-                    </Badge>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleModulePermissions(moduleId);
-                      }}
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors
-                        ${fullSelected ? 'bg-[#1f4f46] border-[#1f4f46] text-white' : 
-                          partialSelected ? 'bg-[#1f4f46]/30 border-[#1f4f46]' : 
-                          'border-slate-300 hover:border-[#1f4f46]'}`}
-                    >
-                      {fullSelected && <Check size={12} />}
-                      {partialSelected && <span className="w-2 h-0.5 bg-[#1f4f46]"></span>}
-                    </button>
-                    {isExpanded ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
-                  </div>
-                </div>
-
-                {/* Module permissions */}
-                {isExpanded && (
-                  <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {modulePerms.map(perm => {
-                      const permId = perm.PermissionID || perm.id;
-                      const isSelected = selectedPermissions.includes(permId);
-                      return (
-                        <label 
-                          key={permId}
-                          className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors
-                            ${isSelected ? 'bg-[#1f4f46]/5 border-[#1f4f46]' : 'hover:bg-slate-50 border-transparent'}
-                            border`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => togglePermission(permId)}
-                            className="w-4 h-4 rounded border-slate-300 accent-[#1f4f46]"
-                          />
-                          <span className="text-sm text-slate-700">{perm.PermissionName || perm.permissionName}</span>
-                          <span className="text-xs text-slate-400 ml-auto">{perm.PermissionCode || perm.permissionCode}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
+                ))}
               </div>
-            );
-          })}
+            </section>
+          ))}
 
           {modules.length === 0 && (
             <div className="text-center py-8 text-slate-500">
