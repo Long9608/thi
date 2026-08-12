@@ -82,36 +82,80 @@ export default function ParkingSlotManagement({ flash }) {
     fetchVehicleTypes();
   }, [fetchSlots, fetchAreas, fetchVehicleTypes]);
 
+  // 🔥 SỬA: Gọi API tạo vị trí đỗ thực tế
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (modalMode === 'create') {
-        // Tạo vị trí đỗ (sẽ gọi API khi có)
-        if (flash) flash('✅ Tạo vị trí đỗ thành công!');
-      } else {
-        // Cập nhật vị trí đỗ
-        if (flash) flash('✅ Cập nhật vị trí đỗ thành công!');
-      }
+      // Gọi API tạo parking slot
+      const response = await vehicleAPI.createParkingSlot({
+        areaId: parseInt(form.areaId),
+        slotNumber: form.slotNumber,
+        vehicleTypeId: parseInt(form.vehicleTypeId),
+        isOccupied: form.isOccupied
+      });
+      
+      console.log('📊 Create parking slot response:', response);
+      
+      if (flash) flash('✅ Tạo vị trí đỗ thành công!');
       setModalOpen(false);
       resetForm();
       fetchSlots();
     } catch (error) {
       console.error('Submit error:', error);
-      if (flash) flash('❌ ' + (error.response?.data?.message || 'Có lỗi xảy ra'));
+      const errMsg = error.response?.data?.message || error.message || 'Không thể tạo vị trí đỗ';
+      if (flash) flash('❌ ' + errMsg);
     } finally {
       setLoading(false);
     }
   };
 
+  // 🔥 SỬA: Gọi API xóa vị trí đỗ
+  const handleDeleteSlot = async (slotId) => {
+    if (!confirm('Bạn có chắc muốn xóa vị trí đỗ này?')) return;
+    try {
+      await vehicleAPI.deleteParkingSlot(slotId);
+      if (flash) flash('✅ Xóa vị trí đỗ thành công!');
+      fetchSlots();
+    } catch (error) {
+      console.error('Delete slot error:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể xóa vị trí đỗ'));
+    }
+  };
+
+  // 🔥 SỬA: Gọi API cập nhật trạng thái vị trí đỗ
   const handleToggleOccupied = async (slot) => {
     try {
-      // Toggle trạng thái
+      await vehicleAPI.updateParkingSlot(slot.SlotID, {
+        isOccupied: slot.IsOccupied ? 0 : 1
+      });
       if (flash) flash(`✅ ${slot.IsOccupied ? 'Mở' : 'Đóng'} vị trí đỗ thành công!`);
       fetchSlots();
     } catch (error) {
       console.error('Toggle error:', error);
       if (flash) flash('❌ ' + (error.response?.data?.message || 'Có lỗi xảy ra'));
+    }
+  };
+
+  // 🔥 SỬA: Gọi API cập nhật vị trí đỗ
+  const handleUpdateSlot = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await vehicleAPI.updateParkingSlot(selectedSlot.SlotID, {
+        slotNumber: form.slotNumber,
+        vehicleTypeId: parseInt(form.vehicleTypeId),
+        isOccupied: form.isOccupied
+      });
+      if (flash) flash('✅ Cập nhật vị trí đỗ thành công!');
+      setModalOpen(false);
+      resetForm();
+      fetchSlots();
+    } catch (error) {
+      console.error('Update error:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể cập nhật vị trí đỗ'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -362,12 +406,30 @@ export default function ParkingSlotManagement({ flash }) {
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => {
+                setModalMode('edit');
+                setForm({
+                  areaId: selectedSlot.AreaID || '',
+                  slotNumber: selectedSlot.SlotNumber || '',
+                  vehicleTypeId: selectedSlot.VehicleTypeID || '',
+                  isOccupied: selectedSlot.IsOccupied || 0
+                });
+                setSelectedSlot(selectedSlot);
+              }}>
+                <Edit size={16} /> Sửa
+              </Button>
+              <Button variant="danger" onClick={() => {
+                setModalOpen(false);
+                handleDeleteSlot(selectedSlot.SlotID);
+              }}>
+                <Trash2 size={16} /> Xóa
+              </Button>
               <Button variant="secondary" onClick={() => setModalOpen(false)}>Đóng</Button>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={modalMode === 'create' ? handleSubmit : handleUpdateSlot} className="space-y-4">
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-semibold text-slate-700">Khu vực *</label>
@@ -390,7 +452,7 @@ export default function ParkingSlotManagement({ flash }) {
                 <Input
                   value={form.slotNumber}
                   onChange={(e) => setForm({ ...form, slotNumber: e.target.value.toUpperCase() })}
-                  placeholder="B1-021"
+                  placeholder="A1-01"
                   required
                 />
               </div>

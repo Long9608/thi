@@ -14,24 +14,11 @@ exports.getAllInvoices = async (req, res) => {
             limit = 20 
         } = req.query;
 
+        console.log('📊 Fetching invoices with filters:', { statusId, month, year, page, limit });
+
         const pool = await getPool();
         const offset = (page - 1) * limit;
         const safeLimit = parseInt(limit) || 20;
-
-        // Kiểm tra cột InvoiceType có tồn tại không
-        let invoiceTypeField = 'NULL AS InvoiceType';
-        try {
-            const checkColumn = await pool.request().query(`
-                SELECT COLUMN_NAME 
-                FROM INFORMATION_SCHEMA.COLUMNS 
-                WHERE TABLE_NAME = 'Invoice' AND COLUMN_NAME = 'InvoiceType'
-            `);
-            if (checkColumn.recordset[0]) {
-                invoiceTypeField = 'i.InvoiceType';
-            }
-        } catch (e) {
-            console.warn('InvoiceType column not found, using NULL');
-        }
 
         let query = `
             SELECT 
@@ -42,28 +29,44 @@ exports.getAllInvoices = async (req, res) => {
                 i.DueDate,
                 i.TotalAmount,
                 i.StatusID,
-                ${invoiceTypeField},
                 ist.StatusName AS InvoiceStatus,
                 c.ContractNumber,
-                c.Rent,
                 a.ApartmentCode,
                 r.FullName AS OwnerName,
-                (
-                    SELECT SUM(Amount) 
-                    FROM InvoiceDetail 
-                    WHERE InvoiceID = i.InvoiceID
-                ) AS CalculatedTotal,
-                (
+                ISNULL((
                     SELECT SUM(Amount) 
                     FROM Payment 
                     WHERE InvoiceID = i.InvoiceID 
                         AND StatusID = 2
-                ) AS PaidAmount
+                ), 0) AS PaidAmount,
+                (
+                    SELECT 
+                        InvoiceDetailID,
+                        ChargeType,
+                        Description,
+                        Quantity,
+                        UnitPrice,
+                        Amount
+                    FROM InvoiceDetail 
+                    WHERE InvoiceID = i.InvoiceID
+                    FOR JSON PATH
+                ) AS Details,
+                (
+                    SELECT 
+                        PaymentID,
+                        Amount,
+                        PaymentDate,
+                        StatusID,
+                        TransactionCode
+                    FROM Payment 
+                    WHERE InvoiceID = i.InvoiceID
+                    FOR JSON PATH
+                ) AS Payments
             FROM Invoice i
+            INNER JOIN InvoiceStatus ist ON i.StatusID = ist.StatusID
             INNER JOIN Contract c ON i.ContractID = c.ContractID
             INNER JOIN Apartment a ON c.ApartmentID = a.ApartmentID
             INNER JOIN Resident r ON c.OwnerID = r.ResidentID
-            INNER JOIN InvoiceStatus ist ON i.StatusID = ist.StatusID
             WHERE 1=1
         `;
 
@@ -80,12 +83,6 @@ exports.getAllInvoices = async (req, res) => {
             request.input('StatusID', sql.Int, parseInt(statusId));
         }
 
-        if (contractId) {
-            query += ` AND i.ContractID = @ContractID`;
-            countQuery += ` AND i.ContractID = @ContractID`;
-            request.input('ContractID', sql.Int, parseInt(contractId));
-        }
-
         if (month) {
             query += ` AND i.InvoiceMonth = @Month`;
             countQuery += ` AND i.InvoiceMonth = @Month`;
@@ -98,23 +95,13 @@ exports.getAllInvoices = async (req, res) => {
             request.input('Year', sql.Int, parseInt(year));
         }
 
-        if (fromDate) {
-            query += ` AND i.InvoiceDate >= @FromDate`;
-            countQuery += ` AND i.InvoiceDate >= @FromDate`;
-            request.input('FromDate', sql.Date, fromDate);
-        }
+        // 🔥 THÊM LOG ĐỂ DEBUG
+        console.log('📊 Query params:', { statusId, month, year });
 
-        if (toDate) {
-            query += ` AND i.InvoiceDate <= @ToDate`;
-            countQuery += ` AND i.InvoiceDate <= @ToDate`;
-            request.input('ToDate', sql.Date, toDate);
-        }
-
-        // Lấy tổng số bản ghi
         const countResult = await request.query(countQuery);
         const total = countResult.recordset[0]?.total || 0;
+        console.log('📊 Total invoices:', total);
 
-        // Thêm phân trang
         query += `
             ORDER BY i.InvoiceDate DESC
             OFFSET @Offset ROWS
@@ -124,12 +111,23 @@ exports.getAllInvoices = async (req, res) => {
         request.input('Limit', sql.Int, safeLimit);
 
         const result = await request.query(query);
+        console.log('📊 Query result rows:', result.recordset.length);
 
-        // Xử lý kết quả
+        // Parse JSON fields
         const invoices = result.recordset.map(inv => {
-            // Nếu TotalAmount là NULL, lấy từ CalculatedTotal
-            if (inv.TotalAmount === null || inv.TotalAmount === undefined || inv.TotalAmount === 0) {
-                inv.TotalAmount = inv.CalculatedTotal || 0;
+            if (inv.Details) {
+                try {
+                    inv.Details = JSON.parse(inv.Details);
+                } catch (e) {
+                    inv.Details = [];
+                }
+            }
+            if (inv.Payments) {
+                try {
+                    inv.Payments = JSON.parse(inv.Payments);
+                } catch (e) {
+                    inv.Payments = [];
+                }
             }
             return inv;
         });
@@ -396,6 +394,8 @@ exports.processPayment = async (req, res) => {
             transactionCode
         } = req.body;
 
+        console.log('💰 Processing payment:', { invoiceId, methodId, amount, transactionCode });
+
         if (!invoiceId || !methodId || !amount) {
             return res.status(400).json({
                 success: false,
@@ -438,10 +438,20 @@ exports.processPayment = async (req, res) => {
         const totalPaid = paidResult.recordset[0].TotalPaid;
         const remainingAmount = invoice.TotalAmount - totalPaid;
 
+        console.log('💰 Payment calculation:', {
+            totalAmount: invoice.TotalAmount,
+            totalPaid: totalPaid,
+            remainingAmount: remainingAmount,
+            amountToPay: amount
+        });
+
+        // 🔥 SỬA: Kiểm tra chính xác
         if (amount > remainingAmount) {
             return res.status(400).json({
                 success: false,
-                message: `Amount exceeds remaining balance: ${remainingAmount}`
+                message: `Amount exceeds remaining balance: ${remainingAmount}`,
+                remainingAmount: remainingAmount,
+                amount: amount
             });
         }
 
@@ -473,14 +483,19 @@ exports.processPayment = async (req, res) => {
                 .query('UPDATE Invoice SET StatusID = @StatusID WHERE InvoiceID = @InvoiceID');
         }
 
+        console.log('✅ Payment successful:', { paymentId, newTotalPaid });
+
         res.status(201).json({
             success: true,
             message: 'Payment processed successfully',
-            data: { paymentId }
+            data: { 
+                paymentId,
+                remainingAfterPayment: invoice.TotalAmount - newTotalPaid
+            }
         });
 
     } catch (error) {
-        console.error('Process payment error:', error);
+        console.error('❌ Process payment error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to process payment',

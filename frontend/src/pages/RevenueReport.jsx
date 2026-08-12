@@ -6,7 +6,7 @@ import {
   Filter, Search, FileText, CreditCard,
   DollarSign, BarChart3, PieChart,
   ArrowUp, ArrowDown, ChevronRight,
-  Users, Home, Wrench, Car
+  Users, Home, Wrench, Car, AlertCircle
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar,
@@ -16,7 +16,10 @@ import {
 } from 'recharts';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, money, formatNumber } from '../utils/formatters';
-import { invoiceAPI } from '../api';
+import { invoiceAPI, contractAPI } from '../api';
+
+// Màu sắc cho biểu đồ
+const COLORS = ['#1f4f46', '#0d9488', '#f59e0b', '#3b82f6', '#8b5cf6'];
 
 export default function RevenueReport({ flash }) {
   const [loading, setLoading] = useState(true);
@@ -25,104 +28,308 @@ export default function RevenueReport({ flash }) {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [viewMode, setViewMode] = useState('chart');
   const [invoices, setInvoices] = useState([]);
+  const [contracts, setContracts] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
+  const [error, setError] = useState(null);
 
-  // Fetch real invoice data
+  // Fetch data
   const fetchRevenueData = useCallback(async () => {
     try {
       setLoading(true);
-      // Lấy hóa đơn đã thanh toán trong năm
-      const res = await invoiceAPI.getAll('2', '', year, 1, 999);
-      console.log('📊 Revenue data:', res);
+      setError(null);
       
-      const data = res?.data || [];
-      setInvoices(Array.isArray(data) ? data : []);
-      setTotalPages(res.pagination?.totalPages || 1);
+      console.log('📊 Fetching revenue data...');
+      
+      // Lấy tất cả hóa đơn đã thanh toán
+      const invoiceRes = await invoiceAPI.getAll('2', '', '', 1, 999);
+      console.log('📊 Invoices response:', invoiceRes);
+      
+      // Lấy tất cả hợp đồng đang hiệu lực
+      const contractRes = await contractAPI.getAll('2', 1, 999);
+      console.log('📊 Contracts response:', contractRes);
+      
+      if (invoiceRes && invoiceRes.success !== false) {
+        const data = invoiceRes?.data || [];
+        console.log('📊 Number of paid invoices:', data.length);
+        setInvoices(Array.isArray(data) ? data : []);
+        setTotalPages(invoiceRes.pagination?.totalPages || 1);
+      } else {
+        setInvoices([]);
+      }
+      
+      if (contractRes && contractRes.success !== false) {
+        const data = contractRes?.data || [];
+        console.log('📊 Number of active contracts:', data.length);
+        setContracts(Array.isArray(data) ? data : []);
+      } else {
+        setContracts([]);
+      }
+      
     } catch (error) {
-      console.error('Error fetching revenue data:', error);
+      console.error('❌ Error fetching revenue data:', error);
+      setError(error.message || 'Không thể tải dữ liệu doanh thu');
       if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải dữ liệu doanh thu'));
       setInvoices([]);
+      setContracts([]);
     } finally {
       setLoading(false);
     }
-  }, [year, flash]);
+  }, [flash]);
 
   useEffect(() => {
     fetchRevenueData();
   }, [fetchRevenueData]);
 
-  // Tính toán dữ liệu doanh thu theo tháng
-  const revenueData = useMemo(() => {
+  // 🔥 TÍNH DOANH THU TỪ HÓA ĐƠN ĐÃ THANH TOÁN (THEO THÁNG)
+  const paidRevenueData = useMemo(() => {
     const monthlyData = {};
     
-    // Khởi tạo 12 tháng
+    // Khởi tạo 12 tháng với 0
     for (let m = 1; m <= 12; m++) {
-      monthlyData[m] = { month: `T${m}`, revenue: 0, target: 0 };
+      monthlyData[m] = { 
+        month: `Tháng ${m}`, 
+        paid: 0,
+        contract: 0,
+        total: 0 
+      };
     }
     
-    // Tổng hợp doanh thu từ invoices
+    // Tổng hợp doanh thu từ invoices đã thanh toán
     invoices.forEach(inv => {
       const m = inv.InvoiceMonth;
+      const amount = parseFloat(inv.TotalAmount) || 0;
+      console.log(`📊 Invoice: Month ${m}, Amount: ${amount}`);
       if (m && monthlyData[m]) {
-        monthlyData[m].revenue += parseFloat(inv.TotalAmount || 0);
+        monthlyData[m].paid += amount;
+        monthlyData[m].total += amount;
       }
     });
     
-    // Tính target = 90% của revenue (giả lập)
-    const months = Object.values(monthlyData);
-    months.forEach(item => {
-      item.target = Math.round(item.revenue * 0.9);
-      // Chuyển sang triệu VND
-      item.revenue = Math.round(item.revenue / 1000000);
-      item.target = Math.round(item.target / 1000000);
+    console.log('📊 Paid revenue by month:', monthlyData);
+    return monthlyData;
+  }, [invoices]);
+
+  // 🔥 TÍNH DOANH THU TỪ HỢP ĐỒNG (THEO THÁNG)
+  const contractRevenueData = useMemo(() => {
+    const monthlyData = {};
+    
+    // Khởi tạo 12 tháng với 0
+    for (let m = 1; m <= 12; m++) {
+      monthlyData[m] = { 
+        month: `Tháng ${m}`, 
+        paid: 0,
+        contract: 0,
+        total: 0 
+      };
+    }
+    
+    // Lấy tất cả hợp đồng đang hiệu lực
+    contracts.forEach(contract => {
+      const rentAmount = parseFloat(contract.Rent) || 0;
+      console.log(`📊 Contract: ${contract.ContractNumber}, Rent: ${rentAmount}`);
+      
+      // Lấy tháng bắt đầu và tháng kết thúc
+      const startDate = new Date(contract.StartDate);
+      const endDate = new Date(contract.EndDate);
+      const startMonth = startDate.getMonth() + 1;
+      const startYear = startDate.getFullYear();
+      const endMonth = endDate.getMonth() + 1;
+      const endYear = endDate.getFullYear();
+      
+      // Tính số tháng hợp đồng
+      const monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth);
+      
+      // Phân bổ doanh thu theo từng tháng, chỉ tính đến tháng 8 (tháng hiện tại)
+      const currentMonth = 8;
+      
+      for (let i = 0; i <= monthsDiff; i++) {
+        let targetMonth = startMonth + i;
+        let targetYear = startYear;
+        if (targetMonth > 12) {
+          targetMonth = targetMonth - 12;
+          targetYear = targetYear + 1;
+        }
+        
+        // Chỉ tính từ tháng 1 đến tháng 8
+        if (targetYear === year && targetMonth <= currentMonth) {
+          if (monthlyData[targetMonth]) {
+            monthlyData[targetMonth].contract += rentAmount;
+            monthlyData[targetMonth].total += rentAmount;
+          }
+        }
+      }
     });
     
-    return months;
-  }, [invoices]);
+    console.log('📊 Contract revenue by month:', monthlyData);
+    return monthlyData;
+  }, [contracts, year]);
 
-  // Tính doanh thu theo nguồn (từ chi tiết hóa đơn - giả lập)
+  // 🔥 KẾT HỢP DỮ LIỆU - CHỈ LẤY TỪ THÁNG 1 ĐẾN 8
+  const combinedRevenueData = useMemo(() => {
+    const result = [];
+    let totalRevenue = 0;
+    
+    // Chỉ hiển thị từ tháng 1 đến tháng 8 (tháng hiện tại)
+    const currentMonth = 8;
+    
+    for (let m = 1; m <= currentMonth; m++) {
+      const paid = paidRevenueData[m]?.paid || 0;
+      const contract = contractRevenueData[m]?.contract || 0;
+      const total = paid + contract;
+      
+      totalRevenue += total;
+      
+      result.push({
+        month: `T${m}`,
+        monthLabel: `Tháng ${m}`,
+        monthNumber: m,
+        paid: paid,
+        contract: contract,
+        total: total
+      });
+    }
+    
+    console.log('📊 Combined revenue data:', result);
+    console.log('📊 Total revenue:', totalRevenue);
+    return result;
+  }, [paidRevenueData, contractRevenueData]);
+
+  // 🔥 TÍNH DOANH THU THEO NGUỒN (TỔNG HỢP)
   const revenueBySource = useMemo(() => {
-    const total = invoices.reduce((sum, inv) => sum + parseFloat(inv.TotalAmount || 0), 0);
-    if (total === 0) {
+    const totalPaid = invoices.reduce((sum, inv) => sum + (parseFloat(inv.TotalAmount) || 0), 0);
+    const totalContract = contracts.reduce((sum, c) => sum + (parseFloat(c.Rent) || 0), 0);
+    
+    console.log('📊 Revenue sources:', { totalPaid, totalContract });
+    
+    if (totalPaid === 0 && totalContract === 0) {
       return [
-        { name: 'Tiền thuê', value: 0, color: '#1f4f46' },
-        { name: 'Phí dịch vụ', value: 0, color: '#0d9488' },
-        { name: 'Phí gửi xe', value: 0, color: '#f59e0b' },
-        { name: 'Phí điện/nước', value: 0, color: '#3b82f6' }
+        { name: 'Hóa đơn', value: 0, color: '#1f4f46' },
+        { name: 'Hợp đồng', value: 0, color: '#0d9488' }
       ];
     }
-    // Tính tỷ lệ dựa trên dữ liệu thực tế nếu có
+    
     return [
-      { name: 'Tiền thuê', value: Math.round(total * 0.65), color: '#1f4f46' },
-      { name: 'Phí dịch vụ', value: Math.round(total * 0.20), color: '#0d9488' },
-      { name: 'Phí gửi xe', value: Math.round(total * 0.10), color: '#f59e0b' },
-      { name: 'Phí điện/nước', value: Math.round(total * 0.05), color: '#3b82f6' }
+      { name: 'Từ hóa đơn', value: Math.round(totalPaid), color: '#1f4f46' },
+      { name: 'Từ hợp đồng', value: Math.round(totalContract), color: '#0d9488' }
     ];
-  }, [invoices]);
+  }, [invoices, contracts]);
 
-  // Thống kê tháng hiện tại
+  // 🔥 TÍNH TỔNG DOANH THU TỪ TẤT CẢ HỢP ĐỒNG
+  const totalContractRevenue = useMemo(() => {
+    return contracts.reduce((sum, c) => sum + (parseFloat(c.Rent) || 0), 0);
+  }, [contracts]);
+
+  // 🔥 THỐNG KÊ TỔNG QUAN
   const monthlyDetails = useMemo(() => {
-    const currentMonthData = revenueData.find(d => {
-      const monthNum = parseInt(d.month.replace('T', ''));
-      return monthNum === month;
-    });
-    const totalRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
-    const avgRevenue = revenueData.length > 0 ? totalRevenue / revenueData.length : 0;
-    const prevMonthData = revenueData.find(d => {
-      const monthNum = parseInt(d.month.replace('T', ''));
-      return monthNum === month - 1;
+    // Lấy dữ liệu tháng hiện tại
+    const currentMonthData = combinedRevenueData.find(d => d.monthNumber === month);
+    const currentMonthTotal = currentMonthData?.total || 0;
+    const currentMonthPaid = currentMonthData?.paid || 0;
+    const currentMonthContract = currentMonthData?.contract || 0;
+    
+    // Tổng doanh thu tất cả tháng
+    const totalRevenue = combinedRevenueData.reduce((sum, d) => sum + d.total, 0);
+    
+    // Doanh thu trung bình
+    const avgRevenue = combinedRevenueData.filter(d => d.total > 0).length > 0 
+      ? totalRevenue / combinedRevenueData.filter(d => d.total > 0).length 
+      : 0;
+    
+    // 🔥 TÍNH TĂNG TRƯỞNG CHÍNH XÁC
+    // Lấy dữ liệu tháng trước
+    const prevMonthData = combinedRevenueData.find(d => d.monthNumber === month - 1);
+    const prevMonthTotal = prevMonthData?.total || 0;
+    
+    // Lấy dữ liệu tháng 1 để so sánh tăng trưởng tổng thể
+    const firstMonthData = combinedRevenueData.find(d => d.monthNumber === 1);
+    const firstMonthTotal = firstMonthData?.total || 0;
+    
+    let growth = 0;
+    let totalGrowth = 0;
+    
+    // Tăng trưởng so với tháng trước
+    if (prevMonthTotal > 0) {
+      growth = ((currentMonthTotal - prevMonthTotal) / prevMonthTotal) * 100;
+    } else if (currentMonthTotal > 0 && prevMonthTotal === 0) {
+      growth = 100; // Nếu tháng trước không có doanh thu
+    }
+    
+    // Tăng trưởng tổng thể so với tháng 1
+    if (firstMonthTotal > 0 && totalRevenue > 0) {
+      totalGrowth = ((totalRevenue - firstMonthTotal) / firstMonthTotal) * 100;
+    } else if (totalRevenue > 0 && firstMonthTotal === 0) {
+      totalGrowth = 100;
+    }
+    
+    console.log('📊 Growth calculation:', {
+      currentMonthTotal,
+      prevMonthTotal,
+      growth,
+      totalGrowth,
+      firstMonthTotal,
+      totalRevenue
     });
     
     return {
       total: totalRevenue,
+      totalContract: totalContractRevenue,
       average: avgRevenue,
-      current: currentMonthData?.revenue || 0,
-      target: currentMonthData?.target || 0,
-      growth: prevMonthData ? currentMonthData?.revenue - prevMonthData.revenue : 0
+      current: currentMonthTotal,
+      paid: currentMonthPaid,
+      contract: currentMonthContract,
+      growth: growth,
+      totalGrowth: totalGrowth,
+      invoiceCount: invoices.length,
+      contractCount: contracts.length,
+      prevMonthTotal: prevMonthTotal,
+      firstMonthTotal: firstMonthTotal
     };
-  }, [revenueData, month]);
+  }, [combinedRevenueData, invoices, contracts, month, totalContractRevenue]);
 
-  const COLORS = ['#1f4f46', '#0d9488', '#f59e0b', '#3b82f6', '#8b5cf6'];
+  // 🔥 Hàm refresh
+  const handleRefresh = useCallback(() => {
+    fetchRevenueData();
+  }, [fetchRevenueData]);
+
+  // 🔥 Hàm export
+  const handleExport = useCallback(() => {
+    try {
+      const headers = ['Tháng', 'Từ hóa đơn (VND)', 'Từ hợp đồng (VND)', 'Tổng (VND)'];
+      const rows = combinedRevenueData.map(d => [
+        d.monthLabel,
+        d.paid,
+        d.contract,
+        d.total
+      ]);
+
+      const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bao-cao-doanh-thu_${year}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      if (flash) flash('✅ Xuất báo cáo thành công!');
+    } catch (error) {
+      console.error('Export error:', error);
+      if (flash) flash('❌ Có lỗi khi xuất báo cáo');
+    }
+  }, [combinedRevenueData, year, flash]);
+
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <Card className="p-8 text-center">
+          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <p className="mt-3 font-bold text-slate-900">Đang tải báo cáo...</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -131,7 +338,17 @@ export default function RevenueReport({ flash }) {
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div>
             <h3 className="text-base font-bold text-slate-950">Báo cáo doanh thu</h3>
-            <p className="text-sm text-slate-500">Báo cáo doanh thu chi tiết theo tháng</p>
+            <p className="text-sm text-slate-500">
+              Báo cáo doanh thu từ hóa đơn và hợp đồng.
+              {invoices.length + contracts.length === 0 && (
+                <span className="ml-2 text-amber-600 font-semibold">⚠️ Chưa có dữ liệu</span>
+              )}
+              {invoices.length + contracts.length > 0 && (
+                <span className="ml-2 text-[#1f4f46] font-semibold">
+                  {invoices.length} hóa đơn + {contracts.length} hợp đồng
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <select
@@ -161,10 +378,10 @@ export default function RevenueReport({ flash }) {
                 <option key={m} value={m}>Tháng {m}</option>
               ))}
             </select>
-            <Button variant="secondary" onClick={fetchRevenueData} disabled={loading}>
+            <Button variant="secondary" onClick={handleRefresh} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
-            <Button>
+            <Button onClick={handleExport} disabled={invoices.length === 0 && contracts.length === 0}>
               <Download size={16} /> Xuất báo cáo
             </Button>
           </div>
@@ -176,178 +393,185 @@ export default function RevenueReport({ flash }) {
         <StatCard 
           icon={DollarSign} 
           label="Tổng doanh thu" 
-          value={money(monthlyDetails.total * 1000000).replace('₫', '')} 
-          hint="12 tháng" 
+          value={money(monthlyDetails.total).replace('₫', '')} 
+          hint={`${invoices.length + contracts.length} nguồn`}
         />
         <StatCard 
           icon={TrendingUp} 
           label="Doanh thu TB" 
-          value={money(monthlyDetails.average * 1000000).replace('₫', '')} 
-          hint="Mỗi tháng" 
+          value={money(monthlyDetails.average).replace('₫', '')} 
+          hint="Mỗi tháng có dữ liệu" 
         />
         <StatCard 
           icon={BarChart3} 
-          label="Tháng này" 
-          value={money(monthlyDetails.current * 1000000).replace('₫', '')} 
-          hint={`Mục tiêu: ${money(monthlyDetails.target * 1000000).replace('₫', '')}`}
+          label={`Tháng ${month}`} 
+          value={money(monthlyDetails.current).replace('₫', '')} 
+          hint={`HĐ: ${money(monthlyDetails.paid).replace('₫', '')} | Hợp đồng: ${money(monthlyDetails.contract).replace('₫', '')}`}
         />
         <StatCard 
           icon={monthlyDetails.growth >= 0 ? ArrowUp : ArrowDown} 
           label="Tăng trưởng" 
-          value={`${monthlyDetails.growth >= 0 ? '+' : ''}${monthlyDetails.growth > 0 ? ((monthlyDetails.growth / (monthlyDetails.current - monthlyDetails.growth)) * 100).toFixed(1) : 0}%`} 
+          value={`${monthlyDetails.growth >= 0 ? '+' : ''}${monthlyDetails.growth.toFixed(1)}%`} 
           hint={monthlyDetails.growth >= 0 ? 'Tăng' : 'Giảm'}
         />
       </div>
 
-      {loading ? (
-        <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
-          <p className="mt-3 font-bold text-slate-900">Đang tải báo cáo...</p>
-        </Card>
-      ) : (
-        <>
-          {/* Revenue Chart */}
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h4 className="font-bold text-slate-950">Biểu đồ doanh thu</h4>
-                <p className="text-sm text-slate-500">So sánh doanh thu theo tháng</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${
-                    viewMode === 'chart' ? 'bg-[#1f4f46] text-white' : 'bg-slate-100 text-slate-600'
-                  }`}
-                  onClick={() => setViewMode('chart')}
-                >
-                  Biểu đồ
-                </button>
-                <button
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${
-                    viewMode === 'table' ? 'bg-[#1f4f46] text-white' : 'bg-slate-100 text-slate-600'
-                  }`}
-                  onClick={() => setViewMode('table')}
-                >
-                  Bảng
-                </button>
+      {/* Revenue Chart */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h4 className="font-bold text-slate-950">Biểu đồ doanh thu</h4>
+            <p className="text-sm text-slate-500">So sánh doanh thu từ hóa đơn và hợp đồng (Tháng 1 - 8)</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${
+                viewMode === 'chart' ? 'bg-[#1f4f46] text-white' : 'bg-slate-100 text-slate-600'
+              }`}
+              onClick={() => setViewMode('chart')}
+            >
+              Biểu đồ
+            </button>
+            <button
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${
+                viewMode === 'table' ? 'bg-[#1f4f46] text-white' : 'bg-slate-100 text-slate-600'
+              }`}
+              onClick={() => setViewMode('table')}
+            >
+              Bảng
+            </button>
+          </div>
+        </div>
+
+        {combinedRevenueData.every(d => d.total === 0) ? (
+          <div className="h-80 flex items-center justify-center text-slate-400">
+            <div className="text-center">
+              <FileText size={48} className="mx-auto mb-3 text-slate-300" />
+              <p className="font-semibold text-slate-600">Chưa có dữ liệu doanh thu</p>
+              <p className="text-sm text-slate-400">Vui lòng tạo hóa đơn hoặc hợp đồng để có dữ liệu</p>
+            </div>
+          </div>
+        ) : viewMode === 'chart' ? (
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={combinedRevenueData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="monthLabel" tickLine={false} axisLine={false} />
+                <YAxis tickLine={false} axisLine={false} />
+                <Tooltip 
+                  formatter={(value) => money(value)}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+                <Legend />
+                <Bar dataKey="paid" name="Từ hóa đơn" fill="#1f4f46" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="contract" name="Từ hợp đồng" fill="#0d9488" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-2">Tháng</th>
+                  <th className="px-4 py-2 text-right">Từ hóa đơn</th>
+                  <th className="px-4 py-2 text-right">Từ hợp đồng</th>
+                  <th className="px-4 py-2 text-right">Tổng</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {combinedRevenueData.map((item) => (
+                  <tr key={item.month} className="hover:bg-slate-50">
+                    <td className="px-4 py-2 font-medium">{item.monthLabel}</td>
+                    <td className="px-4 py-2 text-right text-[#1f4f46]">
+                      {item.paid > 0 ? money(item.paid) : '0'}
+                    </td>
+                    <td className="px-4 py-2 text-right text-[#0d9488]">
+                      {item.contract > 0 ? money(item.contract) : '0'}
+                    </td>
+                    <td className="px-4 py-2 text-right font-bold">
+                      {item.total > 0 ? money(item.total) : '0'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Revenue by Source */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="p-6">
+          <h4 className="font-bold text-slate-950 mb-4">Doanh thu theo nguồn</h4>
+          {invoices.length === 0 && contracts.length === 0 ? (
+            <div className="h-64 flex items-center justify-center text-slate-400">
+              <div className="text-center">
+                <PieChart size={48} className="mx-auto mb-3 text-slate-300" />
+                <p>Chưa có dữ liệu</p>
               </div>
             </div>
-
-            <div className="h-80">
+          ) : (
+            <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={revenueData}>
-                  <defs>
-                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#1f4f46" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#1f4f46" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                  <YAxis tickLine={false} axisLine={false} />
+                <RePieChart>
+                  <Pie
+                    data={revenueBySource}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={4}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {revenueBySource.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
                   <Tooltip 
-                    formatter={(value) => money(value * 1000000).replace('₫', '')}
+                    formatter={(value) => [money(value), 'Doanh thu']}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                   />
-                  <Legend />
-                  <Area 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    name="Doanh thu" 
-                    stroke="#1f4f46" 
-                    strokeWidth={3} 
-                    fill="url(#revenueGradient)" 
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="target" 
-                    name="Mục tiêu" 
-                    stroke="#f59e0b" 
-                    strokeWidth={2} 
-                    strokeDasharray="5 5"
-                    fill="none"
-                  />
-                </AreaChart>
+                  <Legend verticalAlign="bottom" height={36} />
+                </RePieChart>
               </ResponsiveContainer>
             </div>
-          </Card>
+          )}
+        </Card>
 
-          {/* Revenue by Source */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card className="p-6">
-              <h4 className="font-bold text-slate-950 mb-4">Doanh thu theo nguồn</h4>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RePieChart>
-                    <Pie
-                      data={revenueBySource}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={4}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {revenueBySource.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => money(value).replace('₫', '')} />
-                  </RePieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-4">
-                {revenueBySource.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded" style={{ backgroundColor: item.color }} />
-                    <span className="text-sm text-slate-600">{item.name}</span>
-                    <span className="text-sm font-bold text-slate-950 ml-auto">
-                      {money(item.value).replace('₫', '')}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <h4 className="font-bold text-slate-950 mb-4">Chi tiết tháng {month}/{year}</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between p-3 rounded-xl bg-slate-50">
-                  <span className="text-slate-600">Tổng doanh thu</span>
-                  <span className="font-bold text-[#1f4f46]">{money(monthlyDetails.current * 1000000)}</span>
-                </div>
-                <div className="flex justify-between p-3 rounded-xl bg-slate-50">
-                  <span className="text-slate-600">Mục tiêu</span>
-                  <span className="font-bold text-amber-600">{money(monthlyDetails.target * 1000000)}</span>
-                </div>
-                <div className="flex justify-between p-3 rounded-xl bg-slate-50">
-                  <span className="text-slate-600">Chênh lệch</span>
-                  <span className={`font-bold ${monthlyDetails.current >= monthlyDetails.target ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {monthlyDetails.current >= monthlyDetails.target ? '+' : ''}
-                    {money((monthlyDetails.current - monthlyDetails.target) * 1000000).replace('₫', '')}
-                  </span>
-                </div>
-                <div className="flex justify-between p-3 rounded-xl bg-slate-50">
-                  <span className="text-slate-600">Tăng trưởng</span>
-                  <span className={`font-bold ${monthlyDetails.growth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {monthlyDetails.growth >= 0 ? '+' : ''}
-                    {monthlyDetails.growth > 0 && monthlyDetails.current > 0 
-                      ? ((monthlyDetails.growth / (monthlyDetails.current - monthlyDetails.growth)) * 100).toFixed(1) 
-                      : 0}%
-                  </span>
-                </div>
-                <div className="flex justify-between p-3 rounded-xl bg-slate-50">
-                  <span className="text-slate-600">Hiệu suất</span>
-                  <span className={`font-bold ${monthlyDetails.current >= monthlyDetails.target ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {monthlyDetails.target > 0 ? ((monthlyDetails.current / monthlyDetails.target) * 100).toFixed(0) : 0}%
-                  </span>
-                </div>
-              </div>
-            </Card>
+        <Card className="p-6">
+          <h4 className="font-bold text-slate-950 mb-4">Chi tiết tháng {month}/{year}</h4>
+          <div className="space-y-3">
+            <div className="flex justify-between p-3 rounded-xl bg-slate-50">
+              <span className="text-slate-600">Tổng doanh thu</span>
+              <span className="font-bold text-[#1f4f46]">{money(monthlyDetails.total)}</span>
+            </div>
+            <div className="flex justify-between p-3 rounded-xl bg-slate-50">
+              <span className="text-slate-600">Từ hóa đơn</span>
+              <span className="font-bold text-[#1f4f46]">{money(monthlyDetails.paid)}</span>
+            </div>
+            <div className="flex justify-between p-3 rounded-xl bg-slate-50">
+              <span className="text-slate-600">Từ hợp đồng</span>
+              <span className="font-bold text-[#0d9488]">{money(monthlyDetails.contract)}</span>
+            </div>
+            <div className="flex justify-between p-3 rounded-xl bg-slate-50">
+              <span className="text-slate-600">Tăng trưởng so với tháng trước</span>
+              <span className={`font-bold ${monthlyDetails.growth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {monthlyDetails.growth >= 0 ? '+' : ''}{monthlyDetails.growth.toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex justify-between p-3 rounded-xl bg-slate-50">
+              <span className="text-slate-600">Số hóa đơn</span>
+              <span className="font-bold text-slate-950">{monthlyDetails.invoiceCount}</span>
+            </div>
+            <div className="flex justify-between p-3 rounded-xl bg-slate-50">
+              <span className="text-slate-600">Số hợp đồng</span>
+              <span className="font-bold text-slate-950">{monthlyDetails.contractCount}</span>
+            </div>
           </div>
-        </>
-      )}
+        </Card>
+      </div>
     </div>
   );
 }

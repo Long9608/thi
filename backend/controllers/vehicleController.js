@@ -68,7 +68,6 @@ exports.getAllVehicles = async (req, res) => {
             WHERE 1=1
         `;
 
-        // Thêm điều kiện lọc
         if (residentId) {
             query += ` AND v.ResidentID = @ResidentID`;
             countQuery += ` AND v.ResidentID = @ResidentID`;
@@ -94,11 +93,9 @@ exports.getAllVehicles = async (req, res) => {
             request.input('Search', sql.NVarChar, searchPattern);
         }
 
-        // Đếm tổng số bản ghi
         const countResult = await request.query(countQuery);
         const total = countResult.recordset[0]?.total || 0;
 
-        // Thêm ORDER BY và OFFSET-FETCH
         query += `
             ORDER BY v.VehicleID DESC
             OFFSET @Offset ROWS
@@ -122,7 +119,6 @@ exports.getAllVehicles = async (req, res) => {
 
     } catch (error) {
         console.error('❌ Get vehicles error:', error);
-        console.error('Stack:', error.stack);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch vehicles',
@@ -130,10 +126,6 @@ exports.getAllVehicles = async (req, res) => {
         });
     }
 };
-
-// ============================================
-// CÁC HÀM KHÁC GIỮ NGUYÊN
-// ============================================
 
 exports.getVehicleById = async (req, res) => {
     try {
@@ -218,7 +210,6 @@ exports.createVehicle = async (req, res) => {
 
         const pool = await getPool();
 
-        // Check if plate number already exists
         const checkPlate = await pool.request()
             .input('PlateNumber', sql.VarChar, plateNumber)
             .query('SELECT VehicleID FROM Vehicle WHERE PlateNumber = @PlateNumber');
@@ -230,7 +221,6 @@ exports.createVehicle = async (req, res) => {
             });
         }
 
-        // Create vehicle
         const result = await pool.request()
             .input('ResidentID', sql.Int, residentId)
             .input('PlateNumber', sql.VarChar, plateNumber)
@@ -250,7 +240,6 @@ exports.createVehicle = async (req, res) => {
 
         const vehicleId = result.recordset[0].VehicleID;
 
-        // Create parking card if slot is provided
         if (slotId) {
             const slotCheck = await pool.request()
                 .input('SlotID', sql.Int, slotId)
@@ -350,7 +339,6 @@ exports.updateVehicle = async (req, res) => {
             }
         }
 
-        // Update card if slot or expiry date provided
         if (slotId || cardExpiryDate) {
             const cardCheck = await pool.request()
                 .input('VehicleID', sql.Int, id)
@@ -362,14 +350,12 @@ exports.updateVehicle = async (req, res) => {
                 cardRequest.input('VehicleID', sql.Int, id);
 
                 if (slotId) {
-                    // Free old slot
                     if (cardCheck.recordset[0].SlotID) {
                         await pool.request()
                             .input('SlotID', sql.Int, cardCheck.recordset[0].SlotID)
                             .query('UPDATE ParkingSlot SET IsOccupied = 0 WHERE SlotID = @SlotID');
                     }
 
-                    // Occupy new slot
                     await pool.request()
                         .input('SlotID', sql.Int, slotId)
                         .query('UPDATE ParkingSlot SET IsOccupied = 1 WHERE SlotID = @SlotID');
@@ -508,6 +494,10 @@ exports.getParkingHistory = async (req, res) => {
     }
 };
 
+// ============================================
+// 🔥 QUẢN LÝ PARKING SLOT - SỬA LỖI
+// ============================================
+
 exports.getParkingSlots = async (req, res) => {
     try {
         const { areaId, vehicleTypeId, isOccupied } = req.query;
@@ -535,24 +525,33 @@ exports.getParkingSlots = async (req, res) => {
 
         const request = pool.request();
 
-        if (areaId) {
+        if (areaId && areaId !== '') {
             query += ` AND ps.AreaID = @AreaID`;
             request.input('AreaID', sql.Int, parseInt(areaId));
         }
 
-        if (vehicleTypeId) {
+        if (vehicleTypeId && vehicleTypeId !== '') {
             query += ` AND ps.VehicleTypeID = @VehicleTypeID`;
             request.input('VehicleTypeID', sql.Int, parseInt(vehicleTypeId));
         }
 
-        if (isOccupied !== undefined && isOccupied !== '') {
-            query += ` AND ps.IsOccupied = @IsOccupied`;
-            request.input('IsOccupied', sql.Bit, parseInt(isOccupied));
+        // 🔥 SỬA: Xử lý isOccupied đúng cách - chỉ thêm điều kiện nếu có giá trị hợp lệ
+        if (isOccupied !== undefined && isOccupied !== null && isOccupied !== '') {
+            const occupiedValue = parseInt(isOccupied);
+            if (!isNaN(occupiedValue)) {
+                query += ` AND ps.IsOccupied = @IsOccupied`;
+                request.input('IsOccupied', sql.Bit, occupiedValue);
+            }
         }
 
         query += ` ORDER BY ps.SlotNumber`;
 
+        console.log('📊 Parking slots query:', query);
+        console.log('📊 Parameters:', { areaId, vehicleTypeId, isOccupied });
+
         const result = await request.query(query);
+
+        console.log('📊 Parking slots result:', result.recordset.length);
 
         res.json({
             success: true,
@@ -560,10 +559,539 @@ exports.getParkingSlots = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get parking slots error:', error);
+        console.error('❌ Get parking slots error:', error);
+        console.error('Stack:', error.stack);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch parking slots',
+            error: error.message
+        });
+    }
+};
+
+// Tạo vị trí đỗ mới
+exports.createParkingSlot = async (req, res) => {
+    try {
+        const { areaId, slotNumber, vehicleTypeId, isOccupied } = req.body;
+
+        if (!areaId || !slotNumber || !vehicleTypeId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Area ID, slot number and vehicle type are required'
+            });
+        }
+
+        const pool = await getPool();
+
+        const checkResult = await pool.request()
+            .input('AreaID', sql.Int, areaId)
+            .input('SlotNumber', sql.VarChar, slotNumber)
+            .query(`
+                SELECT SlotID 
+                FROM ParkingSlot 
+                WHERE AreaID = @AreaID AND SlotNumber = @SlotNumber
+            `);
+
+        if (checkResult.recordset[0]) {
+            return res.status(400).json({
+                success: false,
+                message: 'Slot number already exists in this area'
+            });
+        }
+
+        const result = await pool.request()
+            .input('AreaID', sql.Int, areaId)
+            .input('SlotNumber', sql.VarChar, slotNumber)
+            .input('VehicleTypeID', sql.Int, vehicleTypeId)
+            .input('IsOccupied', sql.Bit, isOccupied || 0)
+            .query(`
+                INSERT INTO ParkingSlot (AreaID, SlotNumber, VehicleTypeID, IsOccupied)
+                OUTPUT INSERTED.SlotID
+                VALUES (@AreaID, @SlotNumber, @VehicleTypeID, @IsOccupied)
+            `);
+
+        const slotId = result.recordset[0].SlotID;
+
+        res.status(201).json({
+            success: true,
+            message: 'Parking slot created successfully',
+            data: { slotId }
+        });
+
+    } catch (error) {
+        console.error('Create parking slot error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create parking slot',
+            error: error.message
+        });
+    }
+};
+
+// Cập nhật vị trí đỗ
+exports.updateParkingSlot = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { slotNumber, vehicleTypeId, isOccupied } = req.body;
+
+        const pool = await getPool();
+
+        const updates = [];
+        const request = pool.request();
+        request.input('SlotID', sql.Int, id);
+
+        if (slotNumber) {
+            updates.push('SlotNumber = @SlotNumber');
+            request.input('SlotNumber', sql.VarChar, slotNumber);
+        }
+
+        if (vehicleTypeId !== undefined) {
+            updates.push('VehicleTypeID = @VehicleTypeID');
+            request.input('VehicleTypeID', sql.Int, vehicleTypeId);
+        }
+
+        if (isOccupied !== undefined) {
+            updates.push('IsOccupied = @IsOccupied');
+            request.input('IsOccupied', sql.Bit, isOccupied);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No fields to update'
+            });
+        }
+
+        const result = await request.query(`
+            UPDATE ParkingSlot 
+            SET ${updates.join(', ')}
+            WHERE SlotID = @SlotID
+        `);
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Parking slot not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Parking slot updated successfully'
+        });
+
+    } catch (error) {
+        console.error('Update parking slot error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update parking slot',
+            error: error.message
+        });
+    }
+};
+
+// Xóa vị trí đỗ
+exports.deleteParkingSlot = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pool = await getPool();
+
+        const checkResult = await pool.request()
+            .input('SlotID', sql.Int, id)
+            .query(`
+                SELECT COUNT(*) as count 
+                FROM ParkingCard 
+                WHERE SlotID = @SlotID AND Status = 1
+            `);
+
+        if (checkResult.recordset[0].count > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot delete slot with active parking card'
+            });
+        }
+
+        const result = await pool.request()
+            .input('SlotID', sql.Int, id)
+            .query('DELETE FROM ParkingSlot WHERE SlotID = @SlotID');
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Parking slot not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Parking slot deleted successfully'
+        });
+
+    } catch (error) {
+        console.error('Delete parking slot error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete parking slot',
+            error: error.message
+        });
+    }
+};
+
+// ============================================
+// 🔥 TẠO THẺ XE MỚI
+// ============================================
+
+exports.createParkingCard = async (req, res) => {
+    try {
+        const { vehicleId } = req.params;
+        const { 
+            cardCode,
+            slotId,
+            issueDate,
+            expiredDate,
+            status
+        } = req.body;
+
+        console.log('📤 Creating parking card for vehicle:', vehicleId);
+
+        if (!vehicleId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vehicle ID is required'
+            });
+        }
+
+        if (!expiredDate) {
+            return res.status(400).json({
+                success: false,
+                message: 'Expired date is required'
+            });
+        }
+
+        const pool = await getPool();
+
+        const vehicleCheck = await pool.request()
+            .input('VehicleID', sql.Int, vehicleId)
+            .query('SELECT VehicleID FROM Vehicle WHERE VehicleID = @VehicleID');
+
+        if (!vehicleCheck.recordset[0]) {
+            return res.status(404).json({
+                success: false,
+                message: 'Vehicle not found'
+            });
+        }
+
+        const cardCheck = await pool.request()
+            .input('VehicleID', sql.Int, vehicleId)
+            .query('SELECT CardID FROM ParkingCard WHERE VehicleID = @VehicleID AND Status = 1');
+
+        if (cardCheck.recordset[0]) {
+            return res.status(400).json({
+                success: false,
+                message: 'This vehicle already has an active card'
+            });
+        }
+
+        if (slotId) {
+            const slotCheck = await pool.request()
+                .input('SlotID', sql.Int, slotId)
+                .query('SELECT IsOccupied FROM ParkingSlot WHERE SlotID = @SlotID');
+
+            if (!slotCheck.recordset[0]) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Parking slot not found'
+                });
+            }
+
+            if (slotCheck.recordset[0].IsOccupied === 1) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Parking slot is already occupied'
+                });
+            }
+        }
+
+        let finalCardCode = cardCode;
+        if (!finalCardCode) {
+            const prefix = 'CARD';
+            const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+            finalCardCode = `${prefix}-${random}`;
+        }
+
+        const codeCheck = await pool.request()
+            .input('CardCode', sql.VarChar, finalCardCode)
+            .query('SELECT CardID FROM ParkingCard WHERE CardCode = @CardCode');
+
+        if (codeCheck.recordset[0]) {
+            return res.status(400).json({
+                success: false,
+                message: 'Card code already exists'
+            });
+        }
+
+        const result = await pool.request()
+            .input('VehicleID', sql.Int, vehicleId)
+            .input('CardCode', sql.VarChar, finalCardCode)
+            .input('SlotID', sql.Int, slotId || null)
+            .input('IssueDate', sql.Date, issueDate || new Date())
+            .input('ExpiredDate', sql.Date, expiredDate)
+            .input('Status', sql.Bit, status !== undefined ? status : 1)
+            .query(`
+                INSERT INTO ParkingCard (VehicleID, CardCode, SlotID, IssueDate, ExpiredDate, Status)
+                OUTPUT INSERTED.CardID
+                VALUES (@VehicleID, @CardCode, @SlotID, @IssueDate, @ExpiredDate, @Status)
+            `);
+
+        const cardId = result.recordset[0].CardID;
+
+        if (slotId) {
+            await pool.request()
+                .input('SlotID', sql.Int, slotId)
+                .query('UPDATE ParkingSlot SET IsOccupied = 1 WHERE SlotID = @SlotID');
+        }
+
+        console.log('✅ Parking card created:', cardId);
+
+        res.status(201).json({
+            success: true,
+            message: 'Parking card created successfully',
+            data: { 
+                cardId,
+                cardCode: finalCardCode
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Create parking card error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create parking card',
+            error: error.message
+        });
+    }
+};
+
+exports.getParkingCards = async (req, res) => {
+    try {
+        const { status, page = 1, limit = 20 } = req.query;
+        const pool = await getPool();
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const safeLimit = parseInt(limit) || 20;
+
+        let query = `
+            SELECT 
+                pc.CardID,
+                pc.CardCode,
+                pc.IssueDate AS CardIssueDate,
+                pc.ExpiredDate AS CardExpiredDate,
+                pc.Status AS CardStatus,
+                v.VehicleID,
+                v.PlateNumber,
+                v.Brand,
+                v.Color,
+                vt.TypeName AS VehicleType,
+                r.FullName AS OwnerName,
+                r.Phone AS OwnerPhone,
+                r.ResidentID,
+                ps.SlotID,
+                ps.SlotNumber,
+                ar.AreaName,
+                CASE 
+                    WHEN pc.Status = 1 AND GETDATE() <= pc.ExpiredDate THEN 1
+                    ELSE 0
+                END AS IsActiveCard
+            FROM ParkingCard pc
+            INNER JOIN Vehicle v ON pc.VehicleID = v.VehicleID
+            INNER JOIN VehicleType vt ON v.VehicleTypeID = vt.VehicleTypeID
+            INNER JOIN Resident r ON v.ResidentID = r.ResidentID
+            LEFT JOIN ParkingSlot ps ON pc.SlotID = ps.SlotID
+            LEFT JOIN ApartmentArea ar ON ps.AreaID = ar.AreaID
+            WHERE 1=1
+        `;
+
+        const request = pool.request();
+        let countQuery = `
+            SELECT COUNT(*) as total 
+            FROM ParkingCard pc
+            WHERE 1=1
+        `;
+
+        if (status !== undefined && status !== '') {
+            query += ` AND pc.Status = @Status`;
+            countQuery += ` AND pc.Status = @Status`;
+            request.input('Status', sql.Bit, parseInt(status));
+        }
+
+        const countResult = await request.query(countQuery);
+        const total = countResult.recordset[0]?.total || 0;
+
+        query += `
+            ORDER BY pc.CardID DESC
+            OFFSET @Offset ROWS
+            FETCH NEXT @Limit ROWS ONLY
+        `;
+        request.input('Offset', sql.Int, offset);
+        request.input('Limit', sql.Int, safeLimit);
+
+        const result = await request.query(query);
+
+        res.json({
+            success: true,
+            data: result.recordset || [],
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: safeLimit,
+                totalPages: Math.ceil(total / safeLimit)
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Get parking cards error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch parking cards',
+            error: error.message
+        });
+    }
+};
+
+exports.updateParkingCard = async (req, res) => {
+    try {
+        const { cardId } = req.params;
+        const { slotId, expiredDate, status } = req.body;
+
+        const pool = await getPool();
+
+        const updates = [];
+        const request = pool.request();
+        request.input('CardID', sql.Int, cardId);
+
+        const cardCheck = await pool.request()
+            .input('CardID', sql.Int, cardId)
+            .query('SELECT VehicleID, SlotID FROM ParkingCard WHERE CardID = @CardID');
+
+        if (!cardCheck.recordset[0]) {
+            return res.status(404).json({
+                success: false,
+                message: 'Parking card not found'
+            });
+        }
+
+        const oldSlotId = cardCheck.recordset[0].SlotID;
+
+        if (slotId !== undefined) {
+            if (oldSlotId) {
+                await pool.request()
+                    .input('SlotID', sql.Int, oldSlotId)
+                    .query('UPDATE ParkingSlot SET IsOccupied = 0 WHERE SlotID = @SlotID');
+            }
+
+            if (slotId) {
+                const slotCheck = await pool.request()
+                    .input('SlotID', sql.Int, slotId)
+                    .query('SELECT IsOccupied FROM ParkingSlot WHERE SlotID = @SlotID');
+
+                if (!slotCheck.recordset[0]) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Parking slot not found'
+                    });
+                }
+
+                if (slotCheck.recordset[0].IsOccupied === 1) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Parking slot is already occupied'
+                    });
+                }
+
+                await pool.request()
+                    .input('SlotID', sql.Int, slotId)
+                    .query('UPDATE ParkingSlot SET IsOccupied = 1 WHERE SlotID = @SlotID');
+            }
+
+            updates.push('SlotID = @SlotID');
+            request.input('SlotID', sql.Int, slotId || null);
+        }
+
+        if (expiredDate) {
+            updates.push('ExpiredDate = @ExpiredDate');
+            request.input('ExpiredDate', sql.Date, expiredDate);
+        }
+
+        if (status !== undefined) {
+            updates.push('Status = @Status');
+            request.input('Status', sql.Bit, status);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No fields to update'
+            });
+        }
+
+        await request.query(`
+            UPDATE ParkingCard 
+            SET ${updates.join(', ')}
+            WHERE CardID = @CardID
+        `);
+
+        res.json({
+            success: true,
+            message: 'Parking card updated successfully'
+        });
+
+    } catch (error) {
+        console.error('❌ Update parking card error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update parking card',
+            error: error.message
+        });
+    }
+};
+
+exports.deleteParkingCard = async (req, res) => {
+    try {
+        const { cardId } = req.params;
+        const pool = await getPool();
+
+        const cardCheck = await pool.request()
+            .input('CardID', sql.Int, cardId)
+            .query('SELECT SlotID FROM ParkingCard WHERE CardID = @CardID');
+
+        if (!cardCheck.recordset[0]) {
+            return res.status(404).json({
+                success: false,
+                message: 'Parking card not found'
+            });
+        }
+
+        const slotId = cardCheck.recordset[0].SlotID;
+
+        await pool.request()
+            .input('CardID', sql.Int, cardId)
+            .query('DELETE FROM ParkingCard WHERE CardID = @CardID');
+
+        if (slotId) {
+            await pool.request()
+                .input('SlotID', sql.Int, slotId)
+                .query('UPDATE ParkingSlot SET IsOccupied = 0 WHERE SlotID = @SlotID');
+        }
+
+        res.json({
+            success: true,
+            message: 'Parking card deleted successfully'
+        });
+
+    } catch (error) {
+        console.error('❌ Delete parking card error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete parking card',
             error: error.message
         });
     }

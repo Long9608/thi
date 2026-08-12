@@ -16,7 +16,7 @@ export default function FeeCollection({ flash }) {
   const [search, setSearch] = useState('');
   const [contracts, setContracts] = useState([]);
   const [invoices, setInvoices] = useState([]);
-  const [selectedContract, setSelectedContract] = useState(null);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [processing, setProcessing] = useState(false);
@@ -34,12 +34,6 @@ export default function FeeCollection({ flash }) {
     try {
       setLoading(true);
       
-      // Lấy danh sách hợp đồng đang hiệu lực
-      const contractsRes = await contractAPI.getAll('2', 1, 999);
-      const contractsData = contractsRes?.data || [];
-      setContracts(Array.isArray(contractsData) ? contractsData : []);
-
-      // Lấy danh sách hóa đơn chưa thanh toán
       const invoicesRes = await invoiceAPI.getAll('', '', '', 1, 999);
       const invoicesData = invoicesRes?.data || [];
       const unpaidInvoices = Array.isArray(invoicesData) 
@@ -48,7 +42,6 @@ export default function FeeCollection({ flash }) {
       setInvoices(unpaidInvoices);
       setTotalPages(invoicesRes?.pagination?.totalPages || 1);
 
-      // Lấy phương thức thanh toán
       const methodsRes = await invoiceAPI.getPaymentMethods();
       const methodsData = methodsRes?.data || methodsRes || [];
       setPaymentMethods(Array.isArray(methodsData) ? methodsData : []);
@@ -64,15 +57,45 @@ export default function FeeCollection({ flash }) {
     fetchData();
   }, [fetchData]);
 
-  // Handlers
+  const getRemainingAmount = useCallback((invoice) => {
+    if (!invoice) return 0;
+    const paidAmount = invoice.Payments?.reduce((sum, p) => {
+      if (p.StatusID === 2) {
+        return sum + (p.Amount || 0);
+      }
+      return sum;
+    }, 0) || 0;
+    return (invoice.TotalAmount || 0) - paidAmount;
+  }, []);
+
   const handlePayment = async (e) => {
     e.preventDefault();
+    
+    const remaining = getRemainingAmount(selectedInvoice);
+    // 🔥 SỬA: parseFloat với xử lý số thập phân
+    const amountToPay = parseFloat(form.amount.replace(/,/g, ''));
+    
+    if (!amountToPay || amountToPay <= 0) {
+      flash('⚠️ Vui lòng nhập số tiền cần thu');
+      return;
+    }
+    
+    if (isNaN(amountToPay)) {
+      flash('⚠️ Vui lòng nhập số tiền hợp lệ');
+      return;
+    }
+    
+    if (amountToPay > remaining) {
+      flash(`⚠️ Số tiền thu (${money(amountToPay)}) vượt quá số tiền còn lại (${money(remaining)})`);
+      return;
+    }
+
     setProcessing(true);
     try {
       await invoiceAPI.processPayment({
         invoiceId: parseInt(form.invoiceId),
         methodId: parseInt(form.methodId),
-        amount: parseFloat(form.amount),
+        amount: amountToPay,
         transactionCode: form.transactionCode || null
       });
 
@@ -82,23 +105,32 @@ export default function FeeCollection({ flash }) {
       fetchData();
     } catch (error) {
       console.error('Payment error:', error);
-      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể xử lý thanh toán'));
+      const errorMsg = error.response?.data?.message || error.message || 'Không thể xử lý thanh toán';
+      if (flash) flash('❌ ' + errorMsg);
     } finally {
       setProcessing(false);
     }
   };
 
   const openPaymentModal = (invoice) => {
-    setSelectedContract(invoice);
-    const paid = invoice.Payments?.filter(p => p.StatusID === 2).reduce((sum, p) => sum + (p.Amount || 0), 0) || 0;
-    const remaining = (invoice.TotalAmount || 0) - paid;
+    const remaining = getRemainingAmount(invoice);
+    setSelectedInvoice(invoice);
     setForm({
       invoiceId: invoice.InvoiceID.toString(),
       methodId: '',
-      amount: remaining.toString(),
+      amount: remaining.toString(), // 🔥 SỬA: Gán số tiền còn lại để user chỉ cần xác nhận
       transactionCode: ''
     });
     setModalOpen(true);
+  };
+
+  // 🔥 SỬA: Xử lý change với định dạng số
+  const handleAmountChange = (e) => {
+    const value = e.target.value;
+    // Chỉ cho phép nhập số và dấu chấm
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setForm({ ...form, amount: value });
+    }
   };
 
   const getStatusBadge = (statusId) => {
@@ -118,7 +150,6 @@ export default function FeeCollection({ flash }) {
     return diff > 0 ? diff : 0;
   };
 
-  // Filter data
   const filteredInvoices = useMemo(() => {
     const q = search.toLowerCase();
     return invoices.filter(inv =>
@@ -128,22 +159,24 @@ export default function FeeCollection({ flash }) {
     );
   }, [invoices, search]);
 
-  // Stats
   const stats = useMemo(() => {
     const total = invoices.length;
-    const totalUnpaid = invoices.reduce((sum, inv) => {
-      const paid = inv.Payments?.filter(p => p.StatusID === 2).reduce((s, p) => s + (p.Amount || 0), 0) || 0;
-      return sum + ((inv.TotalAmount || 0) - paid);
-    }, 0);
-    const overdue = invoices.filter(inv => inv.DueDate && new Date(inv.DueDate) < new Date()).length;
-    const overdueAmount = invoices
-      .filter(inv => inv.DueDate && new Date(inv.DueDate) < new Date())
-      .reduce((sum, inv) => {
-        const paid = inv.Payments?.filter(p => p.StatusID === 2).reduce((s, p) => s + (p.Amount || 0), 0) || 0;
-        return sum + ((inv.TotalAmount || 0) - paid);
-      }, 0);
+    let totalUnpaid = 0;
+    let overdue = 0;
+    let overdueAmount = 0;
+    
+    invoices.forEach(inv => {
+      const remaining = getRemainingAmount(inv);
+      totalUnpaid += remaining;
+      
+      if (inv.DueDate && new Date(inv.DueDate) < new Date()) {
+        overdue++;
+        overdueAmount += remaining;
+      }
+    });
+    
     return { total, totalUnpaid, overdue, overdueAmount };
-  }, [invoices]);
+  }, [invoices, getRemainingAmount]);
 
   return (
     <div className="space-y-5">
@@ -203,8 +236,7 @@ export default function FeeCollection({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredInvoices.map((invoice) => {
-            const paid = invoice.Payments?.filter(p => p.StatusID === 2).reduce((sum, p) => sum + (p.Amount || 0), 0) || 0;
-            const remaining = (invoice.TotalAmount || 0) - paid;
+            const remaining = getRemainingAmount(invoice);
             const daysOverdue = getDaysOverdue(invoice.DueDate);
             const isOverdue = daysOverdue > 0;
 
@@ -254,10 +286,12 @@ export default function FeeCollection({ flash }) {
                         {formatDate(invoice.DueDate)}
                       </span>
                     </div>
-                    {paid > 0 && (
+                    {invoice.Payments && invoice.Payments.filter(p => p.StatusID === 2).length > 0 && (
                       <div className="flex items-center justify-between">
                         <span className="text-slate-500">Đã thanh toán</span>
-                        <span className="font-semibold text-emerald-600">{money(paid)}</span>
+                        <span className="font-semibold text-emerald-600">
+                          {money(invoice.Payments.filter(p => p.StatusID === 2).reduce((sum, p) => sum + (p.Amount || 0), 0))}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -300,38 +334,61 @@ export default function FeeCollection({ flash }) {
       <Modal
         open={modalOpen}
         title="Thu phí"
-        description={`Thu phí cho căn hộ ${selectedContract?.ApartmentCode || ''}`}
-        onClose={() => setModalOpen(false)}
+        description={`Thu phí cho căn hộ ${selectedInvoice?.ApartmentCode || ''}`}
+        onClose={() => {
+          setModalOpen(false);
+          setForm({ invoiceId: '', methodId: '', amount: '', transactionCode: '' });
+        }}
       >
         <form onSubmit={handlePayment} className="space-y-4">
-          {selectedContract && (
-            <div className="rounded-xl bg-slate-50 p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Căn hộ</span>
-                <span className="font-bold text-slate-950">{selectedContract.ApartmentCode}</span>
+          {selectedInvoice && (() => {
+            const remaining = getRemainingAmount(selectedInvoice);
+            const amountToPay = parseFloat(form.amount) || 0;
+            const remainingAfter = remaining - amountToPay;
+            
+            return (
+              <div className="rounded-xl bg-slate-50 p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Căn hộ</span>
+                  <span className="font-bold text-slate-950">{selectedInvoice.ApartmentCode}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Chủ hộ</span>
+                  <span className="font-bold text-slate-950">{selectedInvoice.OwnerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Hợp đồng</span>
+                  <span className="font-bold text-slate-950">{selectedInvoice.ContractNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Kỳ</span>
+                  <span className="text-slate-700">{selectedInvoice.InvoiceMonth}/{selectedInvoice.InvoiceYear}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Tổng hóa đơn</span>
+                  <span className="font-bold text-[#1f4f46]">{money(selectedInvoice.TotalAmount)}</span>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 pt-2 mt-2">
+                  <span className="text-slate-500 font-semibold">Còn lại</span>
+                  <span className={`font-bold ${remainingAfter < 0 ? 'text-rose-600' : 'text-[#1f4f46]'}`}>
+                    {money(Math.max(0, remainingAfter))}
+                  </span>
+                </div>
+                {amountToPay > 0 && remainingAfter < 0 && (
+                  <div className="text-rose-600 text-xs mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    ⚠️ Số tiền thu vượt quá số tiền còn lại!
+                  </div>
+                )}
+                {amountToPay > 0 && remainingAfter === 0 && (
+                  <div className="text-emerald-600 text-xs mt-1 flex items-center gap-1">
+                    <CheckCircle2 size={14} />
+                    ✅ Hóa đơn sẽ được thanh toán đầy đủ!
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Chủ hộ</span>
-                <span className="font-bold text-slate-950">{selectedContract.OwnerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Hợp đồng</span>
-                <span className="font-bold text-slate-950">{selectedContract.ContractNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Kỳ</span>
-                <span className="text-slate-700">{selectedContract.InvoiceMonth}/{selectedContract.InvoiceYear}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Tổng hóa đơn</span>
-                <span className="font-bold text-[#1f4f46]">{money(selectedContract.TotalAmount)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Còn lại</span>
-                <span className="font-bold text-[#1f4f46]">{money(form.amount || 0)}</span>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Phương thức thanh toán *</label>
@@ -350,16 +407,20 @@ export default function FeeCollection({ flash }) {
 
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Số tiền thu *</label>
-            <Input
+            {/* 🔥 SỬA: Bỏ step và min để không bị validation của trình duyệt */}
+            <input
               type="number"
               value={form.amount}
-              onChange={(e) => setForm({ ...form, amount: e.target.value })}
-              placeholder="Nhập số tiền"
+              onChange={handleAmountChange}
+              placeholder="Nhập số tiền cần thu"
               required
-              min="0"
-              step="1000"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
             />
-            <p className="mt-1 text-xs text-slate-500">Số tiền còn lại: {money(form.amount || 0)}</p>
+            {selectedInvoice && (
+              <p className="mt-1 text-xs text-slate-500">
+                Số tiền còn lại hiện tại: {money(getRemainingAmount(selectedInvoice))}
+              </p>
+            )}
           </div>
 
           <div>
@@ -373,7 +434,20 @@ export default function FeeCollection({ flash }) {
 
           <div className="flex justify-end gap-2">
             <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Hủy</Button>
-            <Button type="submit" disabled={processing}>
+            <Button 
+              type="submit" 
+              disabled={processing}
+              className={
+                (() => {
+                  const remaining = selectedInvoice ? getRemainingAmount(selectedInvoice) : 0;
+                  const amountToPay = parseFloat(form.amount) || 0;
+                  if (amountToPay <= 0 || amountToPay > remaining) {
+                    return 'opacity-50 cursor-not-allowed';
+                  }
+                  return '';
+                })()
+              }
+            >
               {processing ? <RefreshCw size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
               Xác nhận thu phí
             </Button>

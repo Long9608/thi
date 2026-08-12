@@ -5,7 +5,7 @@ import {
   Car, Plus, Search, Download, Edit, Trash2, Eye,
   RefreshCw, CheckCircle2, X, AlertCircle,
   User, Home, Calendar, CreditCard, MapPin,
-  Filter, Upload, FileText, Printer
+  Filter, Upload, FileText, Printer, Lock, Key
 } from 'lucide-react';
 import { vehicleAPI, residentAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
@@ -37,11 +37,76 @@ export default function VehicleManagement({ flash }) {
     cardExpiryDate: ''
   });
 
-  // Fetch data
+  // ============================================
+  // 🔥 HÀM KIỂM TRA TRẠNG THÁI XE
+  // ============================================
+  const getVehicleStatus = useCallback((vehicle) => {
+    if (!vehicle) {
+      return { label: 'Không xác định', tone: 'slate' };
+    }
+
+    // Kiểm tra Status (0 = không hoạt động, 1 = hoạt động)
+    if (vehicle.Status === 0) {
+      return { label: 'Không hoạt động', tone: 'red' };
+    }
+
+    // Kiểm tra thẻ xe
+    if (vehicle.CardID) {
+      const now = new Date();
+      const expiredDate = new Date(vehicle.CardExpiredDate);
+      
+      if (isNaN(expiredDate.getTime())) {
+        return { label: 'Hoạt động (Không có hạn thẻ)', tone: 'green' };
+      }
+      
+      if (expiredDate < now) {
+        return { label: 'Hoạt động (Thẻ hết hạn)', tone: 'amber' };
+      }
+      
+      return { label: 'Hoạt động', tone: 'green' };
+    }
+
+    return { label: 'Hoạt động', tone: 'green' };
+  }, []);
+
+  // ============================================
+  // 🔥 BADGE HIỂN THỊ
+  // ============================================
+  const getStatusBadge = useCallback((vehicle) => {
+    const status = getVehicleStatus(vehicle);
+    return <Badge tone={status.tone}>{status.label}</Badge>;
+  }, [getVehicleStatus]);
+
+  // ============================================
+  // 🔥 THỐNG KÊ CHÍNH XÁC
+  // ============================================
+  const stats = useMemo(() => {
+    const total = vehicles.length;
+    let active = 0;
+    let inactive = 0;
+    let hasCard = 0;
+
+    vehicles.forEach(v => {
+      if (v.Status === 1) {
+        active++;
+      } else {
+        inactive++;
+      }
+      
+      if (v.CardID) {
+        hasCard++;
+      }
+    });
+
+    return { total, active, inactive, hasCard };
+  }, [vehicles]);
+
+  // ============================================
+  // 🔥 FETCH DATA
+  // ============================================
   const fetchVehicles = useCallback(async () => {
     try {
       setLoading(true);
-      // Sửa: truyền đúng tham số
       const res = await vehicleAPI.getAll(
         '', // residentId
         typeFilter || '', // vehicleTypeId
@@ -95,7 +160,9 @@ export default function VehicleManagement({ flash }) {
     fetchVehicleTypes();
   }, [fetchVehicles, fetchResidents, fetchVehicleTypes]);
 
-  // Handlers
+  // ============================================
+  // 🔥 CRUD OPERATIONS
+  // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -127,6 +194,25 @@ export default function VehicleManagement({ flash }) {
     } catch (error) {
       console.error('Delete error:', error);
       if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể xóa xe'));
+    }
+  };
+
+  const handleToggleStatus = async (vehicle) => {
+    const newStatus = vehicle.Status === 1 ? 0 : 1;
+    const action = newStatus === 1 ? 'Kích hoạt' : 'Vô hiệu hóa';
+    
+    if (!confirm(`Bạn có chắc muốn ${action} xe ${vehicle.PlateNumber}?`)) return;
+    
+    setLoading(true);
+    try {
+      await vehicleAPI.update(vehicle.VehicleID, { status: newStatus });
+      if (flash) flash(`✅ ${action} xe thành công!`);
+      fetchVehicles();
+    } catch (error) {
+      console.error('Toggle status error:', error);
+      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể cập nhật trạng thái xe'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -170,40 +256,9 @@ export default function VehicleManagement({ flash }) {
     setModalOpen(true);
   };
 
-  // Filtered data
-  const filteredVehicles = useMemo(() => {
-    if (!search) return vehicles;
-    const q = search.toLowerCase();
-    return vehicles.filter(v => {
-      const plate = (v.PlateNumber || '').toLowerCase();
-      const owner = (v.OwnerName || '').toLowerCase();
-      const brand = (v.Brand || '').toLowerCase();
-      return plate.includes(q) || owner.includes(q) || brand.includes(q);
-    });
-  }, [vehicles, search]);
-
-  // Stats
-  const stats = useMemo(() => {
-    const total = vehicles.length;
-    const active = vehicles.filter(v => v.Status === 1).length;
-    const inactive = vehicles.filter(v => v.Status === 0).length;
-    const hasCard = vehicles.filter(v => v.CardID).length;
-    return { total, active, inactive, hasCard };
-  }, [vehicles]);
-
-  // Get status badge
-  const getStatusBadge = (status) => {
-    return status ? 
-      <Badge tone="green">Hoạt động</Badge> : 
-      <Badge tone="red">Không hoạt động</Badge>;
-  };
-
-  const getCardStatusBadge = (vehicle) => {
-    if (!vehicle.CardID) return <Badge tone="slate">Chưa có thẻ</Badge>;
-    if (vehicle.IsActiveCard) return <Badge tone="green">Còn hiệu lực</Badge>;
-    return <Badge tone="red">Hết hạn</Badge>;
-  };
-
+  // ============================================
+  // 🔧 UTILITY
+  // ============================================
   const getVehicleTypeIcon = (typeName) => {
     if (!typeName) return <Car size={20} />;
     const name = typeName.toLowerCase();
@@ -216,7 +271,26 @@ export default function VehicleManagement({ flash }) {
     return <Car size={20} className="text-purple-600" />;
   };
 
-  // Nếu đang loading và chưa có dữ liệu
+  const getCardStatusBadge = (vehicle) => {
+    if (!vehicle.CardID) return <Badge tone="slate">Chưa có thẻ</Badge>;
+    if (vehicle.IsActiveCard) return <Badge tone="green">Còn hiệu lực</Badge>;
+    return <Badge tone="red">Hết hạn</Badge>;
+  };
+
+  // ============================================
+  // 📊 FILTER & RENDER
+  // ============================================
+  const filteredVehicles = useMemo(() => {
+    if (!search) return vehicles;
+    const q = search.toLowerCase();
+    return vehicles.filter(v => {
+      const plate = (v.PlateNumber || '').toLowerCase();
+      const owner = (v.OwnerName || '').toLowerCase();
+      const brand = (v.Brand || '').toLowerCase();
+      return plate.includes(q) || owner.includes(q) || brand.includes(q);
+    });
+  }, [vehicles, search]);
+
   if (loading && vehicles.length === 0) {
     return (
       <Card className="p-8 text-center">
@@ -228,7 +302,7 @@ export default function VehicleManagement({ flash }) {
 
   return (
     <div className="space-y-5">
-      {/* Header - giữ nguyên như cũ */}
+      {/* Header */}
       <Card className="p-5">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div>
@@ -238,6 +312,11 @@ export default function VehicleManagement({ flash }) {
               <span className="ml-2 text-[#1f4f46] font-semibold">
                 {stats.active} xe đang hoạt động
               </span>
+              {stats.inactive > 0 && (
+                <span className="ml-2 text-rose-600 font-semibold">
+                  {stats.inactive} xe không hoạt động
+                </span>
+              )}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -299,74 +378,85 @@ export default function VehicleManagement({ flash }) {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredVehicles.map((vehicle) => (
-            <Card key={vehicle.VehicleID} className="group hover:border-[#1f4f46]/30 transition-all overflow-hidden">
-              <div className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#eef5f2] text-[#1f4f46]">
-                      {getVehicleTypeIcon(vehicle.VehicleType)}
+          {filteredVehicles.map((vehicle) => {
+            const status = getVehicleStatus(vehicle);
+            return (
+              <Card key={vehicle.VehicleID} className="group hover:border-[#1f4f46]/30 transition-all overflow-hidden">
+                <div className="p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#eef5f2] text-[#1f4f46]">
+                        {getVehicleTypeIcon(vehicle.VehicleType)}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-black text-slate-950 group-hover:text-[#1f4f46] transition">
+                          {vehicle.PlateNumber}
+                        </h3>
+                        <p className="text-sm text-slate-500">{vehicle.VehicleType}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-xl font-black text-slate-950 group-hover:text-[#1f4f46] transition">
-                        {vehicle.PlateNumber}
-                      </h3>
-                      <p className="text-sm text-slate-500">{vehicle.VehicleType}</p>
-                    </div>
+                    <Badge tone={status.tone}>{status.label}</Badge>
                   </div>
-                  {getStatusBadge(vehicle.Status)}
-                </div>
 
-                <div className="mt-4 space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Chủ xe</span>
-                    <span className="font-medium text-slate-950">{vehicle.OwnerName}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Căn hộ</span>
-                    <span className="font-medium text-slate-950">{vehicle.ApartmentCode || 'Chưa có'}</span>
-                  </div>
-                  {vehicle.Brand && (
+                  <div className="mt-4 space-y-2 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Hãng</span>
-                      <span className="font-medium text-slate-950">{vehicle.Brand}</span>
+                      <span className="text-slate-500">Chủ xe</span>
+                      <span className="font-medium text-slate-950">{vehicle.OwnerName}</span>
                     </div>
-                  )}
-                  {vehicle.Color && (
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Màu sắc</span>
-                      <span className="font-medium text-slate-950">{vehicle.Color}</span>
+                      <span className="text-slate-500">Căn hộ</span>
+                      <span className="font-medium text-slate-950">{vehicle.ApartmentCode || 'Chưa có'}</span>
                     </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Thẻ xe</span>
-                    {getCardStatusBadge(vehicle)}
+                    {vehicle.Brand && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Hãng</span>
+                        <span className="font-medium text-slate-950">{vehicle.Brand}</span>
+                      </div>
+                    )}
+                    {vehicle.Color && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Màu sắc</span>
+                        <span className="font-medium text-slate-950">{vehicle.Color}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Thẻ xe</span>
+                      {getCardStatusBadge(vehicle)}
+                    </div>
+                    {vehicle.SlotNumber && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Vị trí đỗ</span>
+                        <span className="font-medium text-slate-950 flex items-center gap-1">
+                          <MapPin size={14} className="text-[#1f4f46]" />
+                          {vehicle.SlotNumber}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  {vehicle.SlotNumber && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Vị trí đỗ</span>
-                      <span className="font-medium text-slate-950 flex items-center gap-1">
-                        <MapPin size={14} className="text-[#1f4f46]" />
-                        {vehicle.SlotNumber}
-                      </span>
-                    </div>
-                  )}
-                </div>
 
-                <div className="mt-4 flex gap-2">
-                  <Button variant="secondary" className="flex-1" onClick={() => openViewModal(vehicle)}>
-                    <Eye size={14} /> Xem
-                  </Button>
-                  <Button variant="secondary" className="flex-1" onClick={() => openEditModal(vehicle)}>
-                    <Edit size={14} /> Sửa
-                  </Button>
-                  <Button variant="danger" className="flex-1" onClick={() => handleDelete(vehicle.VehicleID)}>
-                    <Trash2 size={14} />
-                  </Button>
+                  <div className="mt-4 flex gap-2">
+                    <Button variant="secondary" className="flex-1" onClick={() => openViewModal(vehicle)}>
+                      <Eye size={14} /> Xem
+                    </Button>
+                    <Button variant="secondary" className="flex-1" onClick={() => openEditModal(vehicle)}>
+                      <Edit size={14} /> Sửa
+                    </Button>
+                    <Button 
+                      variant={vehicle.Status === 1 ? 'warning' : 'success'} 
+                      className="flex-1" 
+                      onClick={() => handleToggleStatus(vehicle)}
+                    >
+                      {vehicle.Status === 1 ? <Lock size={14} /> : <Key size={14} />}
+                      {vehicle.Status === 1 ? 'Vô hiệu' : 'Kích hoạt'}
+                    </Button>
+                    <Button variant="danger" className="flex-1" onClick={() => handleDelete(vehicle.VehicleID)}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -389,7 +479,7 @@ export default function VehicleManagement({ flash }) {
         </div>
       )}
 
-      {/* Modal - giữ nguyên như cũ */}
+      {/* Modal - View */}
       <Modal
         open={modalOpen}
         title={modalMode === 'create' ? 'Đăng ký xe mới' : modalMode === 'edit' ? 'Cập nhật xe' : 'Chi tiết xe'}
@@ -397,7 +487,6 @@ export default function VehicleManagement({ flash }) {
         onClose={() => setModalOpen(false)}
         size="lg"
       >
-        {/* Nội dung modal giữ nguyên */}
         {modalMode === 'view' && selectedVehicle ? (
           <div className="space-y-6">
             <div className="flex items-start justify-between">
@@ -405,7 +494,7 @@ export default function VehicleManagement({ flash }) {
                 <h3 className="text-3xl font-black text-slate-950">{selectedVehicle.PlateNumber}</h3>
                 <p className="text-sm text-slate-500">{selectedVehicle.VehicleType}</p>
               </div>
-              {getStatusBadge(selectedVehicle.Status)}
+              {getStatusBadge(selectedVehicle)}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -423,6 +512,7 @@ export default function VehicleManagement({ flash }) {
                   {selectedVehicle.Brand && <div><span className="text-slate-500">Hãng:</span> {selectedVehicle.Brand}</div>}
                   {selectedVehicle.Color && <div><span className="text-slate-500">Màu sắc:</span> {selectedVehicle.Color}</div>}
                   <div><span className="text-slate-500">Ngày đăng ký:</span> {formatDate(selectedVehicle.RegisterDate)}</div>
+                  <div><span className="text-slate-500">Trạng thái:</span> {selectedVehicle.Status === 1 ? 'Hoạt động' : 'Không hoạt động'}</div>
                 </div>
               </div>
             </div>
@@ -442,7 +532,16 @@ export default function VehicleManagement({ flash }) {
               )}
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              {selectedVehicle.Status === 1 ? (
+                <Button variant="warning" onClick={() => handleToggleStatus(selectedVehicle)}>
+                  <Lock size={16} /> Vô hiệu hóa
+                </Button>
+              ) : (
+                <Button variant="success" onClick={() => handleToggleStatus(selectedVehicle)}>
+                  <Key size={16} /> Kích hoạt
+                </Button>
+              )}
               <Button variant="secondary" onClick={() => setModalOpen(false)}>Đóng</Button>
             </div>
           </div>
