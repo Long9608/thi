@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { AnimatePresence, motion } from "framer-motion";
 
 // Import từ api.js
-import api, { 
+import api, {
   apartmentAPI,
   contractAPI,
   invoiceAPI,
@@ -66,7 +66,7 @@ import SendNotification from './pages/SendNotification';
 import ScheduleNotification from './pages/ScheduleNotification';
 
 // 🔥 THÊM IMPORTS COMPONENT BÁO CÁO
-import QuickReport from './pages/QuickReport'; // ✅ THÊM IMPORT QUICKREPORT
+import QuickReport from './pages/QuickReport';
 import RevenueReport from './pages/RevenueReport';
 import DebtReport from './pages/DebtReport';
 import ApartmentReport from './pages/ApartmentReport';
@@ -170,10 +170,10 @@ function formatBirthday(date) {
 }
 
 function money(value) {
-  return new Intl.NumberFormat("vi-VN", { 
-    style: "currency", 
-    currency: "VND", 
-    maximumFractionDigits: 0 
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0
   }).format(value || 0);
 }
 
@@ -363,14 +363,14 @@ function LoginPage({ onLogin }) {
     }
 
     try {
-    const response = await authAPI.login({ 
-      username: email, 
-      password: password 
-    });
-      
+      const response = await authAPI.login({
+        username: email,
+        password: password
+      });
+
       if (response.success) {
         setAuthToken(response.data.token);
-        
+
         // Lấy permissions của user
         let permissions = [];
         try {
@@ -379,22 +379,24 @@ function LoginPage({ onLogin }) {
         } catch (e) {
           console.warn('⚠️ Không thể lấy permissions:', e);
         }
-        
+
         const userData = {
           ...response.data.user,
+          roleCode: response.data.user?.roleCode || response.data.user?.role || 'USER',
           permissions: permissions
         };
         localStorage.setItem('user', JSON.stringify(userData));
-        
+
         onLogin({
-        name: response.data.user?.employee?.fullName || 
-              response.data.user?.username || 
-              'Ban quản lý',
-        email: response.data.user?.email || email,
-        role: response.data.user?.role || 'Quản trị viên',
-        permissions: permissions,
-        remember,
-      });
+          name: response.data.user?.employee?.fullName ||
+                response.data.user?.username ||
+                'Ban quản lý',
+          email: response.data.user?.email || email,
+          role: response.data.user?.role || 'Quản trị viên',
+          roleCode: userData.roleCode,
+          permissions: permissions,
+          remember,
+        });
       } else {
         setError(response.message || 'Đăng nhập thất bại');
       }
@@ -578,7 +580,7 @@ const MENU_STRUCTURE = [
     permission: "DASHBOARD_VIEW",
     items: [
       { id: "dashboard", label: "Dashboard", icon: Home, permission: "DASHBOARD_VIEW" },
-      { id: "quick-report", label: "Báo cáo nhanh", icon: FileText, permission: "REPORT_VIEW" } // ✅ THÊM DÒNG NÀY
+      { id: "quick-report", label: "Báo cáo nhanh", icon: FileText, permission: "REPORT_VIEW" }
     ]
   },
   {
@@ -704,14 +706,23 @@ const MENU_STRUCTURE = [
   }
 ];
 
-const getMenuViewPermission = (menuId) => `MENU_${menuId.toUpperCase().replace(/-/g, '_')}_VIEW`;
+// ============================================================
+// ÁNH XẠ PERMISSION CHO CÁC TAB KHÔNG CÓ TRONG MENU
+// ============================================================
+const TAB_PERMISSION_MAP = {
+  'register-resident': 'RESIDENT_VIEW',
+  'id-cards': 'RESIDENT_VIEW',
+  'family-members': 'RESIDENT_VIEW',
+  'residence-history': 'RESIDENT_VIEW',
+  'deposits': 'CONTRACT_VIEW',
+};
 
 // ============================================================
 // CONTENT TITLES
 // ============================================================
 const CONTENT_TITLES = {
   dashboard: ["Bảng điều khiển", "Theo dõi vận hành chung cư, thông báo và tình trạng căn hộ trong ngày."],
-  "quick-report": ["Báo cáo nhanh", "Xem báo cáo tổng hợp nhanh"], // ✅ THÊM DÒNG NÀY
+  "quick-report": ["Báo cáo nhanh", "Xem báo cáo tổng hợp nhanh"],
   residents: ["Danh sách cư dân", "Quản lý hồ sơ cư dân, liên hệ, ngày sinh và căn hộ đang ở."],
   "register-resident": ["Đăng ký cư dân mới", "Thêm cư dân mới vào hệ thống"],
   "id-cards": ["CCCD / Hồ sơ", "Quản lý CCCD và hồ sơ cư dân"],
@@ -768,6 +779,7 @@ export default function ApartmentManagementWeb() {
   // ===== State =====
   const [user, setUser] = useState(null);
   const [userPermissions, setUserPermissions] = useState([]);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [tab, setTab] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -800,7 +812,20 @@ export default function ApartmentManagementWeb() {
     localStorage.setItem('menuExpanded', JSON.stringify(expandedMenus));
   }, [expandedMenus]);
 
-  // ===== Lấy permissions từ user =====
+  // ===== Phục hồi phiên từ localStorage =====
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        setUserPermissions(userData.permissions || []);
+        setPermissionsLoaded(true);
+      } catch {}
+    }
+  }, []);
+
+  // ===== Lấy permissions từ user (khi user thay đổi) =====
   useEffect(() => {
     if (user) {
       const storedUser = localStorage.getItem('user');
@@ -808,6 +833,7 @@ export default function ApartmentManagementWeb() {
         try {
           const userData = JSON.parse(storedUser);
           setUserPermissions(userData.permissions || []);
+          setPermissionsLoaded(true);
         } catch {}
       }
     }
@@ -880,51 +906,58 @@ export default function ApartmentManagementWeb() {
     }));
   }, []);
 
+  // ===== HÀM KIỂM TRA QUYỀN DUY NHẤT (FAIL‑CLOSED) =====
+  const hasPermission = useCallback((permission) => {
+    if (!user || !permissionsLoaded) return false;
+    if (user.roleCode === 'ADMIN') return true;
+    if (!permission) return false; // từ chối nếu không có quyền yêu cầu
+    return userPermissions.includes(permission);
+  }, [user, userPermissions, permissionsLoaded]);
+
   // ===== Filter menu theo permissions =====
   const filteredMenu = useMemo(() => {
-    if (userPermissions.includes('ADMIN') || userPermissions.length === 0) {
-      return MENU_STRUCTURE;
-    }
+    if (!permissionsLoaded) return [];
+    if (user?.roleCode === 'ADMIN') return MENU_STRUCTURE;
 
     return MENU_STRUCTURE
       .filter(menu => {
-        // Nếu menu cha có permission và user có permission đó → giữ menu
-        if (menu.permission && userPermissions.includes(menu.permission)) {
-          return true;
+        if (menu.permission && hasPermission(menu.permission)) return true;
+        if (!menu.permission) {
+          return menu.items.some(item => hasPermission(item.permission));
         }
-        // Nếu menu cha không có permission hoặc user không có, kiểm tra children
-        const hasChildWithPermission = menu.items.some(item => 
-          userPermissions.includes(item.permission) ||
-          userPermissions.includes(getMenuViewPermission(item.id))
-        );
-        return hasChildWithPermission;
+        return false;
       })
       .map(menu => ({
         ...menu,
-        items: menu.items.filter(item => 
-          userPermissions.includes(item.permission) ||
-          userPermissions.includes(getMenuViewPermission(item.id))
-        )
+        items: menu.items.filter(item => hasPermission(item.permission))
       }))
       .filter(menu => menu.items.length > 0);
-  }, [userPermissions]);
+  }, [user, userPermissions, permissionsLoaded, hasPermission]);
 
-  // ===== Hàm kiểm tra có quyền truy cập tab =====
+  // ===== Hàm kiểm tra quyền truy cập tab =====
   const hasTabPermission = useCallback((tabId) => {
-    if (!tabId) return false;
-    if (userPermissions.includes('ADMIN') || userPermissions.length === 0) {
-      return true;
-    }
+    if (!tabId || !permissionsLoaded) return false;
+    if (user?.roleCode === 'ADMIN') return true;
 
+    // Tìm permission trong MENU_STRUCTURE
+    let permission = null;
     for (const menu of MENU_STRUCTURE) {
       for (const item of menu.items) {
         if (item.id === tabId) {
-          return userPermissions.includes(getMenuViewPermission(item.id));
+          permission = item.permission;
+          break;
         }
       }
+      if (permission) break;
     }
-    return false;
-  }, [userPermissions]);
+    // Nếu không có, dùng TAB_PERMISSION_MAP
+    if (!permission) {
+      permission = TAB_PERMISSION_MAP[tabId];
+    }
+    if (!permission) return false;
+
+    return hasPermission(permission);
+  }, [user, userPermissions, permissionsLoaded, hasPermission]);
 
   // ===== Khi đổi tab, kiểm tra quyền =====
   const handleTabChange = useCallback((newTab) => {
@@ -933,7 +966,7 @@ export default function ApartmentManagementWeb() {
       setSidebarOpen(false);
       setSelectedResident(null);
       setSelectedApartment(null);
-      
+
       // Reset subTab khi chuyển tab
       if (newTab === 'residents') {
         setSubTab('list');
@@ -952,7 +985,7 @@ export default function ApartmentManagementWeb() {
       } else {
         setSubTab(null);
       }
-      
+
       // Reset selected resident
       setSelectedResidentForDetail(null);
       setResidentDetailOpen(false);
@@ -987,7 +1020,11 @@ export default function ApartmentManagementWeb() {
 
   // ===== API Functions =====
   const fetchAllData = useCallback(async () => {
-    const canLoad = (permission) => userPermissions.includes('ADMIN') || userPermissions.includes(permission);
+    const canLoad = (permission) => {
+      if (user?.roleCode === 'ADMIN') return true;
+      return userPermissions.includes(permission);
+    };
+
     try {
       setLoadingApartments(true);
       if (canLoad('APARTMENT_VIEW')) try {
@@ -1121,7 +1158,7 @@ export default function ApartmentManagementWeb() {
       console.error('❌ Lỗi khi tải dữ liệu:', error);
       flash('Không thể tải dữ liệu từ máy chủ!');
     }
-  }, [flash, userPermissions]);
+  }, [flash, user, userPermissions]);
 
   // ===== Business Functions =====
   const validateNotice = useCallback(() => {
@@ -1212,17 +1249,17 @@ export default function ApartmentManagementWeb() {
 
   // ===== useEffect =====
   useEffect(() => {
-    if (!user) return;
+    if (!user || !permissionsLoaded) return;
     fetchAllData();
     // Nhật ký hệ thống là dữ liệu quản trị; không gọi API này cho cư dân.
-    if (userPermissions.includes('SYSTEM_SETTING')) {
+    if (user.roleCode === 'ADMIN' || userPermissions.includes('SYSTEM_SETTING')) {
       userAPI.getAuditLogs({ limit: 50 }).then(res => {
         if (res?.data) setAuditLogs(res.data);
       }).catch(() => {});
     } else {
       setAuditLogs([]);
     }
-  }, [user, userPermissions, fetchAllData]);
+  }, [user, userPermissions, permissionsLoaded, fetchAllData]);
 
   // ===== Filtered Data =====
   const filteredResidents = useMemo(() => {
@@ -1289,6 +1326,16 @@ export default function ApartmentManagementWeb() {
     .filter((item) => item.status !== "Đã thanh toán")
     .reduce((sum, item) => sum + (item.service || 0) + (item.parking || 0) + (item.water || 0), 0), [fees]);
 
+  // ===== Đăng xuất =====
+  const handleLogout = useCallback(() => {
+    logout();
+    localStorage.removeItem('user');
+    setUser(null);
+    setUserPermissions([]);
+    setPermissionsLoaded(false);
+    setTab(null);
+  }, []);
+
   // ===== Sidebar Component =====
   const Sidebar = useMemo(() => (
     <aside className="flex h-full flex-col border-r border-slate-200 bg-white">
@@ -1307,7 +1354,7 @@ export default function ApartmentManagementWeb() {
           const Icon = menu.icon;
           const isExpanded = expandedMenus[menu.id];
           const isActive = menu.items.some(item => item.id === tab);
-          
+
           return (
             <div key={menu.id} className="mb-1">
               <button
@@ -1321,8 +1368,8 @@ export default function ApartmentManagementWeb() {
                   <Icon size={18} />
                   {menu.label}
                 </span>
-                <ChevronRight 
-                  size={16} 
+                <ChevronRight
+                  size={16}
                   className={cls(
                     "transition-transform duration-200",
                     isExpanded ? "rotate-90" : ""
@@ -1343,12 +1390,8 @@ export default function ApartmentManagementWeb() {
                       {menu.items.map((item) => {
                         const ItemIcon = item.icon;
                         const isItemActive = tab === item.id;
-                        const hasPermission = !item.permission || 
-                                               userPermissions.includes(item.permission) || 
-                                               userPermissions.includes(getMenuViewPermission(item.id));
-                        
-                        if (!hasPermission) return null;
 
+                        // Không cần kiểm tra quyền ở đây vì filteredMenu đã lọc rồi
                         return (
                           <button
                             key={item.id}
@@ -1388,15 +1431,15 @@ export default function ApartmentManagementWeb() {
             <Badge tone="slate" className="text-[10px]">+{userPermissions.length - 3}</Badge>
           )}
         </div>
-        <Button variant="secondary" className="mt-3 w-full" onClick={() => logout()}>
+        <Button variant="secondary" className="mt-3 w-full" onClick={handleLogout}>
           Đăng xuất
         </Button>
       </div>
     </aside>
-  ), [filteredMenu, tab, expandedMenus, toggleMenu, handleTabChange, user, userPermissions]);
+  ), [filteredMenu, tab, expandedMenus, toggleMenu, handleTabChange, user, userPermissions, handleLogout]);
 
   // ===== Render =====
-  if (!user) {
+  if (!user || !permissionsLoaded) {
     return <LoginPage onLogin={setUser} />;
   }
 
@@ -1480,9 +1523,9 @@ export default function ApartmentManagementWeb() {
         <main className="p-4 lg:p-8">
           {/* TRANG TRỐNG KHI CHƯA CHỌN TAB */}
           {!tab && (
-            <motion.section 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
+            <motion.section
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               className="flex flex-col items-center justify-center min-h-[60vh]"
             >
               <div className="text-center max-w-2xl">
@@ -1661,7 +1704,7 @@ export default function ApartmentManagementWeb() {
                         default: return <Bell size={16} className="text-slate-600" />;
                       }
                     };
-                    
+
                     const getBadgeColor = () => {
                       switch(activity.type) {
                         case "resident": return "green";
@@ -1974,10 +2017,10 @@ export default function ApartmentManagementWeb() {
           )}
 
           {/* Placeholder cho các tab khác chưa có component */}
-          {[ 
-            "ai-chat", 
-            "ai-stats", 
-            "ai-predict", 
+          {[
+            "ai-chat",
+            "ai-stats",
+            "ai-predict",
             "ai-search"
           ].includes(tab) && (
             <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
@@ -2009,8 +2052,8 @@ export default function ApartmentManagementWeb() {
             <div className="text-center py-8 text-slate-500">
               <Users size={48} className="mx-auto mb-3 text-slate-300" />
               <p>Chưa có cư dân trong hệ thống</p>
-              <Button 
-                className="mt-3" 
+              <Button
+                className="mt-3"
                 onClick={() => {
                   setResidentSelectOpen(false);
                   setSubTab('register');
@@ -2039,7 +2082,7 @@ export default function ApartmentManagementWeb() {
                   <div className="text-left">
                     <p className="font-bold text-slate-950">{resident.name || resident.FullName}</p>
                     <p className="text-sm text-slate-500">
-                      {resident.apartment || resident.ApartmentCode || 'Chưa có căn hộ'} 
+                      {resident.apartment || resident.ApartmentCode || 'Chưa có căn hộ'}
                       {(resident.phone || resident.Phone) && ` • ${resident.phone || resident.Phone}`}
                     </p>
                   </div>
