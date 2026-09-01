@@ -46,7 +46,7 @@ export default function Payments({ flash }) {
         const data = Array.isArray(res.data) ? res.data : [];
         // Chỉ lấy hóa đơn có thanh toán
         const withPayments = data.filter(inv => inv.Payments && inv.Payments.length > 0);
-        setInvoices(withPayments);
+        setInvoices(data);
         // Flatten payments
         const allPayments = [];
         withPayments.forEach(inv => {

@@ -433,7 +433,7 @@ exports.getVehicleTypes = async (req, res) => {
     try {
         const pool = await getPool();
         const result = await pool.query(`
-            SELECT VehicleTypeID, TypeName 
+            SELECT VehicleTypeID, TypeName, ISNULL(MonthlyFee, 0) AS MonthlyFee
             FROM VehicleType 
             ORDER BY TypeName
         `);

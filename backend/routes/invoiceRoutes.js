@@ -6,10 +6,13 @@ const { authMiddleware, checkRole, checkPermission } = require('../middlewares/a
 router.get('/', authMiddleware, invoiceController.getAllInvoices);
 router.get('/statuses', authMiddleware, invoiceController.getInvoiceStatuses);
 router.get('/payment-methods', authMiddleware, invoiceController.getPaymentMethods);
+router.get('/current/apartment/:apartmentId', authMiddleware, invoiceController.getApartmentCurrentInvoice);
 router.get('/:id', authMiddleware, invoiceController.getInvoiceById);
 
 // Dùng checkPermission
 router.post('/generate', authMiddleware, checkPermission('INVOICE_CREATE'), invoiceController.generateInvoice);
+router.post('/generate-monthly', authMiddleware, checkPermission('INVOICE_CREATE'), invoiceController.generateMonthlyInvoice);
+router.post('/current/apartment/:apartmentId/pay', authMiddleware, checkPermission('PAYMENT_CREATE'), invoiceController.payApartmentCurrentInvoice);
 router.put('/:id/status', authMiddleware, checkPermission('INVOICE_UPDATE'), invoiceController.updateInvoiceStatus);
 router.post('/payment', authMiddleware, checkPermission('PAYMENT_CREATE'), invoiceController.processPayment);
 

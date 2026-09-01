@@ -31,7 +31,7 @@ export default function Fees({ flash }) {
     invoiceYear: new Date().getFullYear(),
     dueDate: '',
     items: [
-      { chargeType: 'SERVICE', description: 'Phí dịch vụ', quantity: 1, unitPrice: 0 }
+      { chargeType: 'OTHER', description: 'Khoản phát sinh khác', quantity: 1, unitPrice: 0 }
     ]
   });
   const [contracts, setContracts] = useState([]);
@@ -97,15 +97,11 @@ export default function Fees({ flash }) {
     e.preventDefault();
     setGenerating(true);
     try {
-      // Filter out items with zero price
-      const items = generateForm.items.filter(item => item.unitPrice > 0);
-      if (items.length === 0) {
-        if (flash) flash('⚠️ Vui lòng nhập ít nhất một khoản phí với giá trị > 0');
-        setGenerating(false);
-        return;
-      }
+      const items = generateForm.items.filter(item =>
+        item.chargeType === 'OTHER' && ((item.amount || 0) > 0 || (item.unitPrice || 0) > 0)
+      );
 
-      await invoiceAPI.generate({
+      await invoiceAPI.generateMonthly({
         contractId: parseInt(generateForm.contractId),
         invoiceMonth: parseInt(generateForm.invoiceMonth),
         invoiceYear: parseInt(generateForm.invoiceYear),
@@ -113,7 +109,7 @@ export default function Fees({ flash }) {
         items: items
       });
 
-      if (flash) flash('✅ Tạo hóa đơn thành công!');
+      if (flash) flash('✅ Tạo hóa đơn tổng thành công!');
       setGenerateModalOpen(false);
       setGenerateForm({
         contractId: '',
@@ -121,7 +117,7 @@ export default function Fees({ flash }) {
         invoiceYear: new Date().getFullYear(),
         dueDate: '',
         items: [
-          { chargeType: 'SERVICE', description: 'Phí dịch vụ', quantity: 1, unitPrice: 0 }
+          { chargeType: 'OTHER', description: 'Khoản phát sinh khác', quantity: 1, unitPrice: 0 }
         ]
       });
       fetchInvoices();
@@ -130,17 +126,6 @@ export default function Fees({ flash }) {
       if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tạo hóa đơn'));
     } finally {
       setGenerating(false);
-    }
-  };
-
-  const handleUpdateStatus = async (id, statusId) => {
-    try {
-      await invoiceAPI.updateStatus(id, statusId);
-      if (flash) flash('✅ Cập nhật trạng thái thành công!');
-      fetchInvoices();
-    } catch (error) {
-      console.error('Update status error:', error);
-      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể cập nhật trạng thái'));
     }
   };
 
@@ -187,28 +172,9 @@ export default function Fees({ flash }) {
     return <Badge tone={info.tone}>{info.label}</Badge>;
   };
 
-  // Hàm xác định loại hóa đơn và style tương ứng
+  // Hóa đơn sau khi làm lại luôn là hóa đơn tổng theo tháng.
   const getInvoiceType = (invoice) => {
-    if (!invoice.InvoiceType) {
-      // Fallback: kiểm tra từ Details
-      if (invoice.Details && invoice.Details.length > 0) {
-        const firstDetail = invoice.Details[0];
-        if (firstDetail.ChargeType === 'ELECTRIC') return { label: '⚡ Điện', tone: 'amber' };
-        if (firstDetail.ChargeType === 'WATER') return { label: '💧 Nước', tone: 'blue' };
-        if (firstDetail.ChargeType === 'ROOM') return { label: '🏠 Tiền thuê', tone: 'purple' };
-        if (firstDetail.ChargeType === 'SERVICE') return { label: '🛠️ Dịch vụ', tone: 'teal' };
-        if (firstDetail.ChargeType === 'PARKING') return { label: '🚗 Gửi xe', tone: 'indigo' };
-      }
-      return { label: 'Khác', tone: 'slate' };
-    }
-
-    if (invoice.InvoiceType === 'ELECTRIC') return { label: '⚡ Điện', tone: 'amber' };
-    if (invoice.InvoiceType === 'WATER') return { label: '💧 Nước', tone: 'blue' };
-    if (invoice.InvoiceType === 'ROOM') return { label: '🏠 Tiền thuê', tone: 'purple' };
-    if (invoice.InvoiceType === 'SERVICE') return { label: '🛠️ Dịch vụ', tone: 'teal' };
-    if (invoice.InvoiceType === 'PARKING') return { label: '🚗 Gửi xe', tone: 'indigo' };
-
-    return { label: invoice.InvoiceType, tone: 'slate' };
+    return { label: 'Hóa đơn tổng', tone: 'purple' };
   };
 
   // Filtered data
@@ -389,16 +355,6 @@ export default function Fees({ flash }) {
                   <Button variant="secondary" className="flex-1" onClick={() => openViewModal(invoice)}>
                     <Eye size={14} /> Xem
                   </Button>
-                  {invoice.StatusID === 1 && (
-                    <Button className="flex-1" onClick={() => handleUpdateStatus(invoice.InvoiceID, 2)}>
-                      <CheckCircle2 size={14} /> Đã thu
-                    </Button>
-                  )}
-                  {invoice.StatusID === 3 && (
-                    <Button variant="warning" className="flex-1" onClick={() => handleUpdateStatus(invoice.InvoiceID, 2)}>
-                      <CheckCircle2 size={14} /> Đánh dấu đã thu
-                    </Button>
-                  )}
                 </div>
               </div>
             </Card>
@@ -518,14 +474,6 @@ export default function Fees({ flash }) {
             )}
 
             <div className="flex justify-end gap-2">
-              {selectedInvoice.StatusID === 1 && (
-                <Button onClick={() => {
-                  handleUpdateStatus(selectedInvoice.InvoiceID, 2);
-                  setModalOpen(false);
-                }}>
-                  <CheckCircle2 size={16} /> Đánh dấu đã thanh toán
-                </Button>
-              )}
               <Button variant="secondary" onClick={() => setModalOpen(false)}>Đóng</Button>
             </div>
           </div>
@@ -599,7 +547,7 @@ export default function Fees({ flash }) {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-semibold text-slate-700">Khoản phí</p>
+              <p className="text-sm font-semibold text-slate-700">Khoản phát sinh khác</p>
               <Button type="button" variant="secondary" size="sm" onClick={addInvoiceItem}>
                 <Plus size={14} /> Thêm khoản
               </Button>
@@ -614,11 +562,6 @@ export default function Fees({ flash }) {
                       onChange={(e) => updateInvoiceItem(index, 'chargeType', e.target.value)}
                       className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#1f4f46]"
                     >
-                      <option value="ROOM">Tiền thuê</option>
-                      <option value="SERVICE">Phí dịch vụ</option>
-                      <option value="ELECTRIC">Điện</option>
-                      <option value="WATER">Nước</option>
-                      <option value="PARKING">Gửi xe</option>
                       <option value="OTHER">Khác</option>
                     </select>
                   </div>

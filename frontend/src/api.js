@@ -299,6 +299,24 @@ export const invoiceAPI = {
     body: JSON.stringify(data),
   }),
 
+  generateMonthly: (data) => request('/invoices/generate-monthly', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  getApartmentCurrent: (apartmentId, month = '', year = '') => {
+    const params = new URLSearchParams();
+    if (month) params.set('month', month);
+    if (year) params.set('year', year);
+    const query = params.toString();
+    return request(`/invoices/current/apartment/${apartmentId}${query ? `?${query}` : ''}`);
+  },
+
+  payApartmentCurrent: (apartmentId, data = {}) => request(`/invoices/current/apartment/${apartmentId}/pay`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
   updateStatus: (id, statusId) => request(`/invoices/${id}/status`, {
     method: 'PUT',
     body: JSON.stringify({ statusId }),
@@ -860,17 +878,28 @@ export const notificationAPI = {
 export const utilityAPI = {
   getTypes: () => request('/utilities/types'),
   getPriceTiers: (utilityTypeId) => request(`/utilities/${utilityTypeId}/tiers`),
-  getReadings: (apartmentId = '', utilityTypeId = '', month = '', year = '') => {
+  getReadings: (apartmentId = '', utilityTypeId = '', month = '', year = '', page = 1, limit = 20) => {
     const params = new URLSearchParams();
     if (apartmentId) params.set('apartmentId', apartmentId);
     if (utilityTypeId) params.set('utilityTypeId', utilityTypeId);
     if (month) params.set('month', month);
     if (year) params.set('year', year);
+    params.set('page', page);
+    params.set('limit', limit);
     return request(`/utilities/readings?${params.toString()}`);
   },
   createReading: (data) => request('/utilities/readings', {
     method: 'POST',
     body: JSON.stringify(data),
+  }),
+  getMeters: (apartmentId = '') => {
+    const params = new URLSearchParams();
+    if (apartmentId) params.set('apartmentId', apartmentId);
+    return request(`/utilities/meters?${params.toString()}`);
+  },
+  demoTick: (apartmentId = '') => request('/utilities/meters/demo-tick', {
+    method: 'POST',
+    body: JSON.stringify(apartmentId ? { apartmentId } : {}),
   }),
 };
 

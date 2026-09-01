@@ -6,7 +6,7 @@ import {
   Layers, Home, ChevronRight, X, CheckCircle2,
   Search, AlertCircle, Save, ArrowLeft
 } from 'lucide-react';
-import { apartmentAPI, contractAPI, residentAPI } from '../api';
+import { apartmentAPI, contractAPI, residentAPI, invoiceAPI, utilityAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 
 export default function BuildingManagement({ flash }) {
@@ -23,6 +23,10 @@ export default function BuildingManagement({ flash }) {
   const [buildingApartments, setBuildingApartments] = useState([]);
   const [selectedApartmentDetails, setSelectedApartmentDetails] = useState(null);
   const [selectedApartmentResidents, setSelectedApartmentResidents] = useState(null);
+  const [billingInfo, setBillingInfo] = useState(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [tickingMeters, setTickingMeters] = useState(false);
+  const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [contractMode, setContractMode] = useState('create'); // 'create' | 'renew'
   const [contractLoading, setContractLoading] = useState(false);
@@ -48,6 +52,43 @@ export default function BuildingManagement({ flash }) {
     floorNumber: '',
     buildingId: ''
   });
+
+  const money = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+
+  const loadApartmentBilling = async (apartmentId) => {
+    setBillingLoading(true);
+    try {
+      const res = await invoiceAPI.getApartmentCurrent(apartmentId);
+      const data = res?.data || null;
+      if (data && !data.invoice && data.preview?.contract) {
+        data.invoice = {
+          InvoiceID: null,
+          InvoiceMonth: data.month,
+          InvoiceYear: data.year,
+          TotalAmount: data.preview.totalAmount,
+          PaidAmount: 0,
+          RemainingAmount: data.preview.totalAmount,
+          IsPaid: false,
+          isPreview: true,
+          Details: (data.preview.details || []).map((detail, index) => ({
+            InvoiceDetailID: `preview-${index}`,
+            ChargeType: detail.chargeType,
+            Description: detail.description,
+            Quantity: detail.quantity,
+            UnitPrice: detail.unitPrice,
+            Amount: detail.amount
+          }))
+        };
+      }
+      setBillingInfo(data);
+    } catch (error) {
+      console.error('Error loading apartment billing:', error);
+      setBillingInfo(null);
+      if (flash) flash('Không thể tải hóa đơn hiện tại của căn hộ');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -273,13 +314,49 @@ export default function BuildingManagement({ flash }) {
 
   const handleShowApartmentDetails = async (apartmentId) => {
     try {
+      setBillingInfo(null);
       const res = await apartmentAPI.getById(apartmentId);
       setSelectedApartmentDetails(res?.data || null);
       setSelectedApartmentResidents(res?.data?.CurrentResidents || []);
+      await loadApartmentBilling(apartmentId);
     } catch (error) {
       console.error('Error loading apartment details:', error);
       if (flash) flash('❌ Không thể tải thông tin căn hộ');
       setSelectedApartmentResidents([]);
+    }
+  };
+
+  const handleDemoTickApartment = async () => {
+    if (!selectedApartmentDetails?.ApartmentID) return;
+    setTickingMeters(true);
+    try {
+      const res = await utilityAPI.demoTick(selectedApartmentDetails.ApartmentID);
+      if (flash) flash(`Đã demo tăng ${res?.data?.length || 0} đồng hồ`);
+      await loadApartmentBilling(selectedApartmentDetails.ApartmentID);
+    } catch (error) {
+      console.error('Demo tick apartment error:', error);
+      if (flash) flash(error.message || 'Không thể mô phỏng tăng chỉ số');
+    } finally {
+      setTickingMeters(false);
+    }
+  };
+
+  const handlePayCurrentInvoice = async () => {
+    if (!selectedApartmentDetails?.ApartmentID) return;
+    setCreatingInvoice(true);
+    try {
+      const now = new Date();
+      await invoiceAPI.payApartmentCurrent(selectedApartmentDetails.ApartmentID, {
+        invoiceMonth: now.getMonth() + 1,
+        invoiceYear: now.getFullYear()
+      });
+      if (flash) flash('Đã tạo hóa đơn tổng và thanh toán thành công');
+      await loadApartmentBilling(selectedApartmentDetails.ApartmentID);
+    } catch (error) {
+      console.error('Pay current invoice error:', error);
+      if (flash) flash(error.message || 'Không thể thanh toán hóa đơn');
+    } finally {
+      setCreatingInvoice(false);
     }
   };
 
@@ -761,7 +838,7 @@ export default function BuildingManagement({ flash }) {
       <Modal
         open={selectedApartmentDetails !== null}
         title={selectedApartmentDetails ? `Căn hộ ${selectedApartmentDetails.ApartmentCode}` : 'Chi tiết căn hộ'}
-        onClose={() => setSelectedApartmentDetails(null)}
+        onClose={() => { setSelectedApartmentDetails(null); setBillingInfo(null); }}
         size="lg"
         backdropClassName="bg-slate-950/10"
         backdropBlur={false}
@@ -791,6 +868,114 @@ export default function BuildingManagement({ flash }) {
                   <p className="text-sm text-slate-500 mt-2">Chưa có hợp đồng</p>
                 )}
               </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+                <div>
+                  <p className="text-sm font-semibold text-slate-500">Hóa đơn tháng hiện tại</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Smart meter/IoT mô phỏng: điện nước tự tăng, khi tạo hóa đơn sẽ chốt vào MeterReading.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={handleDemoTickApartment} disabled={tickingMeters || billingLoading}>
+                    <RefreshCw size={16} /> {tickingMeters ? 'Đang tăng...' : 'Demo tăng chỉ số'}
+                  </Button>
+                  {(billingInfo?.canGenerate || (billingInfo?.invoice && !billingInfo.invoice.IsPaid)) && (
+                    <Button onClick={handlePayCurrentInvoice} disabled={creatingInvoice || billingLoading}>
+                      <Plus size={16} /> {creatingInvoice ? 'Đang thanh toán...' : 'Thanh toán'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {billingLoading ? (
+                <div className="mt-4 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                  Đang tải hóa đơn và đồng hồ...
+                </div>
+              ) : billingInfo ? (
+                <div className="mt-4 space-y-4">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {(billingInfo.meters || []).map((meter) => {
+                      const isElectric = Number(meter.UtilityTypeID) === 1;
+                      return (
+                        <div key={meter.MeterID} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <div className="flex items-center justify-between">
+                            <p className="font-semibold text-slate-900">
+                              {isElectric ? 'Đồng hồ điện' : 'Đồng hồ nước'}
+                            </p>
+                            <Badge tone={billingInfo.activeContract ? 'green' : 'slate'}>
+                              {billingInfo.activeContract ? 'Đang chạy' : 'Tạm dừng'}
+                            </Badge>
+                          </div>
+                          <div className="mt-2 text-2xl font-black text-slate-950">
+                            {Number(meter.CurrentIndex || 0).toFixed(isElectric ? 2 : 3)}
+                            <span className="ml-1 text-sm font-semibold text-slate-500">
+                              {isElectric ? 'kWh' : 'm³'}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {meter.LogCount || 0} log, lần cuối {meter.LastTickAt ? new Date(meter.LastTickAt).toLocaleString('vi-VN') : 'chưa chạy'}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {billingInfo.invoice ? (
+                    <div className="overflow-hidden rounded-xl border border-slate-200">
+                      <div className="flex flex-col justify-between gap-2 bg-slate-50 px-4 py-3 md:flex-row md:items-center">
+                        <div>
+                          <p className="font-bold text-slate-950">
+                            HĐ #{billingInfo.invoice.InvoiceID} - kỳ {billingInfo.invoice.InvoiceMonth}/{billingInfo.invoice.InvoiceYear}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Đã thu {money(billingInfo.invoice.PaidAmount)} / còn {money(billingInfo.invoice.RemainingAmount)}
+                          </p>
+                        </div>
+                        <Badge tone={billingInfo.invoice.IsPaid ? 'green' : 'amber'}>
+                          {billingInfo.invoice.IsPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                        </Badge>
+                      </div>
+                      <table className="w-full text-sm">
+                        <tbody className="divide-y divide-slate-100">
+                          {(billingInfo.invoice.Details || []).map((detail) => (
+                            <tr key={detail.InvoiceDetailID}>
+                              <td className="px-4 py-2">
+                                <p className="font-medium text-slate-900">{detail.Description}</p>
+                                <p className="text-xs text-slate-500">{detail.ChargeType}</p>
+                              </td>
+                              <td className="px-4 py-2 text-right text-slate-600">
+                                {Number(detail.Quantity || 0).toLocaleString('vi-VN')} x {money(detail.UnitPrice)}
+                              </td>
+                              <td className="px-4 py-2 text-right font-bold text-slate-950">{money(detail.Amount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-slate-50">
+                          <tr>
+                            <td colSpan="2" className="px-4 py-3 text-right font-bold text-slate-950">Tổng cộng</td>
+                            <td className="px-4 py-3 text-right text-lg font-black text-[#1f4f46]">
+                              {money(billingInfo.invoice.TotalAmount)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                      {billingInfo.activeContract
+                        ? 'Tháng hiện tại chưa có hóa đơn tổng. Có thể tạo ngay từ dữ liệu đồng hồ hiện tại.'
+                        : 'Căn hộ chưa có hợp đồng hiệu lực nên đồng hồ không tăng và chưa thể tạo hóa đơn.'}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                  Chưa tải được dữ liệu hóa đơn.
+                </div>
+              )}
             </div>
 
             <div>

@@ -1,6 +1,8 @@
 // backend/controllers/apartmentController.js
 const { getPool, sql } = require('../config/db');
 
+const ACTIVE_CONTRACT_STATUS_SQL = '2, 5';
+
 // ============================================
 // QUẢN LÝ CĂN HỘ
 // ============================================
@@ -45,7 +47,8 @@ exports.getApartments = async (req, res) => {
                     JOIN Contract c ON cr.ContractID = c.ContractID
                     JOIN Resident r ON cr.ResidentID = r.ResidentID
                     WHERE c.ApartmentID = a.ApartmentID
-                        AND c.StatusID = 2
+                        AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
+                        AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
                         AND cr.MoveOutDate IS NULL
                 ) as CurrentResidents,
                 (
@@ -61,7 +64,8 @@ exports.getApartments = async (req, res) => {
                             c.OwnerID
                          FROM Contract c
                          WHERE c.ApartmentID = a.ApartmentID
-                            AND c.StatusID = 2
+                            AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
+                            AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
                          ORDER BY c.SignDate DESC
                          FOR JSON PATH, WITHOUT_ARRAY_WRAPPER)
                 ) as CurrentContract,
@@ -69,7 +73,8 @@ exports.getApartments = async (req, res) => {
                     SELECT TOP 1 c.Rent
                     FROM Contract c
                     WHERE c.ApartmentID = a.ApartmentID
-                        AND c.StatusID = 2
+                        AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
+                        AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
                     ORDER BY c.SignDate DESC
                 ) as CurrentRent
             FROM Apartment a
@@ -231,7 +236,8 @@ exports.getApartmentById = async (req, res) => {
                 JOIN ContractStatus cs ON c.StatusID = cs.StatusID
                 JOIN Resident r ON c.OwnerID = r.ResidentID
                 WHERE c.ApartmentID = @ApartmentID
-                    AND c.StatusID = 2
+                    AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
+                    AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
                 ORDER BY c.SignDate DESC
             `);
         apartment.CurrentContract = contractResult.recordset[0] || null;
@@ -275,7 +281,8 @@ exports.getApartmentById = async (req, res) => {
                 JOIN Resident r ON cr.ResidentID = r.ResidentID
                 JOIN Contract c ON cr.ContractID = c.ContractID
                 WHERE c.ApartmentID = @ApartmentID
-                    AND c.StatusID = 2
+                    AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
+                    AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
                     AND cr.MoveOutDate IS NULL
             `);
         apartment.CurrentResidents = residentResult.recordset;
@@ -472,7 +479,13 @@ exports.deleteApartment = async (req, res) => {
         // Check if apartment has active contracts
         const contractCheck = await pool.request()
             .input('ApartmentID', sql.Int, id)
-            .query("SELECT COUNT(*) as count FROM Contract WHERE ApartmentID = @ApartmentID AND StatusID = 2");
+            .query(`
+                SELECT COUNT(*) as count
+                FROM Contract
+                WHERE ApartmentID = @ApartmentID
+                  AND StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
+                  AND CAST(GETDATE() AS DATE) BETWEEN StartDate AND EndDate
+            `);
 
         if (contractCheck.recordset[0].count > 0) {
             return res.status(400).json({

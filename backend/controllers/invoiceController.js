@@ -1,28 +1,98 @@
 const { getPool, sql } = require('../config/db');
+const {
+    generateMonthlyInvoice,
+    getMonthlyInvoicePreview,
+    syncInvoiceStatus,
+    SUCCESS_PAYMENT_STATUS_ID,
+    PAID_INVOICE_STATUS_ID,
+    ensureSmartMetersForActiveContracts,
+    ACTIVE_CONTRACT_STATUS_SQL,
+    toNumber,
+    roundMoney
+} = require('../services/billingService');
 
-// backend/controllers/invoiceController.js
+function parseJsonArray(value) {
+    if (!value) return [];
+    try {
+        return JSON.parse(value);
+    } catch {
+        return [];
+    }
+}
+
+function normalizeInvoice(row) {
+    const invoice = {
+        ...row,
+        Details: parseJsonArray(row.Details),
+        Payments: parseJsonArray(row.Payments)
+    };
+    invoice.PaidAmount = toNumber(invoice.PaidAmount);
+    invoice.RemainingAmount = Math.max(0, roundMoney(toNumber(invoice.TotalAmount) - invoice.PaidAmount));
+    invoice.IsPaid = invoice.PaidAmount >= toNumber(invoice.TotalAmount);
+    invoice.DisplayStatusID = invoice.IsPaid ? PAID_INVOICE_STATUS_ID : invoice.StatusID;
+    invoice.DisplayInvoiceStatus = invoice.IsPaid ? 'Da thanh toan' : invoice.InvoiceStatus;
+    return invoice;
+}
+
 exports.getAllInvoices = async (req, res) => {
     try {
-        const { 
+        const {
             statusId,
             contractId,
+            apartmentId,
             month,
             year,
-            fromDate,
-            toDate,
             page = 1,
-            limit = 20 
+            limit = 20
         } = req.query;
 
-        console.log('📊 Fetching invoices with filters:', { statusId, month, year, page, limit });
-
         const pool = await getPool();
-        const offset = (page - 1) * limit;
-        const safeLimit = parseInt(limit) || 20;
+        const safePage = Math.max(parseInt(page, 10) || 1, 1);
+        const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 999);
+        const offset = (safePage - 1) * safeLimit;
 
-        let query = `
-            SELECT 
+        let where = 'WHERE 1=1';
+        const request = pool.request();
+        const countRequest = pool.request();
+        const addInput = (name, type, value) => {
+            request.input(name, type, value);
+            countRequest.input(name, type, value);
+        };
+
+        if (statusId) {
+            where += ' AND i.StatusID = @StatusID';
+            addInput('StatusID', sql.Int, parseInt(statusId, 10));
+        }
+        if (contractId) {
+            where += ' AND i.ContractID = @ContractID';
+            addInput('ContractID', sql.Int, parseInt(contractId, 10));
+        }
+        if (apartmentId) {
+            where += ' AND c.ApartmentID = @ApartmentID';
+            addInput('ApartmentID', sql.Int, parseInt(apartmentId, 10));
+        }
+        if (month) {
+            where += ' AND i.InvoiceMonth = @Month';
+            addInput('Month', sql.Int, parseInt(month, 10));
+        }
+        if (year) {
+            where += ' AND i.InvoiceYear = @Year';
+            addInput('Year', sql.Int, parseInt(year, 10));
+        }
+
+        const countResult = await countRequest.query(`
+            SELECT COUNT(*) AS total
+            FROM Invoice i
+            JOIN Contract c ON c.ContractID = i.ContractID
+            ${where}
+        `);
+
+        request.input('Offset', sql.Int, offset);
+        request.input('Limit', sql.Int, safeLimit);
+        const result = await request.query(`
+            SELECT
                 i.InvoiceID,
+                i.ContractID,
                 i.InvoiceMonth,
                 i.InvoiceYear,
                 i.InvoiceDate,
@@ -31,121 +101,55 @@ exports.getAllInvoices = async (req, res) => {
                 i.StatusID,
                 ist.StatusName AS InvoiceStatus,
                 c.ContractNumber,
+                a.ApartmentID,
                 a.ApartmentCode,
                 r.FullName AS OwnerName,
-                ISNULL((
-                    SELECT SUM(Amount) 
-                    FROM Payment 
-                    WHERE InvoiceID = i.InvoiceID 
-                        AND StatusID = 2
-                ), 0) AS PaidAmount,
+                ISNULL(pay.PaidAmount, 0) AS PaidAmount,
                 (
-                    SELECT 
-                        InvoiceDetailID,
-                        ChargeType,
-                        Description,
-                        Quantity,
-                        UnitPrice,
-                        Amount
-                    FROM InvoiceDetail 
+                    SELECT InvoiceDetailID, ChargeType, Description, Quantity, UnitPrice, Amount
+                    FROM InvoiceDetail
                     WHERE InvoiceID = i.InvoiceID
+                    ORDER BY InvoiceDetailID
                     FOR JSON PATH
                 ) AS Details,
                 (
-                    SELECT 
-                        PaymentID,
-                        Amount,
-                        PaymentDate,
-                        StatusID,
-                        TransactionCode
-                    FROM Payment 
-                    WHERE InvoiceID = i.InvoiceID
+                    SELECT p.PaymentID, p.Amount, p.PaymentDate, p.StatusID, ps.StatusName AS PaymentStatus,
+                           p.TransactionCode, pm.MethodName AS PaymentMethod
+                    FROM Payment p
+                    LEFT JOIN PaymentMethod pm ON p.MethodID = pm.MethodID
+                    LEFT JOIN PaymentStatus ps ON p.StatusID = ps.StatusID
+                    WHERE p.InvoiceID = i.InvoiceID
+                    ORDER BY p.PaymentDate DESC
                     FOR JSON PATH
                 ) AS Payments
             FROM Invoice i
-            INNER JOIN InvoiceStatus ist ON i.StatusID = ist.StatusID
-            INNER JOIN Contract c ON i.ContractID = c.ContractID
-            INNER JOIN Apartment a ON c.ApartmentID = a.ApartmentID
-            INNER JOIN Resident r ON c.OwnerID = r.ResidentID
-            WHERE 1=1
-        `;
+            JOIN InvoiceStatus ist ON i.StatusID = ist.StatusID
+            JOIN Contract c ON i.ContractID = c.ContractID
+            JOIN Apartment a ON c.ApartmentID = a.ApartmentID
+            JOIN Resident r ON c.OwnerID = r.ResidentID
+            OUTER APPLY (
+                SELECT SUM(Amount) AS PaidAmount
+                FROM Payment
+                WHERE InvoiceID = i.InvoiceID AND StatusID = ${SUCCESS_PAYMENT_STATUS_ID}
+            ) pay
+            ${where}
+            ORDER BY i.InvoiceYear DESC, i.InvoiceMonth DESC, i.InvoiceDate DESC, i.InvoiceID DESC
+            OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY
+        `);
 
-        const request = pool.request();
-        let countQuery = `
-            SELECT COUNT(*) as total 
-            FROM Invoice i
-            WHERE 1=1
-        `;
-
-        if (statusId) {
-            query += ` AND i.StatusID = @StatusID`;
-            countQuery += ` AND i.StatusID = @StatusID`;
-            request.input('StatusID', sql.Int, parseInt(statusId));
-        }
-
-        if (month) {
-            query += ` AND i.InvoiceMonth = @Month`;
-            countQuery += ` AND i.InvoiceMonth = @Month`;
-            request.input('Month', sql.Int, parseInt(month));
-        }
-
-        if (year) {
-            query += ` AND i.InvoiceYear = @Year`;
-            countQuery += ` AND i.InvoiceYear = @Year`;
-            request.input('Year', sql.Int, parseInt(year));
-        }
-
-        // 🔥 THÊM LOG ĐỂ DEBUG
-        console.log('📊 Query params:', { statusId, month, year });
-
-        const countResult = await request.query(countQuery);
         const total = countResult.recordset[0]?.total || 0;
-        console.log('📊 Total invoices:', total);
-
-        query += `
-            ORDER BY i.InvoiceDate DESC
-            OFFSET @Offset ROWS
-            FETCH NEXT @Limit ROWS ONLY
-        `;
-        request.input('Offset', sql.Int, parseInt(offset));
-        request.input('Limit', sql.Int, safeLimit);
-
-        const result = await request.query(query);
-        console.log('📊 Query result rows:', result.recordset.length);
-
-        // Parse JSON fields
-        const invoices = result.recordset.map(inv => {
-            if (inv.Details) {
-                try {
-                    inv.Details = JSON.parse(inv.Details);
-                } catch (e) {
-                    inv.Details = [];
-                }
-            }
-            if (inv.Payments) {
-                try {
-                    inv.Payments = JSON.parse(inv.Payments);
-                } catch (e) {
-                    inv.Payments = [];
-                }
-            }
-            return inv;
-        });
-
         res.json({
             success: true,
-            data: invoices,
+            data: result.recordset.map(normalizeInvoice),
             pagination: {
                 total,
-                page: parseInt(page),
+                page: safePage,
                 limit: safeLimit,
                 totalPages: Math.ceil(total / safeLimit)
             }
         });
-
     } catch (error) {
-        console.error('❌ Get invoices error:', error);
-        console.error('Stack:', error.stack);
+        console.error('Get invoices error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch invoices',
@@ -156,78 +160,55 @@ exports.getAllInvoices = async (req, res) => {
 
 exports.getInvoiceById = async (req, res) => {
     try {
-        const { id } = req.params;
-        const pool = await getPool();
-
-        const result = await pool.request()
-            .input('InvoiceID', sql.Int, id)
+        const result = await (await getPool()).request()
+            .input('InvoiceID', sql.Int, req.params.id)
             .query(`
-                SELECT 
+                SELECT
                     i.*,
                     ist.StatusName AS InvoiceStatus,
                     c.ContractNumber,
                     c.Rent,
+                    a.ApartmentID,
                     a.ApartmentCode,
                     a.Area,
                     r.FullName AS OwnerName,
                     r.Phone AS OwnerPhone,
+                    ISNULL(pay.PaidAmount, 0) AS PaidAmount,
                     (
-                        SELECT 
-                            InvoiceDetailID,
-                            ChargeType,
-                            Description,
-                            Quantity,
-                            UnitPrice,
-                            Amount
+                        SELECT InvoiceDetailID, ChargeType, Description, Quantity, UnitPrice, Amount
                         FROM InvoiceDetail
                         WHERE InvoiceID = i.InvoiceID
+                        ORDER BY InvoiceDetailID
                         FOR JSON PATH
                     ) AS Details,
                     (
-                        SELECT 
-                            p.PaymentID,
-                            p.PaymentDate,
-                            p.Amount,
-                            p.TransactionCode,
-                            p.StatusID,
-                            ps.StatusName AS PaymentStatus,
-                            pm.MethodName AS PaymentMethod
+                        SELECT p.PaymentID, p.PaymentDate, p.Amount, p.TransactionCode,
+                               p.StatusID, ps.StatusName AS PaymentStatus, pm.MethodName AS PaymentMethod
                         FROM Payment p
                         LEFT JOIN PaymentMethod pm ON p.MethodID = pm.MethodID
                         LEFT JOIN PaymentStatus ps ON p.StatusID = ps.StatusID
                         WHERE p.InvoiceID = i.InvoiceID
+                        ORDER BY p.PaymentDate DESC
                         FOR JSON PATH
                     ) AS Payments
                 FROM Invoice i
-                INNER JOIN InvoiceStatus ist ON i.StatusID = ist.StatusID
-                INNER JOIN Contract c ON i.ContractID = c.ContractID
-                INNER JOIN Apartment a ON c.ApartmentID = a.ApartmentID
-                INNER JOIN Resident r ON c.OwnerID = r.ResidentID
+                JOIN InvoiceStatus ist ON i.StatusID = ist.StatusID
+                JOIN Contract c ON i.ContractID = c.ContractID
+                JOIN Apartment a ON c.ApartmentID = a.ApartmentID
+                JOIN Resident r ON c.OwnerID = r.ResidentID
+                OUTER APPLY (
+                    SELECT SUM(Amount) AS PaidAmount
+                    FROM Payment
+                    WHERE InvoiceID = i.InvoiceID AND StatusID = ${SUCCESS_PAYMENT_STATUS_ID}
+                ) pay
                 WHERE i.InvoiceID = @InvoiceID
             `);
 
         if (!result.recordset[0]) {
-            return res.status(404).json({
-                success: false,
-                message: 'Invoice not found'
-            });
+            return res.status(404).json({ success: false, message: 'Invoice not found' });
         }
 
-        const invoice = result.recordset[0];
-        
-        // Parse JSON fields
-        if (invoice.Details) {
-            invoice.Details = JSON.parse(invoice.Details);
-        }
-        if (invoice.Payments) {
-            invoice.Payments = JSON.parse(invoice.Payments);
-        }
-
-        res.json({
-            success: true,
-            data: invoice
-        });
-
+        res.json({ success: true, data: normalizeInvoice(result.recordset[0]) });
     } catch (error) {
         console.error('Get invoice error:', error);
         res.status(500).json({
@@ -238,143 +219,291 @@ exports.getInvoiceById = async (req, res) => {
     }
 };
 
-exports.generateInvoice = async (req, res) => {
+exports.getApartmentCurrentInvoice = async (req, res) => {
     try {
-        const { 
-            contractId,
-            invoiceMonth,
-            invoiceYear,
-            dueDate,
-            items
-        } = req.body;
-
-        if (!contractId || !invoiceMonth || !invoiceYear || !items || items.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Missing required fields'
-            });
-        }
-
+        const now = new Date();
+        const month = parseInt(req.query.month, 10) || now.getMonth() + 1;
+        const year = parseInt(req.query.year, 10) || now.getFullYear();
+        const apartmentId = parseInt(req.params.apartmentId, 10);
         const pool = await getPool();
 
-        // Check if invoice already exists for this period
-        const checkInvoice = await pool.request()
-            .input('ContractID', sql.Int, contractId)
-            .input('InvoiceMonth', sql.Int, invoiceMonth)
-            .input('InvoiceYear', sql.Int, invoiceYear)
+        await ensureSmartMetersForActiveContracts(pool);
+
+        const invoiceResult = await pool.request()
+            .input('ApartmentID', sql.Int, apartmentId)
+            .input('InvoiceMonth', sql.Int, month)
+            .input('InvoiceYear', sql.Int, year)
             .query(`
-                SELECT InvoiceID 
-                FROM Invoice 
-                WHERE ContractID = @ContractID 
-                    AND InvoiceMonth = @InvoiceMonth 
-                    AND InvoiceYear = @InvoiceYear
+                SELECT TOP 1
+                    i.InvoiceID,
+                    i.ContractID,
+                    i.InvoiceMonth,
+                    i.InvoiceYear,
+                    i.InvoiceDate,
+                    i.DueDate,
+                    i.TotalAmount,
+                    i.StatusID,
+                    ist.StatusName AS InvoiceStatus,
+                    c.ContractNumber,
+                    a.ApartmentID,
+                    a.ApartmentCode,
+                    r.FullName AS OwnerName,
+                    ISNULL(pay.PaidAmount, 0) AS PaidAmount,
+                    (
+                        SELECT InvoiceDetailID, ChargeType, Description, Quantity, UnitPrice, Amount
+                        FROM InvoiceDetail
+                        WHERE InvoiceID = i.InvoiceID
+                        ORDER BY InvoiceDetailID
+                        FOR JSON PATH
+                    ) AS Details,
+                    (
+                        SELECT p.PaymentID, p.PaymentDate, p.Amount, p.TransactionCode,
+                               p.StatusID, ps.StatusName AS PaymentStatus, pm.MethodName AS PaymentMethod
+                        FROM Payment p
+                        LEFT JOIN PaymentMethod pm ON p.MethodID = pm.MethodID
+                        LEFT JOIN PaymentStatus ps ON p.StatusID = ps.StatusID
+                        WHERE p.InvoiceID = i.InvoiceID
+                        ORDER BY p.PaymentDate DESC
+                        FOR JSON PATH
+                    ) AS Payments
+                FROM Invoice i
+                JOIN InvoiceStatus ist ON i.StatusID = ist.StatusID
+                JOIN Contract c ON i.ContractID = c.ContractID
+                JOIN Apartment a ON c.ApartmentID = a.ApartmentID
+                JOIN Resident r ON c.OwnerID = r.ResidentID
+                OUTER APPLY (
+                    SELECT SUM(Amount) AS PaidAmount
+                    FROM Payment
+                    WHERE InvoiceID = i.InvoiceID AND StatusID = ${SUCCESS_PAYMENT_STATUS_ID}
+                ) pay
+                WHERE c.ApartmentID = @ApartmentID
+                  AND i.InvoiceMonth = @InvoiceMonth
+                  AND i.InvoiceYear = @InvoiceYear
+                ORDER BY i.InvoiceID DESC
             `);
 
-        if (checkInvoice.recordset[0]) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invoice already exists for this period'
+        const contractResult = await pool.request()
+            .input('ApartmentID', sql.Int, apartmentId)
+            .query(`
+                SELECT TOP 1 c.ContractID, c.ContractNumber, c.Rent, c.StartDate, c.EndDate,
+                       r.FullName AS OwnerName
+                FROM Contract c
+                JOIN Resident r ON r.ResidentID = c.OwnerID
+                WHERE c.ApartmentID = @ApartmentID
+                  AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
+                  AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
+                ORDER BY c.StartDate DESC, c.ContractID DESC
+            `);
+
+        const metersResult = await pool.request()
+            .input('ApartmentID', sql.Int, apartmentId)
+            .query(`
+                SELECT sm.MeterID, sm.ApartmentID, sm.UtilityTypeID, ut.UtilityName,
+                       sm.CurrentIndex, sm.LastTickAt, sm.Status,
+                       ISNULL(logs.LogCount, 0) AS LogCount
+                FROM SmartMeter sm
+                JOIN UtilityType ut ON ut.UtilityTypeID = sm.UtilityTypeID
+                OUTER APPLY (
+                    SELECT COUNT(*) AS LogCount
+                    FROM SmartMeterLog sml
+                    WHERE sml.MeterID = sm.MeterID
+                ) logs
+                WHERE sm.ApartmentID = @ApartmentID
+                ORDER BY sm.UtilityTypeID
+            `);
+
+        const preview = invoiceResult.recordset[0]
+            ? null
+            : await getMonthlyInvoicePreview(pool, {
+                apartmentId,
+                invoiceMonth: month,
+                invoiceYear: year
             });
-        }
 
-        // Calculate total amount
-        let totalAmount = 0;
-        for (const item of items) {
-            totalAmount += item.amount || (item.quantity * item.unitPrice);
-        }
-
-        // Create invoice
-        const result = await pool.request()
-            .input('ContractID', sql.Int, contractId)
-            .input('InvoiceMonth', sql.Int, invoiceMonth)
-            .input('InvoiceYear', sql.Int, invoiceYear)
-            .input('InvoiceDate', sql.Date, new Date())
-            .input('DueDate', sql.Date, dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
-            .input('TotalAmount', sql.Decimal, totalAmount)
-            .input('StatusID', sql.Int, 1) // Chưa thanh toán
-            .query(`
-                INSERT INTO Invoice (
-                    ContractID, InvoiceMonth, InvoiceYear, InvoiceDate, DueDate, TotalAmount, StatusID
-                )
-                OUTPUT INSERTED.InvoiceID
-                VALUES (
-                    @ContractID, @InvoiceMonth, @InvoiceYear, @InvoiceDate, @DueDate, @TotalAmount, @StatusID
-                )
-            `);
-
-        const invoiceId = result.recordset[0].InvoiceID;
-
-        // Create invoice details
-        for (const item of items) {
-            const amount = item.amount || (item.quantity * item.unitPrice);
-            await pool.request()
-                .input('InvoiceID', sql.Int, invoiceId)
-                .input('ChargeType', sql.VarChar, item.chargeType || 'OTHER')
-                .input('Description', sql.NVarChar, item.description)
-                .input('Quantity', sql.Decimal, item.quantity || 1)
-                .input('UnitPrice', sql.Decimal, item.unitPrice)
-                .input('Amount', sql.Decimal, amount)
-                .query(`
-                    INSERT INTO InvoiceDetail (
-                        InvoiceID, ChargeType, Description, Quantity, UnitPrice, Amount
-                    )
-                    VALUES (
-                        @InvoiceID, @ChargeType, @Description, @Quantity, @UnitPrice, @Amount
-                    )
-                `);
-        }
-
-        res.status(201).json({
+        res.json({
             success: true,
-            message: 'Invoice generated successfully',
-            data: { invoiceId }
+            data: {
+                month,
+                year,
+                invoice: invoiceResult.recordset[0] ? normalizeInvoice(invoiceResult.recordset[0]) : null,
+                preview,
+                activeContract: contractResult.recordset[0] || null,
+                meters: metersResult.recordset || [],
+                canGenerate: Boolean(contractResult.recordset[0]) && !invoiceResult.recordset[0]
+            }
         });
-
     } catch (error) {
-        console.error('Generate invoice error:', error);
+        console.error('Get apartment current invoice error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to generate invoice',
+            message: 'Failed to fetch apartment invoice',
             error: error.message
         });
     }
 };
 
-exports.updateInvoiceStatus = async (req, res) => {
+exports.payApartmentCurrentInvoice = async (req, res) => {
+    const now = new Date();
+    const month = parseInt(req.body?.invoiceMonth || req.body?.month, 10) || now.getMonth() + 1;
+    const year = parseInt(req.body?.invoiceYear || req.body?.year, 10) || now.getFullYear();
+    const apartmentId = parseInt(req.params.apartmentId || req.body?.apartmentId, 10);
+    const methodId = parseInt(req.body?.methodId, 10) || 1;
+
+    if (!apartmentId) {
+        return res.status(400).json({ success: false, message: 'Apartment ID is required' });
+    }
+
     try {
-        const { id } = req.params;
-        const { statusId } = req.body;
-
-        if (!statusId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Status ID is required'
-            });
-        }
-
         const pool = await getPool();
+        let invoiceId = null;
 
-        const result = await pool.request()
-            .input('InvoiceID', sql.Int, id)
-            .input('StatusID', sql.Int, statusId)
+        const existing = await pool.request()
+            .input('ApartmentID', sql.Int, apartmentId)
+            .input('InvoiceMonth', sql.Int, month)
+            .input('InvoiceYear', sql.Int, year)
             .query(`
-                UPDATE Invoice 
-                SET StatusID = @StatusID
-                WHERE InvoiceID = @InvoiceID
+                SELECT TOP 1 i.InvoiceID
+                FROM Invoice i
+                JOIN Contract c ON c.ContractID = i.ContractID
+                WHERE c.ApartmentID = @ApartmentID
+                  AND i.InvoiceMonth = @InvoiceMonth
+                  AND i.InvoiceYear = @InvoiceYear
+                ORDER BY i.InvoiceID DESC
             `);
 
-        if (result.rowsAffected[0] === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Invoice not found'
+        if (existing.recordset[0]) {
+            invoiceId = existing.recordset[0].InvoiceID;
+        } else {
+            const generated = await generateMonthlyInvoice(pool, {
+                apartmentId,
+                invoiceMonth: month,
+                invoiceYear: year
             });
+            invoiceId = generated.invoiceId;
         }
 
-        res.json({
-            success: true,
-            message: 'Invoice status updated successfully'
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+
+        try {
+            const invoiceCheck = await transaction.request()
+                .input('InvoiceID', sql.Int, invoiceId)
+                .query(`
+                    SELECT TotalAmount
+                    FROM Invoice WITH (UPDLOCK, ROWLOCK)
+                    WHERE InvoiceID = @InvoiceID
+                `);
+
+            const invoice = invoiceCheck.recordset[0];
+            if (!invoice) {
+                await transaction.rollback();
+                return res.status(404).json({ success: false, message: 'Invoice not found' });
+            }
+
+            const paidResult = await transaction.request()
+                .input('InvoiceID', sql.Int, invoiceId)
+                .query(`
+                    SELECT ISNULL(SUM(Amount), 0) AS TotalPaid
+                    FROM Payment
+                    WHERE InvoiceID = @InvoiceID AND StatusID = ${SUCCESS_PAYMENT_STATUS_ID}
+                `);
+
+            const remainingAmount = roundMoney(toNumber(invoice.TotalAmount) - toNumber(paidResult.recordset[0]?.TotalPaid));
+            if (remainingAmount <= 0) {
+                await syncInvoiceStatus(transaction, invoiceId);
+                await transaction.commit();
+                return res.status(400).json({ success: false, message: 'Hoa don da thanh toan' });
+            }
+
+            const inserted = await transaction.request()
+                .input('InvoiceID', sql.Int, invoiceId)
+                .input('MethodID', sql.Int, methodId)
+                .input('Amount', sql.Decimal(18, 2), remainingAmount)
+                .input('TransactionCode', sql.VarChar(100), `AUTO-PAY-${Date.now()}`)
+                .input('StatusID', sql.Int, SUCCESS_PAYMENT_STATUS_ID)
+                .query(`
+                    INSERT INTO Payment (InvoiceID, MethodID, PaymentDate, Amount, TransactionCode, StatusID)
+                    OUTPUT INSERTED.PaymentID
+                    VALUES (@InvoiceID, @MethodID, GETDATE(), @Amount, @TransactionCode, @StatusID)
+                `);
+
+            const status = await syncInvoiceStatus(transaction, invoiceId);
+            await transaction.commit();
+
+            res.status(201).json({
+                success: true,
+                message: 'Apartment invoice paid successfully',
+                data: {
+                    invoiceId,
+                    paymentId: inserted.recordset[0].PaymentID,
+                    amount: remainingAmount,
+                    ...status
+                }
+            });
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    } catch (error) {
+        console.error('Pay apartment current invoice error:', error);
+        res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to pay apartment invoice'
+        });
+    }
+};
+
+exports.generateInvoice = async (req, res) => {
+    try {
+        const otherItems = Array.isArray(req.body.items)
+            ? req.body.items.filter((item) => (item.chargeType || 'OTHER') === 'OTHER')
+            : [];
+        const result = await generateMonthlyInvoice(await getPool(), {
+            ...req.body,
+            otherItems
         });
 
+        res.status(201).json({
+            success: true,
+            message: 'Monthly invoice generated successfully',
+            data: result
+        });
+    } catch (error) {
+        console.error('Generate invoice error:', error);
+        res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to generate invoice',
+            invoiceId: error.invoiceId || null
+        });
+    }
+};
+
+exports.generateMonthlyInvoice = (req, res) => exports.generateInvoice(req, res);
+
+exports.updateInvoiceStatus = async (req, res) => {
+    const requestedStatus = parseInt(req.body?.statusId, 10);
+    if (requestedStatus === PAID_INVOICE_STATUS_ID) {
+        return res.status(400).json({
+            success: false,
+            message: 'Hoa don chi duoc chuyen sang da thanh toan bang Payment thanh cong'
+        });
+    }
+
+    try {
+        if (!requestedStatus) {
+            return res.status(400).json({ success: false, message: 'Status ID is required' });
+        }
+
+        const result = await (await getPool()).request()
+            .input('InvoiceID', sql.Int, req.params.id)
+            .input('StatusID', sql.Int, requestedStatus)
+            .query('UPDATE Invoice SET StatusID = @StatusID WHERE InvoiceID = @InvoiceID');
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({ success: false, message: 'Invoice not found' });
+        }
+
+        res.json({ success: true, message: 'Invoice status updated successfully' });
     } catch (error) {
         console.error('Update invoice status error:', error);
         res.status(500).json({
@@ -386,116 +515,93 @@ exports.updateInvoiceStatus = async (req, res) => {
 };
 
 exports.processPayment = async (req, res) => {
+    const { invoiceId, methodId, amount, transactionCode } = req.body;
+    const amountToPay = toNumber(amount);
+
+    if (!invoiceId || !methodId || amountToPay <= 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'Missing or invalid payment fields'
+        });
+    }
+
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
     try {
-        const { 
-            invoiceId,
-            methodId,
-            amount,
-            transactionCode
-        } = req.body;
-
-        console.log('💰 Processing payment:', { invoiceId, methodId, amount, transactionCode });
-
-        if (!invoiceId || !methodId || !amount) {
-            return res.status(400).json({
-                success: false,
-                message: 'Missing required fields'
-            });
-        }
-
-        const pool = await getPool();
-
-        // Check if invoice exists
-        const invoiceCheck = await pool.request()
-            .input('InvoiceID', sql.Int, invoiceId)
-            .query('SELECT TotalAmount, StatusID FROM Invoice WHERE InvoiceID = @InvoiceID');
-
-        if (!invoiceCheck.recordset[0]) {
-            return res.status(404).json({
-                success: false,
-                message: 'Invoice not found'
-            });
-        }
-
-        const invoice = invoiceCheck.recordset[0];
-
-        if (invoice.StatusID === 2) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invoice already paid'
-            });
-        }
-
-        // Check total paid amount
-        const paidResult = await pool.request()
+        const invoiceCheck = await transaction.request()
             .input('InvoiceID', sql.Int, invoiceId)
             .query(`
-                SELECT ISNULL(SUM(Amount), 0) as TotalPaid
-                FROM Payment
-                WHERE InvoiceID = @InvoiceID AND StatusID = 2
+                SELECT TotalAmount, StatusID
+                FROM Invoice WITH (UPDLOCK, ROWLOCK)
+                WHERE InvoiceID = @InvoiceID
             `);
 
-        const totalPaid = paidResult.recordset[0].TotalPaid;
-        const remainingAmount = invoice.TotalAmount - totalPaid;
+        const invoice = invoiceCheck.recordset[0];
+        if (!invoice) {
+            await transaction.rollback();
+            return res.status(404).json({ success: false, message: 'Invoice not found' });
+        }
 
-        console.log('💰 Payment calculation:', {
-            totalAmount: invoice.TotalAmount,
-            totalPaid: totalPaid,
-            remainingAmount: remainingAmount,
-            amountToPay: amount
-        });
+        const paidResult = await transaction.request()
+            .input('InvoiceID', sql.Int, invoiceId)
+            .query(`
+                SELECT ISNULL(SUM(Amount), 0) AS TotalPaid
+                FROM Payment
+                WHERE InvoiceID = @InvoiceID AND StatusID = ${SUCCESS_PAYMENT_STATUS_ID}
+            `);
 
-        // 🔥 SỬA: Kiểm tra chính xác
-        if (amount > remainingAmount) {
+        const totalPaid = toNumber(paidResult.recordset[0]?.TotalPaid);
+        const remainingAmount = roundMoney(toNumber(invoice.TotalAmount) - totalPaid);
+
+        if (remainingAmount <= 0) {
+            await syncInvoiceStatus(transaction, invoiceId);
+            await transaction.commit();
+            return res.status(400).json({ success: false, message: 'Invoice already paid' });
+        }
+
+        if (amountToPay > remainingAmount) {
+            await transaction.rollback();
             return res.status(400).json({
                 success: false,
                 message: `Amount exceeds remaining balance: ${remainingAmount}`,
-                remainingAmount: remainingAmount,
-                amount: amount
+                remainingAmount,
+                amount: amountToPay
             });
         }
 
-        // Create payment
-        const result = await pool.request()
+        const inserted = await transaction.request()
             .input('InvoiceID', sql.Int, invoiceId)
             .input('MethodID', sql.Int, methodId)
-            .input('Amount', sql.Decimal, amount)
-            .input('TransactionCode', sql.VarChar, transactionCode || null)
-            .input('StatusID', sql.Int, 2) // Thành công
+            .input('Amount', sql.Decimal(18, 2), amountToPay)
+            .input('TransactionCode', sql.VarChar(100), transactionCode || null)
+            .input('StatusID', sql.Int, SUCCESS_PAYMENT_STATUS_ID)
             .query(`
-                INSERT INTO Payment (
-                    InvoiceID, MethodID, PaymentDate, Amount, TransactionCode, StatusID
-                )
+                INSERT INTO Payment (InvoiceID, MethodID, PaymentDate, Amount, TransactionCode, StatusID)
                 OUTPUT INSERTED.PaymentID
-                VALUES (
-                    @InvoiceID, @MethodID, GETDATE(), @Amount, @TransactionCode, @StatusID
-                )
+                VALUES (@InvoiceID, @MethodID, GETDATE(), @Amount, @TransactionCode, @StatusID)
             `);
 
-        const paymentId = result.recordset[0].PaymentID;
-
-        // Update invoice status if fully paid
-        const newTotalPaid = totalPaid + amount;
-        if (newTotalPaid >= invoice.TotalAmount) {
-            await pool.request()
-                .input('InvoiceID', sql.Int, invoiceId)
-                .input('StatusID', sql.Int, 2) // Đã thanh toán
-                .query('UPDATE Invoice SET StatusID = @StatusID WHERE InvoiceID = @InvoiceID');
-        }
-
-        console.log('✅ Payment successful:', { paymentId, newTotalPaid });
+        const status = await syncInvoiceStatus(transaction, invoiceId);
+        await transaction.commit();
 
         res.status(201).json({
             success: true,
             message: 'Payment processed successfully',
-            data: { 
-                paymentId,
-                remainingAfterPayment: invoice.TotalAmount - newTotalPaid
+            data: {
+                paymentId: inserted.recordset[0].PaymentID,
+                ...status
             }
         });
-
     } catch (error) {
-        console.error('❌ Process payment error:', error);
+        try {
+            await transaction.rollback();
+        } catch (rollbackError) {
+            console.error('Rollback payment error:', rollbackError);
+        }
+
+        console.error('Process payment error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to process payment',
@@ -506,18 +612,13 @@ exports.processPayment = async (req, res) => {
 
 exports.getInvoiceStatuses = async (req, res) => {
     try {
-        const pool = await getPool();
-        const result = await pool.query(`
-            SELECT StatusID, StatusName 
-            FROM InvoiceStatus 
+        const result = await (await getPool()).query(`
+            SELECT StatusID, StatusName
+            FROM InvoiceStatus
             ORDER BY StatusID
         `);
 
-        res.json({
-            success: true,
-            data: result.recordset
-        });
-
+        res.json({ success: true, data: result.recordset });
     } catch (error) {
         console.error('Get invoice statuses error:', error);
         res.status(500).json({
@@ -530,18 +631,13 @@ exports.getInvoiceStatuses = async (req, res) => {
 
 exports.getPaymentMethods = async (req, res) => {
     try {
-        const pool = await getPool();
-        const result = await pool.query(`
-            SELECT MethodID, MethodName 
-            FROM PaymentMethod 
+        const result = await (await getPool()).query(`
+            SELECT MethodID, MethodName
+            FROM PaymentMethod
             ORDER BY MethodID
         `);
 
-        res.json({
-            success: true,
-            data: result.recordset
-        });
-
+        res.json({ success: true, data: result.recordset });
     } catch (error) {
         console.error('Get payment methods error:', error);
         res.status(500).json({

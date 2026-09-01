@@ -10,6 +10,7 @@ require('dotenv').config();
 const { getPool, closePool } = require('./config/db');
 const routes = require('./routes');
 const errorHandler = require('./middlewares/errorHandler');
+const { startSmartMeterSimulator, stopSmartMeterSimulator } = require('./services/smartMeterSimulator');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -125,6 +126,8 @@ const server = app.listen(PORT, async () => {
     try {
         await getPool();
         console.log(`✅ Kết nối CSDL [${process.env.DB_DATABASE}] thành công!`);
+        startSmartMeterSimulator();
+        console.log('Smart meter simulator started (5-minute interval)');
         console.log('========================================');
     } catch (error) {
         console.error('❌ Không thể kết nối database!');
@@ -146,6 +149,7 @@ const gracefulShutdown = async (signal) => {
             process.exit(1);
         }
         console.log('✅ Server closed');
+        stopSmartMeterSimulator();
         await closePool();
         console.log('✅ Database connection closed');
         process.exit(0);

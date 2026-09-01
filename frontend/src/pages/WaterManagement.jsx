@@ -121,10 +121,19 @@ const handleSubmit = async (e) => {
     setSelectedReading(null);
   };
 
-  const openCreateModal = () => {
-    resetForm();
-    setModalMode('create');
-    setModalOpen(true);
+  const openCreateModal = async () => {
+    setLoading(true);
+    try {
+      const res = await utilityAPI.demoTick(selectedApartment || '');
+      const count = res?.data?.filter(item => item.UtilityTypeID === 2 || item.utilityTypeId === 2).length || 0;
+      if (flash) flash(`✅ Demo smart meter: đã tăng ${count} đồng hồ nước`);
+      fetchReadings();
+    } catch (error) {
+      console.error('Demo tick error:', error);
+      if (flash) flash('❌ ' + (error.message || 'Không thể mô phỏng tăng chỉ số'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openViewModal = (reading) => {
@@ -184,7 +193,7 @@ const handleSubmit = async (e) => {
               ))}
             </select>
             <Button onClick={openCreateModal}>
-              <Plus size={16} /> Nhập chỉ số
+              <Droplet size={16} /> Demo tăng chỉ số
             </Button>
             <Button variant="secondary" onClick={fetchReadings} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -211,7 +220,7 @@ const handleSubmit = async (e) => {
         <Card className="p-8 text-center">
           <Droplet size={48} className="text-slate-300 mx-auto" />
           <h3 className="mt-3 text-xl font-bold text-slate-900">Chưa có dữ liệu nước</h3>
-          <p className="text-sm text-slate-500">Nhập chỉ số nước để bắt đầu theo dõi</p>
+          <p className="text-sm text-slate-500">Bấm demo tăng chỉ số để mô phỏng smart meter, hóa đơn sẽ chốt chỉ số khi tạo.</p>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

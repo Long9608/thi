@@ -49,7 +49,7 @@ const permissionLabels = {
   SERVICE_CREATE: 'Đăng ký dịch vụ',
   SERVICE_UPDATE: 'Sửa dịch vụ',
   SERVICE_DELETE: 'Xóa dịch vụ',
-  METER_READING_CREATE: 'Nhập chỉ số điện nước',
+  METER_READING_CREATE: 'Mô phỏng/chốt chỉ số điện nước',
   INVOICE_VIEW: 'Hóa đơn',
   INVOICE_CREATE: 'Tạo hóa đơn',
   PAYMENT_CREATE: 'Thu phí',
