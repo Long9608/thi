@@ -7,6 +7,7 @@ router.get('/', authMiddleware, invoiceController.getAllInvoices);
 router.get('/statuses', authMiddleware, invoiceController.getInvoiceStatuses);
 router.get('/payment-methods', authMiddleware, invoiceController.getPaymentMethods);
 router.get('/current/apartment/:apartmentId', authMiddleware, invoiceController.getApartmentCurrentInvoice);
+router.get('/preview-monthly', authMiddleware, checkPermission('INVOICE_VIEW'), invoiceController.previewMonthlyInvoice);
 router.get('/:id', authMiddleware, invoiceController.getInvoiceById);
 
 // Dùng checkPermission

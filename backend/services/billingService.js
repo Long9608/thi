@@ -344,30 +344,30 @@ async function buildInvoiceDetails(executor, contract, month, year, otherItems =
         .input('PeriodEnd', sql.Date, periodEnd)
         .query(`
             SELECT
+                ps.ParkingSubscriptionID,
                 v.PlateNumber,
                 vt.TypeName,
-                ISNULL(vt.MonthlyFee, 0) AS MonthlyFee
-            FROM ContractResident cr
-            JOIN Vehicle v ON v.ResidentID = cr.ResidentID AND v.Status = 1
-            JOIN ParkingCard pc ON pc.VehicleID = v.VehicleID AND pc.Status = 1
+                ps.MonthlyFeeSnapshot
+            FROM ParkingSubscription ps
+            JOIN Vehicle v ON v.VehicleID = ps.VehicleID
             JOIN VehicleType vt ON vt.VehicleTypeID = v.VehicleTypeID
-            WHERE cr.ContractID = @ContractID
-              AND cr.MoveOutDate IS NULL
-              AND ISNULL(pc.IssueDate, @PeriodStart) <= @PeriodEnd
-              AND ISNULL(pc.ExpiredDate, @PeriodEnd) >= @PeriodStart
+            WHERE ps.ContractID = @ContractID
+              AND ps.Status IN ('ACTIVE', 'SUSPENDED', 'ENDED')
+              AND ps.StartDate <= @PeriodEnd
+              AND (ps.EndDate IS NULL OR ps.EndDate >= @PeriodStart)
+            ORDER BY ps.ParkingSubscriptionID
         `);
 
     for (const row of parking.recordset) {
-        const fee = toNumber(row.MonthlyFee);
-        if (fee > 0) {
-            details.push({
-                chargeType: 'PARKING',
-                description: `Phi gui xe ${row.TypeName || ''} ${row.PlateNumber || ''}`.trim(),
-                quantity: 1,
-                unitPrice: fee,
-                amount: fee
-            });
-        }
+        const fee = Math.max(0, toNumber(row.MonthlyFeeSnapshot));
+        details.push({
+            chargeType: 'PARKING',
+            description: `Phí gửi xe ${row.TypeName || ''} - ${row.PlateNumber || ''} - tháng ${month}/${year}`,
+            quantity: 1,
+            unitPrice: fee,
+            amount: fee,
+            parkingSubscriptionId: row.ParkingSubscriptionID
+        });
     }
 
     const services = await createRequest(executor)
@@ -417,6 +417,7 @@ async function buildInvoiceDetails(executor, contract, month, year, otherItems =
 
     return details.map((detail) => ({
         ...detail,
+        parkingSubscriptionId: detail.parkingSubscriptionId ?? null,
         quantity: roundMoney(detail.quantity),
         unitPrice: roundMoney(detail.unitPrice),
         amount: roundMoney(detail.amount)
@@ -539,12 +540,13 @@ async function generateMonthlyInvoice(pool, params) {
                 .input('Quantity', sql.Decimal(18, 2), detail.quantity)
                 .input('UnitPrice', sql.Decimal(18, 2), detail.unitPrice)
                 .input('Amount', sql.Decimal(18, 2), detail.amount)
+                .input('ParkingSubscriptionID', sql.Int, detail.parkingSubscriptionId)
                 .query(`
                     INSERT INTO InvoiceDetail (
-                        InvoiceID, ChargeType, Description, Quantity, UnitPrice, Amount
+                        InvoiceID, ChargeType, Description, Quantity, UnitPrice, Amount, ParkingSubscriptionID
                     )
                     VALUES (
-                        @InvoiceID, @ChargeType, @Description, @Quantity, @UnitPrice, @Amount
+                        @InvoiceID, @ChargeType, @Description, @Quantity, @UnitPrice, @Amount, @ParkingSubscriptionID
                     )
                 `);
         }

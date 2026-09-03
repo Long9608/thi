@@ -191,14 +191,23 @@ export default function ParkingCardManagement({ flash }) {
         const random = Math.random().toString(36).substring(2, 8).toUpperCase();
         cardCode = `${prefix}-${random}`;
       }
+      const selectedVehicle = vehicles.find(
+  v => String(v.VehicleID) === String(form.vehicleId)
+);
+
+if (!selectedVehicle?.ContractID) {
+  if (flash) flash('❌ Xe này không có hợp đồng đang hiệu lực');
+  return;
+}
 
       const payload = {
-        cardCode: cardCode,
-        slotId: form.slotId || null,
-        issueDate: form.issueDate,
-        expiredDate: form.expiredDate,
-        status: 1
-      };
+  contractId: selectedVehicle.ContractID,
+  cardCode: cardCode,
+  slotId: form.slotId || null,
+  issueDate: form.issueDate,
+  expiredDate: form.expiredDate,
+  status: 1
+};
       
       await vehicleAPI.createParkingCard(form.vehicleId, payload);
       

@@ -453,6 +453,46 @@ exports.payApartmentCurrentInvoice = async (req, res) => {
     }
 };
 
+exports.previewMonthlyInvoice = async (req, res) => {
+    try {
+        const contractId = parseInt(req.query.contractId, 10);
+        if (!contractId || contractId <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Contract ID is required'
+            });
+        }
+
+        const result = await getMonthlyInvoicePreview(await getPool(), {
+            contractId,
+            invoiceMonth: req.query.invoiceMonth,
+            invoiceYear: req.query.invoiceYear
+        });
+
+        if (!result.contract) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy hợp đồng hiệu lực cho kỳ hóa đơn này'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                contract: result.contract,
+                details: result.details,
+                totalAmount: result.totalAmount
+            }
+        });
+    } catch (error) {
+        console.error('Preview monthly invoice error:', error);
+        res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.statusCode ? error.message : 'Failed to preview monthly invoice'
+        });
+    }
+};
+
 exports.generateInvoice = async (req, res) => {
     try {
         const otherItems = Array.isArray(req.body.items)

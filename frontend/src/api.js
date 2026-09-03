@@ -553,7 +553,7 @@ export const vehicleAPI = {
       }
       
       // Validate các trường bắt buộc
-      const requiredFields = ['licensePlate', 'vehicleTypeId', 'residentId'];
+      const requiredFields = ['plateNumber', 'vehicleTypeId', 'residentId'];
       const missingFields = requiredFields.filter(field => !data[field]);
       
       if (missingFields.length > 0) {
@@ -565,14 +565,22 @@ export const vehicleAPI = {
       }
 
       // Validate biển số xe (định dạng cơ bản)
-      const licensePlateRegex = /^[0-9]{2}[A-Z]-[0-9]{3}\.[0-9]{2}$/;
-      if (!licensePlateRegex.test(data.licensePlate)) {
-        throw new ApiError(
-          'Biển số xe không đúng định dạng (ví dụ: 30A-123.45)',
-          400,
-          { field: 'licensePlate' }
-        );
-      }
+      // Chuẩn hóa và kiểm tra biển số xe
+const normalizedPlate = String(data.plateNumber || '')
+  .trim()
+  .toUpperCase();
+
+const plateRegex = /^[A-Z0-9.-]{5,20}$/;
+
+if (!plateRegex.test(normalizedPlate)) {
+  throw new ApiError(
+    'Biển số xe không hợp lệ. Chỉ dùng chữ, số, dấu chấm và dấu gạch ngang (5-20 ký tự)',
+    400,
+    { field: 'plateNumber' }
+  );
+}
+
+data.plateNumber = normalizedPlate;
 
       const response = await request('/vehicles', {
         method: 'POST',
@@ -837,15 +845,53 @@ export const vehicleAPI = {
    * Lấy lịch sử gửi xe
    * @returns {Promise<Object>}
    */
-  getParkingHistory: async () => {
-    try {
-      const response = await request('/vehicles/history');
-      return response;
-    } catch (error) {
-      console.error('❌ VehicleAPI.getParkingHistory error:', error);
-      throw error;
+  recordParkingAccess: async (data) => {
+  try {
+    const response = await request('/vehicles/access-events', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+
+    return response;
+  } catch (error) {
+    console.error('❌ VehicleAPI.recordParkingAccess error:', error);
+    throw error;
+  }
+},
+
+getParkingHistory: async (filters = {}) => {
+  try {
+    const params = new URLSearchParams();
+
+    if (filters.search) {
+      params.append('search', filters.search);
     }
-  },
+
+    if (filters.dateFrom) {
+      params.append('dateFrom', filters.dateFrom);
+    }
+
+    if (filters.dateTo) {
+      params.append('dateTo', filters.dateTo);
+    }
+
+    if (filters.eventType) {
+      params.append('eventType', filters.eventType);
+    }
+
+    params.append('page', filters.page || 1);
+    params.append('limit', filters.limit || 20);
+
+    const response = await request(
+      `/vehicles/history?${params.toString()}`
+    );
+
+    return response;
+  } catch (error) {
+    console.error('❌ VehicleAPI.getParkingHistory error:', error);
+    throw error;
+  }
+},
 };
 
 // ============ NOTIFICATION API ============
@@ -1023,3 +1069,122 @@ const api = {
 export { ApiError };
 
 export default api;
+
+export const aiAPI = {
+  getStatisticsDashboard: async () => {
+    try {
+      const response = await fetch(
+        'http://127.0.0.1:8000/ai/statistics/dashboard'
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `AI Service error: ${response.status}`
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(
+        '❌ aiAPI.getStatisticsDashboard error:',
+        error
+      );
+
+      throw error;
+    }
+  },
+  search: async (keyword) => {
+  try {
+    const query = String(keyword || '').trim();
+
+    if (!query) {
+      return {
+        success: true,
+        query: '',
+        count: 0,
+        data: []
+      };
+    }
+
+    const response = await fetch(
+      `http://127.0.0.1:8000/ai/search?q=${encodeURIComponent(query)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `AI Search error: ${response.status}`
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(
+      '❌ aiAPI.search error:',
+      error
+    );
+
+    throw error;
+  }
+},
+chat: async (message) => {
+  try {
+    const content = String(message || '').trim();
+
+    if (!content) {
+      throw new Error('Vui lòng nhập câu hỏi');
+    }
+
+    const response = await fetch(
+      'http://127.0.0.1:8000/ai/chat',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: content
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `AI Chat error: ${response.status}`
+      );
+    }
+
+    return await response.json();
+
+  } catch (error) {
+    console.error(
+      '❌ aiAPI.chat error:',
+      error
+    );
+
+    throw error;
+  }
+},
+getPredictionDashboard: async () => {
+  try {
+    const response = await fetch(
+      'http://127.0.0.1:8000/ai/prediction/dashboard'
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `AI Prediction error: ${response.status}`
+      );
+    }
+
+    return await response.json();
+
+  } catch (error) {
+    console.error(
+      '❌ aiAPI.getPredictionDashboard error:',
+      error
+    );
+
+    throw error;
+  }
+}
+};

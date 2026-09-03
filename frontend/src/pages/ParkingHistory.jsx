@@ -11,7 +11,10 @@ import { vehicleAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDateTime, getInitials, timeAgo } from '../utils/formatters';
 
-export default function ParkingHistory({ flash }) {
+export default function ParkingHistory({
+  flash,
+  canRecordAccess = false
+}) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -21,69 +24,205 @@ export default function ParkingHistory({ flash }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+const [serverStats, setServerStats] = useState({
+  totalEvents: 0,
+  entries: 0,
+  exits: 0,
+  insideNow: 0
+});
+  const [accessForm, setAccessForm] = useState({
+  cardCode: '',
+  gateName: 'Cổng chính',
+  note: ''
+});
+
+const [accessSubmitting, setAccessSubmitting] = useState(false);
+
+const [parkingCards, setParkingCards] = useState([]);
+const [loadingCards, setLoadingCards] = useState(false);
 
   const fetchHistory = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await vehicleAPI.getParkingHistory();
-      const data = res?.data || res || [];
-      const normalized = Array.isArray(data) ? data.map(item => ({
-        id: item.CardID || item.SlotID || item.PlateNumber || Math.random(),
-        plateNumber: item.PlateNumber || item.PlateNumber || '',
-        ownerName: item.OwnerName || '',
-        vehicleType: item.VehicleType || '',
-        slotNumber: item.SlotNumber || '',
-        action: item.Action || (item.Status === 1 ? 'Vào' : 'Ra'),
-        timestamp: item.Timestamp || item.IssueDate || item.ExpiredDate || '',
-        status: item.Status === 1 ? 'completed' : 'pending'
-      })) : [];
-      setHistory(normalized);
-      setTotalPages(res?.pagination?.totalPages || 1);
-    } catch (error) {
-      console.error('Error fetching parking history:', error);
-      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải lịch sử bãi xe'));
-      setHistory([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [flash]);
+  try {
+    setLoading(true);
 
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+    const res = await vehicleAPI.getParkingHistory({
+      search: search.trim(),
+      dateFrom: dateFilter || '',
+      dateTo: dateFilter || '',
+      eventType:
+        typeFilter === 'Vào'
+          ? 'IN'
+          : typeFilter === 'Ra'
+            ? 'OUT'
+            : '',
+      page,
+      limit: 20
+    });
 
-  const filteredHistory = useMemo(() => {
-    let filtered = history;
-    
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(h =>
-        h.plateNumber.toLowerCase().includes(q) ||
-        h.ownerName.toLowerCase().includes(q) ||
-        h.slotNumber.toLowerCase().includes(q)
+    const data = Array.isArray(res?.data) ? res.data : [];
+
+    const normalized = data.map((item) => ({
+      id: item.AccessLogID,
+
+      accessLogId: item.AccessLogID,
+      parkingSubscriptionId: item.ParkingSubscriptionID,
+      vehicleId: item.VehicleID,
+
+      plateNumber: item.PlateNumberSnapshot || '',
+      cardCode: item.CardCodeSnapshot || '',
+
+      ownerName: item.OwnerName || '',
+      vehicleType: item.VehicleType || '',
+      slotNumber: item.SlotNumber || '-',
+      apartmentCode: item.ApartmentCode || '-',
+
+      action: item.EventType === 'IN' ? 'Vào' : 'Ra',
+      eventType: item.EventType,
+      timestamp: item.EventTime,
+
+      gateName: item.GateName || '-',
+      note: item.Note || '',
+      recordedBy: item.RecordedByName || '-',
+
+      status: 'completed'
+    }));
+
+    setHistory(normalized);
+
+    setServerStats({
+      totalEvents: Number(res?.stats?.totalEvents || 0),
+      entries: Number(res?.stats?.entries || 0),
+      exits: Number(res?.stats?.exits || 0),
+      insideNow: Number(res?.stats?.insideNow || 0)
+    });
+
+    setTotalPages(res?.pagination?.totalPages || 1);
+  } catch (error) {
+    console.error('Error fetching parking history:', error);
+
+    if (flash) {
+      flash(
+        '❌ ' +
+          (
+            error?.response?.data?.message ||
+            error?.message ||
+            'Không thể tải lịch sử bãi xe'
+          )
       );
     }
 
-    if (dateFilter) {
-      filtered = filtered.filter(h =>
-        h.timestamp.startsWith(dateFilter)
+    setHistory([]);
+    setServerStats({
+      totalEvents: 0,
+      entries: 0,
+      exits: 0,
+      insideNow: 0
+    });
+    setTotalPages(1);
+  } finally {
+    setLoading(false);
+  }
+}, [flash, search, dateFilter, typeFilter, page]);
+
+const fetchParkingCards = useCallback(async () => {
+  try {
+    setLoadingCards(true);
+
+    const res = await vehicleAPI.getParkingCards(
+  1,
+  1,
+  999
+);
+
+    const cards = Array.isArray(res?.data) ? res.data : [];
+
+    setParkingCards(
+      cards.filter(
+        (card) =>
+          card.CardID &&
+          card.CardCode &&
+          (
+            card.CardStatus === 1 ||
+            card.CardStatus === true ||
+            card.CardStatus === '1'
+          )
+      )
+    );
+  } catch (error) {
+    console.error('Error fetching parking cards:', error);
+    setParkingCards([]);
+  } finally {
+    setLoadingCards(false);
+  }
+}, []);
+
+useEffect(() => {
+  fetchHistory();
+  fetchParkingCards();
+}, [fetchHistory, fetchParkingCards]);
+  const handleRecordAccess = async (eventType) => {
+  const cardCode = accessForm.cardCode.trim().toUpperCase();
+
+  if (!cardCode) {
+    if (flash) {
+      flash('❌ Vui lòng nhập mã thẻ');
+    }
+    return;
+  }
+
+  try {
+    setAccessSubmitting(true);
+
+    const res = await vehicleAPI.recordParkingAccess({
+      cardCode,
+      eventType,
+      gateName: accessForm.gateName.trim() || 'Cổng chính',
+      note: accessForm.note.trim()
+    });
+
+    if (flash) {
+      flash(
+        eventType === 'IN'
+          ? '✅ Đã ghi nhận xe VÀO bãi'
+          : '✅ Đã ghi nhận xe RA khỏi bãi'
       );
     }
 
-    if (typeFilter) {
-      filtered = filtered.filter(h => h.action === typeFilter);
+    setAccessForm({
+      cardCode: '',
+      gateName: 'Cổng chính',
+      note: ''
+    });
+
+    await fetchHistory();
+
+    return res;
+  } catch (error) {
+    console.error('Record parking access error:', error);
+
+    if (flash) {
+      flash(
+        '❌ ' +
+          (
+            error?.response?.data?.message ||
+            error?.message ||
+            'Không thể ghi nhận lượt ra/vào'
+          )
+      );
     }
+  } finally {
+    setAccessSubmitting(false);
+  }
+};
 
-    return filtered;
-  }, [history, search, dateFilter, typeFilter]);
+  const filteredHistory = history;
 
-  const stats = useMemo(() => {
-    const total = history.length;
-    const entries = history.filter(h => h.action === 'Vào').length;
-    const exits = history.filter(h => h.action === 'Ra').length;
-    const pending = history.filter(h => h.status === 'pending').length;
-    return { total, entries, exits, pending };
-  }, [history]);
+const stats = {
+  total: serverStats.totalEvents,
+  entries: serverStats.entries,
+  exits: serverStats.exits,
+  insideNow: serverStats.insideNow
+};
 
   const getActionBadge = (action) => {
     if (action === 'Vào') {
@@ -160,13 +299,137 @@ export default function ParkingHistory({ flash }) {
           </div>
         </div>
       </Card>
+      {canRecordAccess && (
+  <Card className="p-5">
+    <div className="mb-4">
+      <h3 className="text-base font-bold text-slate-950">
+        Ghi nhận xe ra/vào
+      </h3>
+      <p className="text-sm text-slate-500">
+        Nhập mã thẻ để ghi nhận xe vào hoặc ra khỏi bãi
+      </p>
+    </div>
+
+    <div className="grid gap-4 md:grid-cols-3">
+      <div>
+        <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+          Mã thẻ *
+        </label>
+        <select
+  value={accessForm.cardCode}
+  onChange={(e) =>
+    setAccessForm((prev) => ({
+      ...prev,
+      cardCode: e.target.value
+    }))
+  }
+  disabled={accessSubmitting || loadingCards}
+  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46] disabled:bg-slate-100"
+>
+  <option value="">
+    {loadingCards ? 'Đang tải thẻ...' : 'Chọn thẻ xe'}
+  </option>
+
+  {parkingCards.map((card) => (
+    <option
+      key={card.CardID}
+      value={card.CardCode}
+    >
+      {card.CardCode}
+      {' — '}
+      {card.PlateNumber || 'Chưa có biển số'}
+      {' — '}
+      {card.OwnerName || 'Không rõ chủ xe'}
+    </option>
+  ))}
+</select>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+          Cổng
+        </label>
+        <Input
+          value={accessForm.gateName}
+          onChange={(e) =>
+            setAccessForm((prev) => ({
+              ...prev,
+              gateName: e.target.value
+            }))
+          }
+          placeholder="Cổng chính"
+          disabled={accessSubmitting}
+        />
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+          Ghi chú
+        </label>
+        <Input
+          value={accessForm.note}
+          onChange={(e) =>
+            setAccessForm((prev) => ({
+              ...prev,
+              note: e.target.value
+            }))
+          }
+          placeholder="Ghi chú nếu có"
+          disabled={accessSubmitting}
+        />
+      </div>
+    </div>
+
+    <div className="mt-4 flex flex-wrap gap-3">
+      <Button
+        onClick={() => handleRecordAccess('IN')}
+        disabled={accessSubmitting || !accessForm.cardCode.trim()}
+      >
+        <ArrowRight size={17} />
+        {accessSubmitting ? 'Đang xử lý...' : 'Ghi nhận VÀO'}
+      </Button>
+
+      <Button
+        variant="secondary"
+        onClick={() => handleRecordAccess('OUT')}
+        disabled={accessSubmitting || !accessForm.cardCode.trim()}
+      >
+        <ArrowLeft size={17} />
+        {accessSubmitting ? 'Đang xử lý...' : 'Ghi nhận RA'}
+      </Button>
+    </div>
+  </Card>
+)}
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard icon={Clock} label="Tổng lượt" value={stats.total} hint="Đã ghi nhận" />
-        <StatCard icon={ArrowRight} label="Lượt vào" value={stats.entries} hint="Xe vào bãi" />
-        <StatCard icon={ArrowLeft} label="Lượt ra" value={stats.exits} hint="Xe ra khỏi bãi" />
-        <StatCard icon={AlertCircle} label="Đang chờ" value={stats.pending} hint="Chưa hoàn tất" />
+        <StatCard
+  icon={Clock}
+  label="Tổng lượt"
+  value={stats.total}
+  hint="Đã ghi nhận"
+/>
+
+<StatCard
+  icon={ArrowRight}
+  label="Lượt vào"
+  value={stats.entries}
+  hint="Xe vào bãi"
+/>
+
+<StatCard
+  icon={ArrowLeft}
+  label="Lượt ra"
+  value={stats.exits}
+  hint="Xe ra khỏi bãi"
+/>
+
+<StatCard
+  icon={Car}
+  label="Trong bãi"
+  value={stats.insideNow}
+  hint="Xe hiện đang ở trong bãi"
+/>
       </div>
 
       {/* History List */}

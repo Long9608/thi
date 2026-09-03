@@ -53,6 +53,12 @@ import ParkingCardManagement from './pages/ParkingCardManagement';
 import ParkingSlotManagement from './pages/ParkingSlotManagement';
 import ParkingHistory from './pages/ParkingHistory';
 
+
+import AIStatistics from './pages/AIStatistics';
+import AISearch from './pages/AISearch';
+import AIChat from './pages/AIChat';
+import AIContractPrediction from './pages/AIContractPrediction';
+
 // 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ VẬN HÀNH
 import TicketManagement from './pages/TicketManagement';
 import MaintenanceManagement from './pages/MaintenanceManagement';
@@ -1863,7 +1869,10 @@ export default function ApartmentManagementWeb() {
 
           {/* PARKING HISTORY TAB - LỊCH SỬ RA/VÀO */}
           {tab === "parking-history" && (
-            <ParkingHistory flash={flash} />
+            <ParkingHistory
+  flash={flash}
+  canRecordAccess={hasPermission('PARKING_ACCESS_CREATE')}
+/>
           )}
 
           {/* 🔥 TICKET MANAGEMENT TAB */}
@@ -2016,12 +2025,24 @@ export default function ApartmentManagementWeb() {
             </motion.section>
           )}
 
+          {tab === "ai-stats" && (
+  <AIStatistics />
+)}
+{tab === "ai-search" && (
+  <AISearch />
+)}
+{tab === "ai-chat" && (
+  <AIChat />
+)}
+{tab === "ai-predict" && (
+  <AIContractPrediction />
+)}
+
           {/* Placeholder cho các tab khác chưa có component */}
           {[
-            "ai-chat",
-            "ai-stats",
-            "ai-predict",
-            "ai-search"
+            
+            
+            
           ].includes(tab) && (
             <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
               <Card className="p-8 text-center">

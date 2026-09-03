@@ -271,11 +271,39 @@ export default function VehicleManagement({ flash }) {
     return <Car size={20} className="text-purple-600" />;
   };
 
-  const getCardStatusBadge = (vehicle) => {
-    if (!vehicle.CardID) return <Badge tone="slate">Chưa có thẻ</Badge>;
-    if (vehicle.IsActiveCard) return <Badge tone="green">Còn hiệu lực</Badge>;
-    return <Badge tone="red">Hết hạn</Badge>;
-  };
+const getCardStatusBadge = (vehicle) => {
+  // Chưa được cấp thẻ
+  if (!vehicle.CardID) {
+    return <Badge tone="slate">Chưa có thẻ</Badge>;
+  }
+
+  // Thẻ đã bị khóa / ngừng
+  if (
+    vehicle.CardStatus === 0 ||
+    vehicle.CardStatus === false ||
+    vehicle.CardStatus === '0'
+  ) {
+    return <Badge tone="red">Đã khóa</Badge>;
+  }
+
+  // Kiểm tra ngày hết hạn
+  if (vehicle.CardExpiredDate) {
+    const expiredDate = String(vehicle.CardExpiredDate).slice(0, 10);
+
+    const now = new Date();
+    const today =
+      `${now.getFullYear()}-` +
+      `${String(now.getMonth() + 1).padStart(2, '0')}-` +
+      `${String(now.getDate()).padStart(2, '0')}`;
+
+    if (expiredDate < today) {
+      return <Badge tone="red">Hết hạn</Badge>;
+    }
+  }
+
+  // Thẻ đang hoạt động và chưa hết hạn
+  return <Badge tone="green">Còn hiệu lực</Badge>;
+};
 
   // ============================================
   // 📊 FILTER & RENDER
