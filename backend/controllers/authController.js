@@ -189,6 +189,13 @@ exports.register = async (req, res) => {
             roleCode
         } = req.body;
 
+        if ((roleCode || 'RESIDENT').toUpperCase() === 'RESIDENT') {
+            return res.status(400).json({
+                success: false,
+                message: 'Cư dân không có tài khoản đăng nhập. Vui lòng tạo hồ sơ cư dân trong mục quản lý cư dân.'
+            });
+        }
+
         const pool = await getPool();
 
         // Check if username already exists

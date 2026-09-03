@@ -270,6 +270,14 @@ export const contractAPI = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+  uploadSignedImage: (contractId, file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    return request(`/contracts/${contractId}/signed-image`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
   update: (id, data) => request(`/contracts/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -313,6 +321,16 @@ export const invoiceAPI = {
   },
 
   payApartmentCurrent: (apartmentId, data = {}) => request(`/invoices/current/apartment/${apartmentId}/pay`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  updateApartmentMeterReadings: (apartmentId, data = {}) => request(`/invoices/current/apartment/${apartmentId}/meter-readings`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  finalizeApartmentCurrent: (apartmentId, data = {}) => request(`/invoices/current/apartment/${apartmentId}/finalize`, {
     method: 'POST',
     body: JSON.stringify(data),
   }),
@@ -454,6 +472,15 @@ export const serviceAPI = {
   },
   updatePoolMember: (id, data) => request(`/services/pool/members/${id}`, {
     method: 'PUT', body: JSON.stringify(data),
+  }),
+  getWifiMembers: (search = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams({ page, limit });
+    if (search) params.set('search', search);
+    return request(`/services/wifi/members?${params.toString()}`);
+  },
+  updateWifiMember: (id, data) => request(`/services/wifi/members/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
   }),
 };
 

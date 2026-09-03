@@ -12,6 +12,8 @@ import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, money, getInitials } from '../utils/formatters';
 
 export default function CreateContract({ flash, onSuccess }) {
+  const FIXED_MONTHLY_RENT = 7500000;
+
   const [loading, setLoading] = useState(false);
   const [apartments, setApartments] = useState([]);
   const [residents, setResidents] = useState([]);
@@ -27,11 +29,39 @@ export default function CreateContract({ flash, onSuccess }) {
     signDate: new Date().toISOString().split('T')[0],
     startDate: '',
     endDate: '',
-    deposit: '',
-    rent: '',
+    deposit: FIXED_MONTHLY_RENT,
+    rent: FIXED_MONTHLY_RENT,
+    contractTermMonths: '',
+    depositMonths: 1,
+    paymentCycleMonths: 1,
+    monthlyBillingDay: 10,
+    signedContractImageFile: null,
     residents: [],
     services: []
   });
+
+  const formatVnd = (value) => Number(value || 0).toLocaleString('vi-VN');
+  const addMonthsToDate = (dateValue, months) => {
+    if (!dateValue || !months) return '';
+    const date = new Date(dateValue);
+    date.setMonth(date.getMonth() + Number(months));
+    date.setDate(date.getDate() - 1);
+    return date.toISOString().split('T')[0];
+  };
+  const updateContractTerm = (months) => {
+    setForm((prev) => ({
+      ...prev,
+      contractTermMonths: months,
+      endDate: months ? addMonthsToDate(prev.startDate, months) : prev.endDate
+    }));
+  };
+  const updateStartDate = (startDate) => {
+    setForm((prev) => ({
+      ...prev,
+      startDate,
+      endDate: prev.contractTermMonths ? addMonthsToDate(startDate, prev.contractTermMonths) : prev.endDate
+    }));
+  };
 
   useEffect(() => {
     fetchApartments();
@@ -70,16 +100,24 @@ export default function CreateContract({ flash, onSuccess }) {
         signDate: form.signDate,
         startDate: form.startDate,
         endDate: form.endDate,
-        deposit: parseFloat(form.deposit) || 0,
-        rent: parseFloat(form.rent),
-        statusId: 1,
+        deposit: Number(form.depositMonths || 1) * FIXED_MONTHLY_RENT,
+        rent: FIXED_MONTHLY_RENT,
+        contractTermMonths: form.contractTermMonths || null,
+        depositMonths: form.depositMonths,
+        paymentCycleMonths: form.paymentCycleMonths,
+        monthlyBillingDay: 10,
+        statusId: 2,
         residents: form.residents.map(r => ({
           residentId: r.ResidentID,
           relationship: r.Relationship || 'Chủ hộ'
         }))
       };
 
-      await contractAPI.create(data);
+      const createResult = await contractAPI.create(data);
+      const createdContractId = createResult?.data?.contractId;
+      if (form.signedContractImageFile && createdContractId) {
+        await contractAPI.uploadSignedImage(createdContractId, form.signedContractImageFile);
+      }
       if (flash) flash('✅ Tạo hợp đồng thành công!');
       if (onSuccess) onSuccess();
     } catch (error) {
@@ -320,16 +358,75 @@ export default function CreateContract({ flash, onSuccess }) {
                   <Input
                     type="date"
                     value={form.startDate}
-                    onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                    onChange={(e) => updateStartDate(e.target.value)}
                     required
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Ngày kết thúc *</label>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <label className="block text-sm font-semibold text-slate-700">Ngày kết thúc *</label>
+                    <div className="flex gap-1">
+                      {[3, 6, 12].map((months) => (
+                        <button
+                          key={months}
+                          type="button"
+                          onClick={() => updateContractTerm(form.contractTermMonths === months ? '' : months)}
+                          className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
+                            form.contractTermMonths === months
+                              ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {months} tháng
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <Input
                     type="date"
                     value={form.endDate}
                     onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                    disabled={Boolean(form.contractTermMonths)}
+                    required
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Chưa chọn thời hạn thì tự chọn ngày kết thúc. Chọn 3/6/12 tháng thì tự tính.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Tiền cọc (VND)</label>
+                  <div className="flex gap-2">
+                    {[1, 2].map((months) => (
+                      <button
+                        key={months}
+                        type="button"
+                        onClick={() => setForm({
+                          ...form,
+                          depositMonths: months,
+                          deposit: months * FIXED_MONTHLY_RENT
+                        })}
+                        className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+                          Number(form.depositMonths) === months
+                            ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        Cọc {months} tháng
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-sm font-semibold text-[#1f4f46]">
+                    {formatVnd(Number(form.depositMonths || 1) * FIXED_MONTHLY_RENT)} VNĐ
+                  </p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Giá thuê / tháng *</label>
+                  <Input
+                    value={`${formatVnd(FIXED_MONTHLY_RENT)} VNĐ`}
+                    readOnly
                     required
                   />
                 </div>
@@ -337,24 +434,42 @@ export default function CreateContract({ flash, onSuccess }) {
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Tiền cọc (VND)</label>
-                  <Input
-                    type="number"
-                    value={form.deposit}
-                    onChange={(e) => setForm({ ...form, deposit: e.target.value })}
-                    placeholder="0"
-                  />
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Chu kỳ đóng tiền</label>
+                  <div className="flex gap-2">
+                    {[1, 3].map((months) => (
+                      <button
+                        key={months}
+                        type="button"
+                        onClick={() => setForm({ ...form, paymentCycleMonths: months })}
+                        className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+                          Number(form.paymentCycleMonths) === months
+                            ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {months} tháng / lần
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Giá thuê / tháng *</label>
-                  <Input
-                    type="number"
-                    value={form.rent}
-                    onChange={(e) => setForm({ ...form, rent: e.target.value })}
-                    placeholder="15000000"
-                    required
-                  />
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Ngày chốt tiền hàng tháng</label>
+                  <Input value="Ngày 10 hằng tháng" readOnly />
                 </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">Ảnh hợp đồng đã ký</label>
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600 hover:border-[#1f4f46] hover:bg-slate-50">
+                  <span>{form.signedContractImageFile ? form.signedContractImageFile.name : 'Chọn ảnh hợp đồng đã ký...'}</span>
+                  <span className="font-semibold text-[#1f4f46]">Tải ảnh lên</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => setForm({ ...form, signedContractImageFile: e.target.files?.[0] || null })}
+                  />
+                </label>
               </div>
 
               <div className="flex justify-between">
@@ -398,8 +513,11 @@ export default function CreateContract({ flash, onSuccess }) {
                     <div><span className="text-slate-500">Mã HĐ:</span> <span className="font-medium">{form.contractNumber}</span></div>
                     <div><span className="text-slate-500">Ngày ký:</span> <span className="font-medium">{formatDate(form.signDate)}</span></div>
                     <div><span className="text-slate-500">Thời hạn:</span> <span className="font-medium">{formatDate(form.startDate)} → {formatDate(form.endDate)}</span></div>
-                    <div><span className="text-slate-500">Giá thuê:</span> <span className="font-medium text-[#1f4f46]">{money(form.rent)}/tháng</span></div>
-                    <div><span className="text-slate-500">Tiền cọc:</span> <span className="font-medium">{money(form.deposit)}</span></div>
+                    <div><span className="text-slate-500">Giá thuê:</span> <span className="font-medium text-[#1f4f46]">{money(FIXED_MONTHLY_RENT)}/tháng</span></div>
+                    <div><span className="text-slate-500">Tiền cọc:</span> <span className="font-medium">{money(Number(form.depositMonths || 1) * FIXED_MONTHLY_RENT)} ({form.depositMonths} tháng)</span></div>
+                    <div><span className="text-slate-500">Chu kỳ đóng:</span> <span className="font-medium">{form.paymentCycleMonths} tháng / lần</span></div>
+                    <div><span className="text-slate-500">Ngày chốt tiền:</span> <span className="font-medium">Ngày 10 hằng tháng</span></div>
+                    <div><span className="text-slate-500">Ảnh hợp đồng:</span> <span className="font-medium">{form.signedContractImageFile?.name || 'Chưa chọn'}</span></div>
                   </div>
                 </div>
               </div>

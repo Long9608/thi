@@ -13,6 +13,8 @@ router.get('/:id', authMiddleware, invoiceController.getInvoiceById);
 // Dùng checkPermission
 router.post('/generate', authMiddleware, checkPermission('INVOICE_CREATE'), invoiceController.generateInvoice);
 router.post('/generate-monthly', authMiddleware, checkPermission('INVOICE_CREATE'), invoiceController.generateMonthlyInvoice);
+router.post('/current/apartment/:apartmentId/meter-readings', authMiddleware, checkPermission('INVOICE_CREATE'), invoiceController.updateApartmentCurrentMeterReadings);
+router.post('/current/apartment/:apartmentId/finalize', authMiddleware, checkPermission('INVOICE_CREATE'), invoiceController.finalizeApartmentCurrentInvoice);
 router.post('/current/apartment/:apartmentId/pay', authMiddleware, checkPermission('PAYMENT_CREATE'), invoiceController.payApartmentCurrentInvoice);
 router.put('/:id/status', authMiddleware, checkPermission('INVOICE_UPDATE'), invoiceController.updateInvoiceStatus);
 router.post('/payment', authMiddleware, checkPermission('PAYMENT_CREATE'), invoiceController.processPayment);

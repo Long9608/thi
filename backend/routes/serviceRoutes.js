@@ -9,6 +9,8 @@ router.get('/gym/members', authMiddleware, checkPermission('SERVICE_VIEW'), serv
 router.put('/gym/members/:id', authMiddleware, checkPermission('SERVICE_UPDATE'), serviceController.updateGymMember);
 router.get('/pool/members', authMiddleware, checkPermission('SERVICE_VIEW'), serviceController.getPoolMembers);
 router.put('/pool/members/:id', authMiddleware, checkPermission('SERVICE_UPDATE'), serviceController.updatePoolMember);
+router.get('/wifi/members', authMiddleware, checkPermission('SERVICE_VIEW'), serviceController.getWifiMembers);
+router.put('/wifi/members/:id', authMiddleware, checkPermission('SERVICE_UPDATE'), serviceController.updateWifiMember);
 router.get('/:id', authMiddleware, serviceController.getServiceById);
 
 // Dùng checkPermission

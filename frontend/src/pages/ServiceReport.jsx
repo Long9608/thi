@@ -103,21 +103,20 @@ export default function ServiceReport({ flash }) {
   const serviceData = useMemo(() => {
     return services.map((s, index) => ({
       name: s.ServiceName || `Dịch vụ ${index + 1}`,
-      registrations: s.ActiveRegistrations || Math.floor(Math.random() * 50) + 5,
-      revenue: s.Price ? s.Price * (s.ActiveRegistrations || 10) : Math.floor(Math.random() * 30000000) + 5000000,
-      growth: Math.floor(Math.random() * 30) - 5
+      registrations: Number(s.ActiveRegistrations || 0),
+      revenue: Number(s.Price || 0) * Number(s.ActiveRegistrations || 0),
+      growth: Number(s.Growth || 0)
     }));
   }, [services]);
 
   const monthlyUsage = useMemo(() => {
-    // Giả lập dữ liệu theo tháng từ service data
     const months = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
-    return months.map((month, idx) => ({
+    return months.map((month) => ({
       month,
-      electricity: Math.floor(Math.random() * 30) + 20,
-      water: Math.floor(Math.random() * 20) + 10,
-      internet: Math.floor(Math.random() * 20) + 10,
-      total: Math.floor(Math.random() * 60) + 40
+      electricity: 0,
+      water: 0,
+      internet: 0,
+      total: 0
     }));
   }, []);
 

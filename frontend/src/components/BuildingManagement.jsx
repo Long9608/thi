@@ -1,4 +1,4 @@
-// src/pages/BuildingManagement.jsx
+﻿// src/pages/BuildingManagement.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -10,6 +10,8 @@ import { apartmentAPI, contractAPI, residentAPI, invoiceAPI, utilityAPI } from '
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 
 export default function BuildingManagement({ flash }) {
+  const FIXED_MONTHLY_RENT = 7500000;
+
   const [buildings, setBuildings] = useState([]);
   const [floors, setFloors] = useState([]);
   const [areas, setAreas] = useState([]);
@@ -27,6 +29,10 @@ export default function BuildingManagement({ flash }) {
   const [billingLoading, setBillingLoading] = useState(false);
   const [tickingMeters, setTickingMeters] = useState(false);
   const [creatingInvoice, setCreatingInvoice] = useState(false);
+  const [meterModalOpen, setMeterModalOpen] = useState(false);
+  const [meterForm, setMeterForm] = useState({ electricNewIndex: '', waterNewIndex: '' });
+  const [meterSaving, setMeterSaving] = useState(false);
+  const [finalizingInvoice, setFinalizingInvoice] = useState(false);
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [contractMode, setContractMode] = useState('create'); // 'create' | 'renew'
   const [contractLoading, setContractLoading] = useState(false);
@@ -38,9 +44,14 @@ export default function BuildingManagement({ flash }) {
     startDate: '',
     endDate: '',
     deposit: '',
-    rent: '',
+    rent: FIXED_MONTHLY_RENT,
+    contractTermMonths: '',
+    depositMonths: 1,
+    paymentCycleMonths: 1,
+    monthlyBillingDay: 10,
     residents: []
   });
+  const [signedContractImageFile, setSignedContractImageFile] = useState(null);
   const [allResidents, setAllResidents] = useState([]);
   const [residentSearch, setResidentSearch] = useState('');
   const [search, setSearch] = useState('');
@@ -54,33 +65,53 @@ export default function BuildingManagement({ flash }) {
   });
 
   const money = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+  const getInvoiceWorkflow = (invoice) => invoice?.WorkflowStatus || (invoice?.IsPaid ? 'PAID' : 'WAITING_PAYMENT');
+  const getWorkflowBadgeTone = (workflow) => {
+    if (workflow === 'PAID') return 'green';
+    if (workflow === 'DRAFT') return 'amber';
+    return 'blue';
+  };
+  const getWorkflowLabel = (workflow) => ({
+    DRAFT: 'Nháp',
+    WAITING_PAYMENT: 'Chờ thanh toán',
+    PAID: 'Đã thanh toán'
+  }[workflow] || 'Chưa thanh toán');
+  const findReading = (key) => (billingInfo?.meterReadings || []).find((reading) => reading.key === key) || null;
+  const readingAmount = (reading, newValue) => {
+    const next = Number(newValue);
+    if (!reading || !Number.isFinite(next) || next < Number(reading.oldIndex || 0)) return 0;
+    const qty = next - Number(reading.oldIndex || 0);
+    return Math.round(qty * Number(reading.averageUnitPrice || 0));
+  };
+
+  const formatVnd = (value) => Number(value || 0).toLocaleString('vi-VN');
+  const addMonthsToDate = (dateValue, months) => {
+    if (!dateValue || !months) return '';
+    const date = new Date(dateValue);
+    date.setMonth(date.getMonth() + Number(months));
+    date.setDate(date.getDate() - 1);
+    return date.toISOString().split('T')[0];
+  };
+  const updateContractTerm = (months) => {
+    setContractForm((prev) => ({
+      ...prev,
+      contractTermMonths: months,
+      endDate: months ? addMonthsToDate(prev.startDate, months) : prev.endDate
+    }));
+  };
+  const updateContractStartDate = (startDate) => {
+    setContractForm((prev) => ({
+      ...prev,
+      startDate,
+      endDate: prev.contractTermMonths ? addMonthsToDate(startDate, prev.contractTermMonths) : prev.endDate
+    }));
+  };
 
   const loadApartmentBilling = async (apartmentId) => {
     setBillingLoading(true);
     try {
       const res = await invoiceAPI.getApartmentCurrent(apartmentId);
-      const data = res?.data || null;
-      if (data && !data.invoice && data.preview?.contract) {
-        data.invoice = {
-          InvoiceID: null,
-          InvoiceMonth: data.month,
-          InvoiceYear: data.year,
-          TotalAmount: data.preview.totalAmount,
-          PaidAmount: 0,
-          RemainingAmount: data.preview.totalAmount,
-          IsPaid: false,
-          isPreview: true,
-          Details: (data.preview.details || []).map((detail, index) => ({
-            InvoiceDetailID: `preview-${index}`,
-            ChargeType: detail.chargeType,
-            Description: detail.description,
-            Quantity: detail.quantity,
-            UnitPrice: detail.unitPrice,
-            Amount: detail.amount
-          }))
-        };
-      }
-      setBillingInfo(data);
+      setBillingInfo(res?.data || null);
     } catch (error) {
       console.error('Error loading apartment billing:', error);
       setBillingInfo(null);
@@ -161,6 +192,9 @@ export default function BuildingManagement({ flash }) {
       const isRenew = mode === 'renew' && apartment.CurrentContract;
       const today = new Date().toISOString().split('T')[0];
       const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const depositMonths = isRenew
+        ? (apartment.CurrentContract.DepositMonths || Math.max(1, Math.min(2, Math.round((Number(apartment.CurrentContract.Deposit || 0) / FIXED_MONTHLY_RENT) || 1))))
+        : 1;
       const initialForm = {
         contractId: isRenew ? apartment.CurrentContract.ContractID : null,
         apartmentId: apartment.ApartmentID,
@@ -177,8 +211,12 @@ export default function BuildingManagement({ flash }) {
         endDate: isRenew
           ? new Date(apartment.CurrentContract.EndDate).toISOString().split('T')[0]
           : nextMonth,
-        deposit: isRenew ? apartment.CurrentContract.Deposit || '' : '',
-        rent: isRenew ? apartment.CurrentContract.Rent || '' : apartment.CurrentRent || '',
+        deposit: depositMonths * FIXED_MONTHLY_RENT,
+        rent: FIXED_MONTHLY_RENT,
+        contractTermMonths: isRenew ? apartment.CurrentContract.ContractTermMonths || '' : '',
+        depositMonths,
+        paymentCycleMonths: isRenew ? apartment.CurrentContract.PaymentCycleMonths || 1 : 1,
+        monthlyBillingDay: 10,
         residents: isRenew ? [] : []
       };
 
@@ -205,9 +243,14 @@ export default function BuildingManagement({ flash }) {
       startDate: '',
       endDate: '',
       deposit: '',
-      rent: '',
+      rent: FIXED_MONTHLY_RENT,
+      contractTermMonths: '',
+      depositMonths: 1,
+      paymentCycleMonths: 1,
+      monthlyBillingDay: 10,
       residents: []
     });
+    setSignedContractImageFile(null);
     setSelectedApartmentDetails(null);
     setAllResidents([]);
     setResidentSearch('');
@@ -271,10 +314,17 @@ export default function BuildingManagement({ flash }) {
       if (contractMode === 'renew' && contractForm.contractId) {
         await contractAPI.update(contractForm.contractId, {
           endDate: contractForm.endDate,
-          rent: parseFloat(contractForm.rent),
-          deposit: parseFloat(contractForm.deposit) || 0,
+          rent: FIXED_MONTHLY_RENT,
+          deposit: Number(contractForm.depositMonths || 1) * FIXED_MONTHLY_RENT,
+          contractTermMonths: contractForm.contractTermMonths || null,
+          depositMonths: contractForm.depositMonths,
+          paymentCycleMonths: contractForm.paymentCycleMonths,
+          monthlyBillingDay: 10,
           statusId: 2
         });
+        if (signedContractImageFile) {
+          await contractAPI.uploadSignedImage(contractForm.contractId, signedContractImageFile);
+        }
         if (flash) flash('✅ Hợp đồng đã được gia hạn thành công');
       } else {
         if (!contractForm.ownerId || contractForm.residents.length === 0) {
@@ -283,15 +333,19 @@ export default function BuildingManagement({ flash }) {
           return;
         }
 
-        await contractAPI.create({
+        const createResult = await contractAPI.create({
           apartmentId: contractForm.apartmentId,
           ownerId: contractForm.ownerId,
           contractNumber: contractForm.contractNumber,
           signDate: contractForm.signDate,
           startDate: contractForm.startDate,
           endDate: contractForm.endDate,
-          deposit: parseFloat(contractForm.deposit) || 0,
-          rent: parseFloat(contractForm.rent),
+          deposit: Number(contractForm.depositMonths || 1) * FIXED_MONTHLY_RENT,
+          rent: FIXED_MONTHLY_RENT,
+          contractTermMonths: contractForm.contractTermMonths || null,
+          depositMonths: contractForm.depositMonths,
+          paymentCycleMonths: contractForm.paymentCycleMonths,
+          monthlyBillingDay: 10,
           statusId: 2,
           residents: contractForm.residents.map((resident) => ({
             residentId: resident.ResidentID,
@@ -299,6 +353,10 @@ export default function BuildingManagement({ flash }) {
             moveInDate: resident.moveInDate || contractForm.startDate
           }))
         });
+        const createdContractId = createResult?.data?.contractId;
+        if (signedContractImageFile && createdContractId) {
+          await contractAPI.uploadSignedImage(createdContractId, signedContractImageFile);
+        }
         if (flash) flash('✅ Hợp đồng đã được tạo thành công');
       }
       closeContractModal();
@@ -323,6 +381,55 @@ export default function BuildingManagement({ flash }) {
       console.error('Error loading apartment details:', error);
       if (flash) flash('❌ Không thể tải thông tin căn hộ');
       setSelectedApartmentResidents([]);
+    }
+  };
+
+  const openMeterModal = () => {
+    const electric = findReading('electric');
+    const water = findReading('water');
+    setMeterForm({
+      electricNewIndex: electric?.newIndex ?? '',
+      waterNewIndex: water?.newIndex ?? ''
+    });
+    setMeterModalOpen(true);
+  };
+
+  const handleSaveMeterReadings = async () => {
+    if (!selectedApartmentDetails?.ApartmentID) return;
+    setMeterSaving(true);
+    try {
+      await invoiceAPI.updateApartmentMeterReadings(selectedApartmentDetails.ApartmentID, {
+        invoiceMonth: billingInfo?.month,
+        invoiceYear: billingInfo?.year,
+        electricNewIndex: meterForm.electricNewIndex,
+        waterNewIndex: meterForm.waterNewIndex
+      });
+      if (flash) flash('Đã cập nhật chỉ số điện/nước');
+      setMeterModalOpen(false);
+      await loadApartmentBilling(selectedApartmentDetails.ApartmentID);
+    } catch (error) {
+      console.error('Save meter readings error:', error);
+      if (flash) flash(error.message || 'Không thể cập nhật chỉ số điện/nước');
+    } finally {
+      setMeterSaving(false);
+    }
+  };
+
+  const handleFinalizeCurrentInvoice = async () => {
+    if (!selectedApartmentDetails?.ApartmentID) return;
+    setFinalizingInvoice(true);
+    try {
+      await invoiceAPI.finalizeApartmentCurrent(selectedApartmentDetails.ApartmentID, {
+        invoiceMonth: billingInfo?.month,
+        invoiceYear: billingInfo?.year
+      });
+      if (flash) flash('Đã chốt hóa đơn, chuyển sang chờ thanh toán');
+      await loadApartmentBilling(selectedApartmentDetails.ApartmentID);
+    } catch (error) {
+      console.error('Finalize current invoice error:', error);
+      if (flash) flash(error.message || 'Không thể chốt hóa đơn');
+    } finally {
+      setFinalizingInvoice(false);
     }
   };
 
@@ -875,14 +982,21 @@ export default function BuildingManagement({ flash }) {
                 <div>
                   <p className="text-sm font-semibold text-slate-500">Hóa đơn tháng hiện tại</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Smart meter/IoT mô phỏng: điện nước tự tăng, khi tạo hóa đơn sẽ chốt vào MeterReading.
+                    Hóa đơn nháp tự tạo theo tháng với tiền nhà 7.500.000 VND + dịch vụ hộ đã đăng ký. Điện/nước chỉ cộng sau khi nhập số mới và chốt hóa đơn.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={handleDemoTickApartment} disabled={tickingMeters || billingLoading}>
-                    <RefreshCw size={16} /> {tickingMeters ? 'Đang tăng...' : 'Demo tăng chỉ số'}
-                  </Button>
-                  {(billingInfo?.canGenerate || (billingInfo?.invoice && !billingInfo.invoice.IsPaid)) && (
+                  {getInvoiceWorkflow(billingInfo?.invoice) === 'DRAFT' && (
+                    <>
+                      <Button variant="secondary" onClick={openMeterModal} disabled={billingLoading}>
+                        <Edit size={16} /> Cập nhật chỉ số điện/nước
+                      </Button>
+                      <Button onClick={handleFinalizeCurrentInvoice} disabled={finalizingInvoice || billingLoading}>
+                        <CheckCircle2 size={16} /> {finalizingInvoice ? 'Đang chốt...' : 'Chốt hóa đơn'}
+                      </Button>
+                    </>
+                  )}
+                  {getInvoiceWorkflow(billingInfo?.invoice) === 'WAITING_PAYMENT' && (
                     <Button onClick={handlePayCurrentInvoice} disabled={creatingInvoice || billingLoading}>
                       <Plus size={16} /> {creatingInvoice ? 'Đang thanh toán...' : 'Thanh toán'}
                     </Button>
@@ -897,30 +1011,56 @@ export default function BuildingManagement({ flash }) {
               ) : billingInfo ? (
                 <div className="mt-4 space-y-4">
                   <div className="grid gap-3 md:grid-cols-2">
-                    {(billingInfo.meters || []).map((meter) => {
-                      const isElectric = Number(meter.UtilityTypeID) === 1;
-                      return (
-                        <div key={meter.MeterID} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                          <div className="flex items-center justify-between">
-                            <p className="font-semibold text-slate-900">
-                              {isElectric ? 'Đồng hồ điện' : 'Đồng hồ nước'}
-                            </p>
-                            <Badge tone={billingInfo.activeContract ? 'green' : 'slate'}>
-                              {billingInfo.activeContract ? 'Đang chạy' : 'Tạm dừng'}
-                            </Badge>
-                          </div>
-                          <div className="mt-2 text-2xl font-black text-slate-950">
-                            {Number(meter.CurrentIndex || 0).toFixed(isElectric ? 2 : 3)}
-                            <span className="ml-1 text-sm font-semibold text-slate-500">
-                              {isElectric ? 'kWh' : 'm³'}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {meter.LogCount || 0} log, lần cuối {meter.LastTickAt ? new Date(meter.LastTickAt).toLocaleString('vi-VN') : 'chưa chạy'}
-                          </p>
+                    {(billingInfo.meterReadings || []).map((reading) => (
+                      <div key={reading.key} className={`rounded-xl border p-3 ${reading.isEntered ? 'border-slate-200 bg-slate-50' : 'border-amber-200 bg-amber-50'}`}>
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-slate-900">{reading.label}</p>
+                          <Badge tone={reading.isEntered ? 'green' : 'amber'}>
+                            {reading.isEntered ? 'Đã nhập số mới' : 'Chưa nhập số mới'}
+                          </Badge>
                         </div>
-                      );
-                    })}
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-slate-600">
+                          <div>
+                            <p>Số cũ</p>
+                            <p className="font-bold text-slate-950">{Number(reading.oldIndex || 0).toLocaleString('vi-VN')}</p>
+                          </div>
+                          <div>
+                            <p>Số mới</p>
+                            <p className="font-bold text-slate-950">{reading.isEntered ? Number(reading.newIndex || 0).toLocaleString('vi-VN') : '—'}</p>
+                          </div>
+                          <div>
+                            <p>Tiêu thụ</p>
+                            <p className="font-bold text-slate-950">{Number(reading.consumption || 0).toLocaleString('vi-VN')} {reading.unit}</p>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Công thức: (số mới - số cũ) x đơn giá bậc thang hiện hành
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-slate-900">Dịch vụ hộ đã đăng ký</p>
+                      <Badge tone={(billingInfo.registeredServices || []).length ? 'green' : 'slate'}>
+                        {(billingInfo.registeredServices || []).length} dịch vụ
+                      </Badge>
+                    </div>
+                    {(billingInfo.registeredServices || []).length > 0 ? (
+                      <div className="mt-2 space-y-2">
+                        {(billingInfo.registeredServices || []).map((service) => (
+                          <div key={service.RegistrationID} className="flex items-center justify-between text-sm">
+                            <span className="text-slate-700">{service.ServiceName} x {service.Quantity || 1}</span>
+                            <span className="font-bold text-[#1f4f46]">{money(Number(service.Price || 0) * Number(service.Quantity || 1))}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-500">
+                        Căn hộ này chưa đăng ký Gym/Hồ bơi hoặc dịch vụ hộ nào đang hiệu lực.
+                      </p>
+                    )}
                   </div>
 
                   {billingInfo.invoice ? (
@@ -934,8 +1074,8 @@ export default function BuildingManagement({ flash }) {
                             Đã thu {money(billingInfo.invoice.PaidAmount)} / còn {money(billingInfo.invoice.RemainingAmount)}
                           </p>
                         </div>
-                        <Badge tone={billingInfo.invoice.IsPaid ? 'green' : 'amber'}>
-                          {billingInfo.invoice.IsPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                        <Badge tone={getWorkflowBadgeTone(getInvoiceWorkflow(billingInfo.invoice))}>
+                          {getWorkflowLabel(getInvoiceWorkflow(billingInfo.invoice))}
                         </Badge>
                       </div>
                       <table className="w-full text-sm">
@@ -1022,6 +1162,60 @@ export default function BuildingManagement({ flash }) {
       </Modal>
 
       <Modal
+        open={meterModalOpen}
+        title="Cập nhật chỉ số điện/nước"
+        description="Nhập số mới theo đồng hồ thực tế. Hệ thống lấy số mới - số cũ để tính vào hóa đơn nháp."
+        onClose={() => setMeterModalOpen(false)}
+        size="md"
+      >
+        <div className="space-y-4">
+          {[
+            { key: 'electric', field: 'electricNewIndex' },
+            { key: 'water', field: 'waterNewIndex' }
+          ].map(({ key, field }) => {
+            const reading = findReading(key);
+            const amount = readingAmount(reading, meterForm[field]);
+            return (
+              <div key={key} className="rounded-xl border border-slate-200 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-slate-950">{reading?.label || key}</p>
+                  <Badge tone={reading?.isEntered ? 'green' : 'amber'}>
+                    {reading?.isEntered ? 'Đã nhập' : 'Chưa nhập'}
+                  </Badge>
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-slate-700">Số cũ</label>
+                    <Input value={Number(reading?.oldIndex || 0).toLocaleString('vi-VN')} disabled />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-slate-700">Số mới</label>
+                    <Input
+                      type="number"
+                      step="0.001"
+                      min={reading?.oldIndex || 0}
+                      value={meterForm[field]}
+                      onChange={(e) => setMeterForm((prev) => ({ ...prev, [field]: e.target.value }))}
+                      placeholder="Nhập số mới"
+                    />
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Công thức: ({meterForm[field] || 'số mới'} - {Number(reading?.oldIndex || 0).toLocaleString('vi-VN')}) x đơn giá ≈ {money(amount)}
+                </p>
+              </div>
+            );
+          })}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setMeterModalOpen(false)}>Hủy</Button>
+            <Button type="button" onClick={handleSaveMeterReadings} disabled={meterSaving}>
+              <Save size={16} /> {meterSaving ? 'Đang lưu...' : 'Lưu chỉ số'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
         open={contractModalOpen}
         title={contractMode === 'renew' ? 'Gia hạn hợp đồng' : 'Tạo hợp đồng mới'}
         description={contractMode === 'renew' ? 'Cập nhật thời hạn và giá thuê của hợp đồng hiện tại' : 'Tạo hợp đồng cho căn hộ'}
@@ -1057,18 +1251,40 @@ export default function BuildingManagement({ flash }) {
               <Input
                 type="date"
                 value={contractForm.startDate}
-                onChange={(e) => setContractForm(prev => ({ ...prev, startDate: e.target.value }))}
+                onChange={(e) => updateContractStartDate(e.target.value)}
                 required
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Kết thúc</label>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="block text-sm font-semibold text-slate-700">Kết thúc</label>
+                <div className="flex gap-1">
+                  {[3, 6, 12].map((months) => (
+                    <button
+                      key={months}
+                      type="button"
+                      onClick={() => updateContractTerm(contractForm.contractTermMonths === months ? '' : months)}
+                      className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
+                        contractForm.contractTermMonths === months
+                          ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {months} tháng
+                    </button>
+                  ))}
+                </div>
+              </div>
               <Input
                 type="date"
                 value={contractForm.endDate}
                 onChange={(e) => setContractForm(prev => ({ ...prev, endDate: e.target.value }))}
+                disabled={Boolean(contractForm.contractTermMonths)}
                 required
               />
+              <p className="mt-1 text-xs text-slate-500">
+                Chưa chọn thời hạn thì có thể tự chọn ngày kết thúc. Chọn 3/6/12 tháng thì hệ thống tự tính ngày kết thúc.
+              </p>
             </div>
           </div>
 
@@ -1076,20 +1292,78 @@ export default function BuildingManagement({ flash }) {
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">Giá thuê / tháng</label>
               <Input
-                type="number"
-                value={contractForm.rent}
-                onChange={(e) => setContractForm(prev => ({ ...prev, rent: e.target.value }))}
+                value={`${formatVnd(FIXED_MONTHLY_RENT)} VNĐ`}
+                readOnly
                 required
               />
+              <p className="mt-1 text-xs text-slate-500">Giá thuê được gán cố định cho tất cả phòng.</p>
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">Tiền cọc</label>
-              <Input
-                type="number"
-                value={contractForm.deposit}
-                onChange={(e) => setContractForm(prev => ({ ...prev, deposit: e.target.value }))}
-              />
+              <div className="flex gap-2">
+                {[1, 2].map((months) => (
+                  <button
+                    key={months}
+                    type="button"
+                    onClick={() => setContractForm(prev => ({
+                      ...prev,
+                      depositMonths: months,
+                      deposit: months * FIXED_MONTHLY_RENT
+                    }))}
+                    className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+                      Number(contractForm.depositMonths) === months
+                        ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Cọc {months} tháng
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-sm font-semibold text-[#1f4f46]">
+                {formatVnd(Number(contractForm.depositMonths || 1) * FIXED_MONTHLY_RENT)} VNĐ
+              </p>
             </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-slate-700">Chu kỳ đóng tiền</label>
+              <div className="flex gap-2">
+                {[1, 3].map((months) => (
+                  <button
+                    key={months}
+                    type="button"
+                    onClick={() => setContractForm(prev => ({ ...prev, paymentCycleMonths: months }))}
+                    className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+                      Number(contractForm.paymentCycleMonths) === months
+                        ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {months} tháng / lần
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-slate-700">Ngày chốt tiền hàng tháng</label>
+              <Input value="Ngày 10 hằng tháng" readOnly />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Ảnh hợp đồng đã ký</label>
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600 hover:border-[#1f4f46] hover:bg-slate-50">
+              <span>{signedContractImageFile ? signedContractImageFile.name : 'Chọn ảnh hợp đồng đã ký...'}</span>
+              <span className="font-semibold text-[#1f4f46]">Tải ảnh lên</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => setSignedContractImageFile(e.target.files?.[0] || null)}
+              />
+            </label>
           </div>
 
           {contractMode === 'create' && (
@@ -1176,3 +1450,4 @@ export default function BuildingManagement({ flash }) {
     </div>
   );
 }
+

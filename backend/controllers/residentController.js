@@ -323,11 +323,7 @@ exports.createResident = async (req, res) => {
             frontImage,
             backImage,
             issueDate,
-            issuePlace,
-            expiredDate,
-            username,
-            password,
-            userId
+            issuePlace
         } = req.body;
 
         if (!fullName) {
@@ -338,88 +334,10 @@ exports.createResident = async (req, res) => {
         }
 
         const pool = await getPool();
-        let residentUserId = userId || null;
-
-        // 🔥 KIỂM TRA TRÙNG LẶP SỐ ĐIỆN THOẠI
-        if (phone) {
-            const phoneCheck = await pool.request()
-                .input('Phone', sql.VarChar, phone)
-                .query('SELECT UserID, Username FROM Users WHERE Phone = @Phone');
-            
-            if (phoneCheck.recordset[0]) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Số điện thoại ${phone} đã được đăng ký bởi người dùng khác. Vui lòng sử dụng số khác.`,
-                    field: 'phone',
-                    value: phone
-                });
-            }
-        }
-
-        // 🔥 KIỂM TRA TRÙNG LẶP EMAIL
-        if (email) {
-            const emailCheck = await pool.request()
-                .input('Email', sql.VarChar, email)
-                .query('SELECT UserID, Username FROM Users WHERE Email = @Email');
-            
-            if (emailCheck.recordset[0]) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Email ${email} đã được đăng ký bởi người dùng khác. Vui lòng sử dụng email khác.`,
-                    field: 'email',
-                    value: email
-                });
-            }
-        }
-
-        // 🔥 KIỂM TRA TRÙNG LẶP USERNAME
-        if (username) {
-            const userCheck = await pool.request()
-                .input('Username', sql.VarChar, username)
-                .query('SELECT UserID FROM Users WHERE Username = @Username');
-            
-            if (userCheck.recordset[0]) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Tên đăng nhập "${username}" đã tồn tại. Vui lòng chọn tên khác.`,
-                    field: 'username',
-                    value: username
-                });
-            }
-        }
-
-        // Nếu có username và password, tạo user mới
-        if (username && password && !userId) {
-            const userResult = await pool.request()
-                .input('Username', sql.VarChar, username)
-                .input('PasswordHash', sql.VarChar, password)
-                .input('Email', sql.VarChar, email || null)
-                .input('Phone', sql.VarChar, phone || null)
-                .query(`
-                    INSERT INTO Users (Username, PasswordHash, Email, Phone, Status, CreatedAt)
-                    OUTPUT INSERTED.UserID
-                    VALUES (@Username, @PasswordHash, @Email, @Phone, 1, GETDATE())
-                `);
-            residentUserId = userResult.recordset[0].UserID;
-
-            // Gán role RESIDENT cho user
-            const roleResult = await pool.request()
-                .query("SELECT RoleID FROM Role WHERE RoleCode = 'RESIDENT'");
-            
-            if (roleResult.recordset[0]) {
-                await pool.request()
-                    .input('UserID', sql.Int, residentUserId)
-                    .input('RoleID', sql.Int, roleResult.recordset[0].RoleID)
-                    .query(`
-                        INSERT INTO UserRole (UserID, RoleID, AssignedDate)
-                        VALUES (@UserID, @RoleID, GETDATE())
-                    `);
-            }
-        }
 
         // Tạo resident
         const result = await pool.request()
-            .input('UserID', sql.Int, residentUserId)
+            .input('UserID', sql.Int, null)
             .input('FullName', sql.NVarChar, fullName)
             .input('Gender', sql.Bit, gender !== undefined ? gender : null)
             .input('BirthDate', sql.Date, birthDate || null)
@@ -452,7 +370,7 @@ exports.createResident = async (req, res) => {
                 .input('BackImage', sql.NVarChar, backImage || null)
                 .input('IssueDate', sql.Date, issueDate || null)
                 .input('IssuePlace', sql.NVarChar, issuePlace || null)
-                .input('ExpiredDate', sql.Date, expiredDate || null)
+                .input('ExpiredDate', sql.Date, null)
                 .query(`
                     INSERT INTO ResidentIdentity (
                         ResidentID, IdentityNumber, FrontImage, BackImage, 
@@ -491,15 +409,8 @@ exports.createResident = async (req, res) => {
             let message = 'Dữ liệu đã tồn tại trong hệ thống. Vui lòng kiểm tra lại.';
             let field = null;
             
-            if (error.message.includes('UQ_Users_Phone')) {
-                message = 'Số điện thoại đã được đăng ký. Vui lòng sử dụng số khác.';
-                field = 'phone';
-            } else if (error.message.includes('UQ_Users_Email')) {
-                message = 'Email đã được đăng ký. Vui lòng sử dụng email khác.';
-                field = 'email';
-            } else if (error.message.includes('UQ_Users_Username')) {
-                message = 'Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.';
-                field = 'username';
+            if (error.message.includes('Resident')) {
+                message = 'Thông tin cư dân đã tồn tại. Vui lòng kiểm tra lại.';
             }
             
             return res.status(400).json({
@@ -537,8 +448,7 @@ exports.updateResident = async (req, res) => {
             frontImage,
             backImage,
             issueDate,
-            issuePlace,
-            expiredDate
+            issuePlace
         } = req.body;
 
         const pool = await getPool();
@@ -546,47 +456,13 @@ exports.updateResident = async (req, res) => {
         // Check resident exists
         const checkResult = await pool.request()
             .input('ResidentID', sql.Int, id)
-            .query('SELECT ResidentID, UserID FROM Resident WHERE ResidentID = @ResidentID');
+            .query('SELECT ResidentID FROM Resident WHERE ResidentID = @ResidentID');
 
         if (!checkResult.recordset[0]) {
             return res.status(404).json({
                 success: false,
                 message: 'Resident not found'
             });
-        }
-
-        const resident = checkResult.recordset[0];
-
-        // 🔥 Kiểm tra trùng lặp phone nếu có thay đổi
-        if (phone) {
-            const phoneCheck = await pool.request()
-                .input('Phone', sql.VarChar, phone)
-                .input('UserID', sql.Int, resident.UserID)
-                .query('SELECT UserID FROM Users WHERE Phone = @Phone AND UserID != @UserID');
-            
-            if (phoneCheck.recordset[0]) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Số điện thoại ${phone} đã được đăng ký bởi người dùng khác.`,
-                    field: 'phone'
-                });
-            }
-        }
-
-        // 🔥 Kiểm tra trùng lặp email nếu có thay đổi
-        if (email) {
-            const emailCheck = await pool.request()
-                .input('Email', sql.VarChar, email)
-                .input('UserID', sql.Int, resident.UserID)
-                .query('SELECT UserID FROM Users WHERE Email = @Email AND UserID != @UserID');
-            
-            if (emailCheck.recordset[0]) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Email ${email} đã được đăng ký bởi người dùng khác.`,
-                    field: 'email'
-                });
-            }
         }
 
         // Update resident
@@ -642,29 +518,6 @@ exports.updateResident = async (req, res) => {
                 WHERE ResidentID = @ResidentID
             `);
 
-            // 🔥 Cập nhật thông tin Users nếu có thay đổi
-            if (resident.UserID && (phone !== undefined || email !== undefined)) {
-                const userUpdates = [];
-                const userRequest = pool.request();
-                userRequest.input('UserID', sql.Int, resident.UserID);
-
-                if (phone !== undefined) {
-                    userUpdates.push('Phone = @Phone');
-                    userRequest.input('Phone', sql.VarChar, phone);
-                }
-                if (email !== undefined) {
-                    userUpdates.push('Email = @Email');
-                    userRequest.input('Email', sql.VarChar, email);
-                }
-
-                if (userUpdates.length > 0) {
-                    await userRequest.query(`
-                        UPDATE Users 
-                        SET ${userUpdates.join(', ')}
-                        WHERE UserID = @UserID
-                    `);
-                }
-            }
         }
 
         // Update identity
@@ -680,7 +533,7 @@ exports.updateResident = async (req, res) => {
             identityRequest.input('BackImage', sql.NVarChar, backImage || null);
             identityRequest.input('IssueDate', sql.Date, issueDate || null);
             identityRequest.input('IssuePlace', sql.NVarChar, issuePlace || null);
-            identityRequest.input('ExpiredDate', sql.Date, expiredDate || null);
+            identityRequest.input('ExpiredDate', sql.Date, null);
 
             if (identityCheck.recordset[0]) {
                 await identityRequest.query(`
@@ -827,26 +680,16 @@ exports.permanentDeleteResident = async (req, res) => {
             });
         }
 
-        const userResult = await pool.request()
-            .input('ResidentID', sql.Int, id)
-            .query('SELECT UserID FROM Resident WHERE ResidentID = @ResidentID');
-
-        const userId = userResult.recordset[0]?.UserID || null;
-
         transaction = new sql.Transaction(pool);
         await transaction.begin();
         const txRequest = transaction.request();
         txRequest.input('ResidentID', sql.Int, id);
-        if (userId) {
-            txRequest.input('UserID', sql.Int, userId);
-        }
 
         await txRequest.query(`
             DELETE FROM MaintenanceRequest WHERE ResidentID = @ResidentID;
             DELETE FROM Feedback WHERE ResidentID = @ResidentID;
             DELETE FROM ContractResident WHERE ResidentID = @ResidentID;
             DELETE FROM Vehicle WHERE ResidentID = @ResidentID;
-            ${userId ? 'DELETE FROM UserRole WHERE UserID = @UserID; DELETE FROM Users WHERE UserID = @UserID;' : ''}
             DELETE FROM Resident WHERE ResidentID = @ResidentID;
         `);
 

@@ -26,7 +26,7 @@ export default function PoolManagement({ flash }) {
     email: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: '',
-    status: 1, totalVisits: 50, contractId: ''
+    status: 1, totalVisits: 1, contractId: ''
   });
 
   // Fetch pool members
@@ -56,8 +56,16 @@ export default function PoolManagement({ flash }) {
       const [contractsRes, servicesRes] = await Promise.all([contractAPI.getAll('', 1, 999), serviceAPI.getAll('', '', 1, 999)]);
       const poolService = (servicesRes?.data || []).find((service) => service.ServiceName?.toLowerCase().includes('pool') || service.ServiceName?.toLowerCase().includes('bơi'));
       if (!poolService) return flash('❌ Chưa có dịch vụ Hồ bơi. Vui lòng tạo dịch vụ trước.');
-      setContracts(contractsRes?.data || []); setPoolServiceId(poolService.ServiceID); setModalMode('create'); setSelectedMember(null);
-      setForm({ contractId: '', fullName: '', phone: '', email: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 1, totalVisits: 50 }); setModalOpen(true);
+      const activeContracts = (contractsRes?.data || []).filter((contract) => {
+        const today = new Date();
+        const startDate = contract.StartDate ? new Date(contract.StartDate) : null;
+        const endDate = contract.EndDate ? new Date(contract.EndDate) : null;
+        return [2, 5].includes(Number(contract.StatusID))
+          && (!startDate || startDate <= today)
+          && (!endDate || endDate >= today);
+      });
+      setContracts(activeContracts); setPoolServiceId(poolService.ServiceID); setModalMode('create'); setSelectedMember(null);
+      setForm({ contractId: '', fullName: '', phone: '', email: '', startDate: new Date().toISOString().split('T')[0], endDate: '', status: 1, totalVisits: 1 }); setModalOpen(true);
     } catch { flash('❌ Không thể tải danh sách hợp đồng'); } finally { setLoading(false); }
   };
 
@@ -181,8 +189,8 @@ export default function PoolManagement({ flash }) {
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">Cư dân / hợp đồng *</label>
               <select value={form.contractId || ''} required onChange={(e) => setForm({ ...form, contractId: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]">
-                <option value="">Chọn cư dân có hợp đồng</option>
-                {contracts.map((contract) => <option key={contract.ContractID} value={contract.ContractID}>{contract.OwnerName} — {contract.ApartmentCode}</option>)}
+                <option value="">Chọn căn hộ đang ở</option>
+                {contracts.map((contract) => <option key={contract.ContractID} value={contract.ContractID}>{contract.ApartmentCode}</option>)}
               </select>
             </div>
           )}

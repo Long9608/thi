@@ -12,6 +12,13 @@ import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, money, getInitials } from '../utils/formatters';
 
 export default function ContractList({ flash }) {
+  const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+  const getFileUrl = (path) => {
+    if (!path) return '';
+    if (/^https?:\/\//i.test(path)) return path;
+    return `${API_ORIGIN}${path}`;
+  };
+
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -284,6 +291,9 @@ export default function ContractList({ flash }) {
                   <div><span className="text-slate-500">Kết thúc:</span> {formatDate(selectedContract.EndDate)}</div>
                   <div><span className="text-slate-500">Tiền cọc:</span> {money(selectedContract.Deposit)}</div>
                   <div><span className="text-slate-500">Giá thuê:</span> {money(selectedContract.Rent)}/tháng</div>
+                  <div><span className="text-slate-500">Thời hạn chọn:</span> {selectedContract.ContractTermMonths ? `${selectedContract.ContractTermMonths} tháng` : 'Tự chọn ngày'}</div>
+                  <div><span className="text-slate-500">Chu kỳ đóng tiền:</span> {selectedContract.PaymentCycleMonths || 1} tháng / lần</div>
+                  <div><span className="text-slate-500">Ngày chốt tiền:</span> Ngày {selectedContract.MonthlyBillingDay || 10} hằng tháng</div>
                 </div>
               </div>
 
@@ -296,6 +306,27 @@ export default function ContractList({ flash }) {
                 </div>
               </div>
             </div>
+
+            {selectedContract.SignedContractImage && (
+              <div>
+                <p className="text-sm font-semibold text-slate-500">Ảnh hợp đồng đã ký</p>
+                <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <img
+                    src={getFileUrl(selectedContract.SignedContractImage)}
+                    alt="Ảnh hợp đồng đã ký"
+                    className="max-h-96 w-full rounded-xl object-contain"
+                  />
+                  <a
+                    href={getFileUrl(selectedContract.SignedContractImage)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Mở ảnh gốc
+                  </a>
+                </div>
+              </div>
+            )}
 
             {selectedContract.Residents && selectedContract.Residents.length > 0 && (
               <div>

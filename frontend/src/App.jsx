@@ -39,13 +39,9 @@ import ResidenceHistory from "./components/ResidenceHistory";
 import ContractList from "./pages/ContractList";
 import DepositManagement from "./pages/DepositManagement";
 
-// 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ DỊCH VỤ
-import ElectricityManagement from "./pages/ElectricityManagement";
-import WaterManagement from "./pages/WaterManagement";
-import RegisterService from "./pages/RegisterService";
 import GymManagement from "./pages/GymManagement";
 import PoolManagement from "./pages/PoolManagement";
-import EventSpaceManagement from "./pages/EventSpaceManagement";
+import WifiManagement from "./pages/WifiManagement";
 
 // 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ GỬI XE
 import VehicleManagement from './pages/VehicleManagement';
@@ -129,6 +125,7 @@ import {
   Wrench,
   X,
   Save,
+  Wifi,
   // 🔥 THÊM ICON MỚI
   UserPlus,
   Shield,
@@ -543,37 +540,31 @@ function LoginPage({ onLogin }) {
 // DỮ LIỆU MẪU (FALLBACK)
 // ============================================================
 const revenueData = [
-  { month: "T1", amount: 56 },
-  { month: "T2", amount: 68 },
-  { month: "T3", amount: 61 },
-  { month: "T4", amount: 83 },
-  { month: "T5", amount: 79 },
-  { month: "T6", amount: 92 },
+  { month: "T1", amount: 0 },
+  { month: "T2", amount: 0 },
+  { month: "T3", amount: 0 },
+  { month: "T4", amount: 0 },
+  { month: "T5", amount: 0 },
+  { month: "T6", amount: 0 },
 ];
 
 const utilityData = [
-  { month: "T1", electricity: 45, water: 32 },
-  { month: "T2", electricity: 52, water: 38 },
-  { month: "T3", electricity: 48, water: 35 },
-  { month: "T4", electricity: 63, water: 42 },
-  { month: "T5", electricity: 58, water: 39 },
-  { month: "T6", electricity: 71, water: 45 },
+  { month: "T1", electricity: 0, water: 0 },
+  { month: "T2", electricity: 0, water: 0 },
+  { month: "T3", electricity: 0, water: 0 },
+  { month: "T4", electricity: 0, water: 0 },
+  { month: "T5", electricity: 0, water: 0 },
+  { month: "T6", electricity: 0, water: 0 },
 ];
 
 const contractStatusData = [
-  { name: "Đang hiệu lực", value: 45 },
-  { name: "Sắp hết hạn", value: 12 },
-  { name: "Đã hết hạn", value: 8 },
-  { name: "Chưa ký", value: 15 },
+  { name: "Đang hiệu lực", value: 0 },
+  { name: "Sắp hết hạn", value: 0 },
+  { name: "Đã hết hạn", value: 0 },
+  { name: "Chưa ký", value: 0 },
 ];
 
-const recentActivities = [
-  { id: 1, type: "resident", action: "Đăng ký mới", name: "Nguyễn Văn A", time: "5 phút trước" },
-  { id: 2, type: "contract", action: "Gia hạn hợp đồng", name: "Căn A-1201", time: "15 phút trước" },
-  { id: 3, type: "ticket", action: "Yêu cầu sửa chữa", name: "Căn B-0805", time: "30 phút trước" },
-  { id: 4, type: "payment", action: "Thanh toán phí", name: "Căn C-1012", time: "1 giờ trước" },
-  { id: 5, type: "vehicle", action: "Đăng ký xe mới", name: "30H-123.45", time: "2 giờ trước" },
-];
+const recentActivities = [];
 
 // ============================================================
 // CẤU TRÚC MENU VỚI PERMISSION
@@ -597,7 +588,9 @@ const MENU_STRUCTURE = [
     items: [
       { id: "residents", label: "Danh sách cư dân", icon: Users, permission: "RESIDENT_VIEW" },
       { id: "buildings", label: "Tòa nhà", icon: Home, permission: "APARTMENT_VIEW" },
-      { id: "contract-list", label: "Danh sách hợp đồng", icon: FileText, permission: "CONTRACT_VIEW" }
+      { id: "contract-list", label: "Danh sách hợp đồng", icon: FileText, permission: "CONTRACT_VIEW" },
+      { id: "fees", label: "Hóa đơn", icon: FileText, permission: "INVOICE_VIEW" },
+      { id: "vehicles", label: "Xe cư dân", icon: Car, permission: "PARKING_VIEW" }
     ]
   },
   {
@@ -606,37 +599,9 @@ const MENU_STRUCTURE = [
     icon: Wrench,
     permission: "SERVICE_VIEW",
     items: [
-      { id: "electricity", label: "Điện", icon: Bolt, permission: "SERVICE_VIEW" },
-      { id: "water", label: "Nước", icon: Droplet, permission: "SERVICE_VIEW" },
-      { id: "register-service", label: "Đăng ký dịch vụ", icon: Plus, permission: "SERVICE_CREATE" },
       { id: "gym", label: "Gym", icon: Dumbbell, permission: "SERVICE_VIEW" },
       { id: "pool", label: "Hồ bơi", icon: Waves, permission: "SERVICE_VIEW" },
-      { id: "event-space", label: "Event Space", icon: CalendarClock, permission: "SERVICE_VIEW" }
-    ]
-  },
-  {
-    id: "finance",
-    label: "Hóa đơn & Tài chính",
-    icon: CreditCard,
-    permission: "INVOICE_VIEW",
-    items: [
-      { id: "fees", label: "Hóa đơn", icon: FileText, permission: "INVOICE_VIEW" },
-      { id: "payments", label: "Thanh toán", icon: CreditCard, permission: "PAYMENT_CREATE" },
-      { id: "debts", label: "Công nợ", icon: AlertCircle, permission: "DEBT_VIEW" },
-      { id: "fee-collection", label: "Thu phí", icon: WalletCards, permission: "PAYMENT_CREATE" },
-      { id: "revenue", label: "Doanh thu", icon: TrendingUp, permission: "REPORT_VIEW" }
-    ]
-  },
-  {
-    id: "vehicles",
-    label: "Gửi xe",
-    icon: Car,
-    permission: "PARKING_VIEW",
-    items: [
-      { id: "vehicles", label: "Xe cư dân", icon: Car, permission: "PARKING_VIEW" },
-      { id: "vehicle-cards", label: "Thẻ xe", icon: CreditCard, permission: "CARD_CREATE" },
-      { id: "parking-lot", label: "Bãi xe", icon: Home, permission: "PARKING_VIEW" },
-      { id: "parking-history", label: "Lịch sử ra/vào", icon: Clock, permission: "PARKING_HISTORY" }
+      { id: "wifi", label: "Wifi", icon: Wifi, permission: "SERVICE_VIEW" }
     ]
   },
   {
@@ -711,10 +676,6 @@ const MENU_STRUCTURE = [
     ]
   }
 ];
-
-// ============================================================
-// ÁNH XẠ PERMISSION CHO CÁC TAB KHÔNG CÓ TRONG MENU
-// ============================================================
 const TAB_PERMISSION_MAP = {
   'register-resident': 'RESIDENT_VIEW',
   'id-cards': 'RESIDENT_VIEW',
@@ -738,21 +699,11 @@ const CONTENT_TITLES = {
   residents: ["Quản lý cư dân", "Danh sách cư dân và thông tin cư trú"],
   "contract-list": ["Danh sách hợp đồng", "Quản lý hợp đồng thuê"],
   deposits: ["Tiền cọc", "Quản lý tiền cọc"],
-  electricity: ["Điện", "Quản lý điện năng tiêu thụ"],
-  water: ["Nước", "Quản lý nước tiêu thụ"],
-  "register-service": ["Đăng ký dịch vụ", "Đăng ký dịch vụ công ích"],
   gym: ["Gym", "Quản lý phòng gym"],
   pool: ["Hồ bơi", "Quản lý hồ bơi"],
-  "event-space": ["Event Space", "Quản lý không gian sự kiện"],
+  wifi: ["Wifi", "Quản lý đăng ký wifi"],
   fees: ["Hóa đơn", "Quản lý hóa đơn và thu phí"],
-  payments: ["Thanh toán", "Quản lý thanh toán"],
-  debts: ["Công nợ", "Quản lý công nợ"],
-  "fee-collection": ["Thu phí", "Thu phí dịch vụ"],
-  revenue: ["Doanh thu", "Báo cáo doanh thu"],
   vehicles: ["Xe cư dân", "Quản lý xe cư dân"],
-  "vehicle-cards": ["Thẻ xe", "Quản lý thẻ xe"],
-  "parking-lot": ["Bãi xe", "Quản lý bãi xe"],
-  "parking-history": ["Lịch sử ra/vào", "Lịch sử ra vào bãi xe"],
   tickets: ["Ticket hỗ trợ", "Quản lý yêu cầu hỗ trợ"],
   maintenance: ["Bảo trì", "Quản lý bảo trì"],
   feedbacks: ["Phản ánh", "Quản lý phản ánh của cư dân"],
@@ -1571,7 +1522,7 @@ export default function ApartmentManagementWeb() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <StatCard icon={Users} label="Cư dân" value={residents.length} trend="+12%" hint="Hồ sơ đang quản lý trong hệ thống" />
                 <StatCard icon={Building2} label="Căn hộ" value={apartments.length} hint="Bao gồm đang thuê, trống và bảo trì" />
-                <StatCard icon={FileText} label="Hợp đồng" value="45" trend="+5%" hint="Đang hiệu lực" />
+                <StatCard icon={FileText} label="Hợp đồng" value="0" trend="+0%" hint="Đang hiệu lực" />
                 <StatCard icon={CreditCard} label="Doanh thu tháng" value={money(totalFees).replace("₫", "")} trend="+8%" hint="Tổng thu từ phí dịch vụ" />
               </div>
 
@@ -1579,8 +1530,8 @@ export default function ApartmentManagementWeb() {
                 <StatCard icon={AlertCircle} label="Công nợ" value={money(unpaidFees).replace("₫", "")} hint="Cần thu hồi" />
                 <StatCard icon={Wrench} label="Ticket" value={tickets.filter((t) => t.status !== "Hoàn tất").length} hint="Đang xử lý" />
                 <StatCard icon={Car} label="Xe" value={vehicles.length} hint="Đang hoạt động" />
-                <StatCard icon={Bolt} label="Điện" value="12,847 kWh" trend="+3%" hint="Tiêu thụ tháng này" />
-                <StatCard icon={Droplet} label="Nước" value="4,231 m³" trend="+2%" hint="Tiêu thụ tháng này" />
+                <StatCard icon={Bolt} label="Điện" value="0 kWh" trend="+0%" hint="Tiêu thụ tháng này" />
+                <StatCard icon={Droplet} label="Nước" value="0 m³" trend="+0%" hint="Tiêu thụ tháng này" />
               </div>
 
               <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
@@ -1665,7 +1616,7 @@ export default function ApartmentManagementWeb() {
                       <h3 className="text-base font-bold text-slate-950">Tình trạng hợp đồng</h3>
                       <p className="text-sm text-slate-500">Phân bố hợp đồng theo trạng thái.</p>
                     </div>
-                    <Badge tone="blue">45 hợp đồng</Badge>
+                    <Badge tone="blue">0 hợp đồng</Badge>
                   </div>
                   <div className="h-72 p-5">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1699,6 +1650,11 @@ export default function ApartmentManagementWeb() {
                   <Button variant="secondary" onClick={() => flash("Đã tải thêm hoạt động.")}>Xem tất cả</Button>
                 </div>
                 <div className="divide-y divide-slate-100">
+                  {recentActivities.length === 0 && (
+                    <div className="p-8 text-center text-sm text-slate-500">
+                      Chưa có hoạt động nào.
+                    </div>
+                  )}
                   {recentActivities.map((activity) => {
                     const getIcon = () => {
                       switch(activity.type) {
@@ -1760,7 +1716,7 @@ export default function ApartmentManagementWeb() {
                     <div className="rounded-xl bg-blue-100 p-3 text-blue-700"><CalendarClock size={24} /></div>
                     <div>
                       <p className="text-sm font-medium text-blue-700">Sắp hết hạn</p>
-                      <p className="text-2xl font-bold text-slate-950">12</p>
+                      <p className="text-2xl font-bold text-slate-950">0</p>
                       <p className="text-xs text-blue-600">Hợp đồng cần gia hạn</p>
                     </div>
                   </div>
@@ -1771,7 +1727,7 @@ export default function ApartmentManagementWeb() {
                     <div className="rounded-xl bg-amber-100 p-3 text-amber-700"><Bell size={24} /></div>
                     <div>
                       <p className="text-sm font-medium text-amber-700">Thông báo mới</p>
-                      <p className="text-2xl font-bold text-slate-950">8</p>
+                      <p className="text-2xl font-bold text-slate-950">0</p>
                       <p className="text-xs text-amber-600">Chưa đọc</p>
                     </div>
                   </div>
@@ -1822,21 +1778,6 @@ export default function ApartmentManagementWeb() {
             <DepositManagement flash={flash} />
           )}
 
-          {/* ELECTRICITY TAB */}
-          {tab === "electricity" && (
-            <ElectricityManagement flash={flash} onInvoiceCreated={(invoiceId) => { handleTabChange('fees'); }} />
-          )}
-
-          {/* WATER TAB */}
-          {tab === "water" && (
-            <WaterManagement flash={flash} onInvoiceCreated={(invoiceId) => { handleTabChange('fees'); }} />
-          )}
-
-          {/* REGISTER SERVICE TAB */}
-          {tab === "register-service" && (
-            <RegisterService flash={flash} />
-          )}
-
           {/* GYM TAB */}
           {tab === "gym" && (
             <GymManagement flash={flash} />
@@ -1847,9 +1788,9 @@ export default function ApartmentManagementWeb() {
             <PoolManagement flash={flash} />
           )}
 
-          {/* EVENT SPACE TAB */}
-          {tab === "event-space" && (
-            <EventSpaceManagement flash={flash} />
+          {/* WIFI TAB */}
+          {tab === "wifi" && (
+            <WifiManagement flash={flash} />
           )}
 
           {/* VEHICLES TAB - QUẢN LÝ XE CƯ DÂN */}
@@ -1857,23 +1798,6 @@ export default function ApartmentManagementWeb() {
             <VehicleManagement flash={flash} />
           )}
 
-          {/* VEHICLE CARDS TAB - QUẢN LÝ THẺ XE */}
-          {tab === "vehicle-cards" && (
-            <ParkingCardManagement flash={flash} />
-          )}
-
-          {/* PARKING LOT TAB - QUẢN LÝ BÃI XE */}
-          {tab === "parking-lot" && (
-            <ParkingSlotManagement flash={flash} />
-          )}
-
-          {/* PARKING HISTORY TAB - LỊCH SỬ RA/VÀO */}
-          {tab === "parking-history" && (
-            <ParkingHistory
-  flash={flash}
-  canRecordAccess={hasPermission('PARKING_ACCESS_CREATE')}
-/>
-          )}
 
           {/* 🔥 TICKET MANAGEMENT TAB */}
           {tab === "tickets" && (
@@ -1901,12 +1825,12 @@ export default function ApartmentManagementWeb() {
           )}
 
           {/* 🔥 BÁO CÁO DOANH THU */}
-          {(tab === "revenue-report" || tab === "revenue") && (
+          {tab === "revenue-report" && (
             <RevenueReport flash={flash} />
           )}
 
           {/* 🔥 BÁO CÁO CÔNG NỢ */}
-          {(tab === "debt-report" || tab === "debts") && (
+          {tab === "debt-report" && (
             <DebtReport flash={flash} />
           )}
 
@@ -1938,16 +1862,6 @@ export default function ApartmentManagementWeb() {
           {/* FEES TAB */}
           {tab === "fees" && (
             <Fees flash={flash} />
-          )}
-
-          {/* PAYMENTS TAB */}
-          {tab === "payments" && (
-            <Payments flash={flash} />
-          )}
-
-          {/* FEE COLLECTION TAB */}
-          {tab === "fee-collection" && (
-            <FeeCollection flash={flash} />
           )}
 
           {/* EMPLOYEES TAB */}

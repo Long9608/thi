@@ -7,7 +7,7 @@ import {
   X, RefreshCw, MoreHorizontal, UserPlus, Building2,
   CreditCard, Clock, AlertCircle, FileText, Home, ChevronRight
 } from 'lucide-react';
-import { residentAPI, apartmentAPI, userAPI } from '../api';
+import { residentAPI, apartmentAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard, EmptyState } from './UI';
 import { formatDate, formatBirthday, getInitials, money } from '../utils/formatters';
 
@@ -35,11 +35,8 @@ export default function ResidentManagement({ flash }) {
     identityNumber: '',
     issueDate: '',
     issuePlace: '',
-    expiredDate: '',
     emergencyContactName: '',
     emergencyContactPhone: '',
-    username: '',
-    password: '',
     apartmentId: '',
     relationship: 'Chủ hộ'
   });
@@ -130,16 +127,10 @@ export default function ResidentManagement({ flash }) {
         identityNumber: form.identityNumber || null,
         issueDate: form.issueDate || null,
         issuePlace: form.issuePlace || null,
-        expiredDate: form.expiredDate || null,
         emergencyContactName: form.emergencyContactName || null,
         emergencyContactPhone: form.emergencyContactPhone || null,
       };
       
-      if (form.username && form.password) {
-        data.username = form.username;
-        data.password = form.password;
-      }
-
       await residentAPI.create(data);
       if (flash) flash('✅ Tạo cư dân thành công!');
       setModalOpen(false);
@@ -164,7 +155,6 @@ export default function ResidentManagement({ flash }) {
         identityNumber: form.identityNumber || null,
         issueDate: form.issueDate || null,
         issuePlace: form.issuePlace || null,
-        expiredDate: form.expiredDate || null,
         emergencyContactName: form.emergencyContactName || null,
         emergencyContactPhone: form.emergencyContactPhone || null,
       };
@@ -214,11 +204,8 @@ export default function ResidentManagement({ flash }) {
       identityNumber: '',
       issueDate: '',
       issuePlace: '',
-      expiredDate: '',
       emergencyContactName: '',
       emergencyContactPhone: '',
-      username: '',
-      password: '',
       apartmentId: '',
       relationship: 'Chủ hộ'
     });
@@ -243,11 +230,8 @@ export default function ResidentManagement({ flash }) {
       identityNumber: resident.IdentityNumber || '',
       issueDate: resident.IssueDate ? new Date(resident.IssueDate).toISOString().split('T')[0] : '',
       issuePlace: resident.IssuePlace || '',
-      expiredDate: resident.ExpiredDate ? new Date(resident.ExpiredDate).toISOString().split('T')[0] : '',
       emergencyContactName: resident.EmergencyContactName || '',
       emergencyContactPhone: resident.EmergencyContactPhone || '',
-      username: '',
-      password: '',
       apartmentId: resident.ApartmentID || '',
       relationship: 'Chủ hộ'
     });
@@ -522,7 +506,6 @@ export default function ResidentManagement({ flash }) {
                   <div><span className="text-slate-500">Số CCCD:</span> {selectedResident.IdentityNumber || 'Chưa có'}</div>
                   <div><span className="text-slate-500">Nơi cấp:</span> {selectedResident.IssuePlace || 'Chưa có'}</div>
                   <div><span className="text-slate-500">Ngày cấp:</span> {formatDate(selectedResident.IssueDate)}</div>
-                  <div><span className="text-slate-500">Ngày hết hạn:</span> {formatDate(selectedResident.ExpiredDate)}</div>
                 </div>
               </div>
             </div>
@@ -645,14 +628,6 @@ export default function ResidentManagement({ flash }) {
                     onChange={(e) => setForm({...form, issueDate: e.target.value})}
                   />
                 </div>
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-slate-500">Ngày hết hạn</label>
-                  <Input
-                    type="date"
-                    value={form.expiredDate}
-                    onChange={(e) => setForm({...form, expiredDate: e.target.value})}
-                  />
-                </div>
               </div>
             </div>
 
@@ -677,31 +652,6 @@ export default function ResidentManagement({ flash }) {
                 </div>
               </div>
             </div>
-
-            {modalMode === 'create' && (
-              <div className="border-t border-slate-200 pt-4">
-                <p className="text-sm font-semibold text-slate-700 mb-3">Tài khoản đăng nhập (tùy chọn)</p>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-sm font-semibold text-slate-500">Tên đăng nhập</label>
-                    <Input
-                      value={form.username}
-                      onChange={(e) => setForm({...form, username: e.target.value})}
-                      placeholder="username"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-semibold text-slate-500">Mật khẩu</label>
-                    <Input
-                      type="password"
-                      value={form.password}
-                      onChange={(e) => setForm({...form, password: e.target.value})}
-                      placeholder="Mật khẩu"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Hủy</Button>

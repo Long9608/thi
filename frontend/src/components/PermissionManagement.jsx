@@ -78,12 +78,11 @@ const permissionLabels = {
 };
 
 // Các mục đúng theo thanh menu. Mã quyền kỹ thuật chỉ được dùng nội bộ để lưu.
+// CÃ¡c má»¥c Ä‘Ãºng theo thanh menu. MÃ£ quyá»n ká»¹ thuáº­t chá»‰ Ä‘Æ°á»£c dÃ¹ng ná»™i bá»™ Ä‘á»ƒ lÆ°u.
 const menuPermissionGroups = [
   ['Tổng quan', [['Dashboard',['DASHBOARD_VIEW']], ['Báo cáo nhanh',['REPORT_VIEW']]]],
-  ['Quản lý chung cư', [['Danh sách cư dân',['RESIDENT_VIEW','RESIDENT_CREATE','RESIDENT_UPDATE','RESIDENT_DELETE']], ['Tòa nhà',['APARTMENT_VIEW','APARTMENT_CREATE','APARTMENT_UPDATE','APARTMENT_DELETE']], ['Danh sách hợp đồng',['CONTRACT_VIEW','CONTRACT_CREATE','CONTRACT_UPDATE','CONTRACT_RENEW','CONTRACT_LIQUIDATE']]]],
-  ['Dịch vụ công ích', [['Điện',['SERVICE_VIEW','METER_READING_CREATE']], ['Nước',['SERVICE_VIEW','METER_READING_CREATE']], ['Đăng ký dịch vụ',['SERVICE_CREATE','SERVICE_UPDATE','SERVICE_DELETE']], ['Gym',['SERVICE_VIEW','SERVICE_CREATE','SERVICE_UPDATE','SERVICE_DELETE']], ['Hồ bơi',['SERVICE_VIEW','SERVICE_CREATE','SERVICE_UPDATE','SERVICE_DELETE']], ['Event Space',['SERVICE_VIEW','SERVICE_CREATE','SERVICE_UPDATE','SERVICE_DELETE']]]],
-  ['Hóa đơn & Tài chính', [['Hóa đơn',['INVOICE_VIEW','INVOICE_CREATE']], ['Thanh toán',['PAYMENT_CREATE']], ['Công nợ',['DEBT_VIEW']], ['Thu phí',['PAYMENT_CREATE']], ['Doanh thu',['REPORT_VIEW']]]],
-  ['Gửi xe', [['Xe cư dân',['PARKING_VIEW','VEHICLE_CREATE']], ['Thẻ xe',['CARD_CREATE']], ['Bãi xe',['PARKING_VIEW']], ['Lịch sử ra/vào',['PARKING_HISTORY']]]],
+  ['Quản lý chung cư', [['Danh sách cư dân',['RESIDENT_VIEW','RESIDENT_CREATE','RESIDENT_UPDATE','RESIDENT_DELETE']], ['Tòa nhà',['APARTMENT_VIEW','APARTMENT_CREATE','APARTMENT_UPDATE','APARTMENT_DELETE']], ['Danh sách hợp đồng',['CONTRACT_VIEW','CONTRACT_CREATE','CONTRACT_UPDATE','CONTRACT_RENEW','CONTRACT_LIQUIDATE']], ['Hóa đơn',['INVOICE_VIEW','INVOICE_CREATE']], ['Xe cư dân',['PARKING_VIEW','VEHICLE_CREATE']]]],
+  ['Dịch vụ công ích', [['Gym',['SERVICE_VIEW','SERVICE_CREATE','SERVICE_UPDATE','SERVICE_DELETE']], ['Hồ bơi',['SERVICE_VIEW','SERVICE_CREATE','SERVICE_UPDATE','SERVICE_DELETE']], ['Wifi',['SERVICE_VIEW','SERVICE_CREATE','SERVICE_UPDATE','SERVICE_DELETE']]]],
   ['Vận hành', [['Ticket hỗ trợ',['TICKET_VIEW','TICKET_CREATE']], ['Bảo trì',['MAINTENANCE_UPDATE']], ['Phản ánh',['TICKET_VIEW']], ['Lịch bảo trì',['MAINTENANCE_UPDATE']], ['Thiết bị',['DEVICE_MANAGE']]]],
   ['Thông báo', [['Danh sách',['NOTIFICATION_VIEW']], ['Gửi thông báo',['NOTIFICATION_SEND']], ['Lịch gửi',['NOTIFICATION_SEND']]]],
   ['Nhân sự', [['Nhân viên',['EMPLOYEE_VIEW','EMPLOYEE_CREATE']], ['Phân quyền',['PERMISSION_MANAGE']], ['Vai trò',['ROLE_MANAGE']], ['Nhật ký hệ thống',['SYSTEM_SETTING']]]],
@@ -93,12 +92,11 @@ const menuPermissionGroups = [
 ];
 
 const menuItemIds = [
-  ['dashboard','quick-report'], ['residents','buildings','contract-list'], ['electricity','water','register-service','gym','pool','event-space'],
-  ['fees','payments','debts','fee-collection','revenue'], ['vehicles','vehicle-cards','parking-lot','parking-history'], ['tickets','maintenance','feedbacks','maintenance-schedule','equipment'],
+  ['dashboard','quick-report'], ['residents','buildings','contract-list','fees','vehicles'], ['gym','pool','wifi'],
+  ['tickets','maintenance','feedbacks','maintenance-schedule','equipment'],
   ['notifications','send-notification','schedule-notification'], ['employees','permissions','roles','system-logs'], ['revenue-report','debt-report','apartment-report','service-report'],
   ['ai-chat','ai-stats','ai-predict','ai-search'], ['profile','change-password','system-info']
 ];
-
 const menuViewCode = (id) => `MENU_${id.toUpperCase().replace(/-/g, '_')}_VIEW`;
 
 const actionName = (code) => ({ VIEW: 'Xem', CREATE: 'Thêm', UPDATE: 'Sửa', DELETE: 'Xóa', RENEW: 'Gia hạn', LIQUIDATE: 'Thanh lý', SEND: 'Gửi', MANAGE: 'Quản lý', CREATE: 'Thêm' })[code.split('_').pop()] || 'Cho phép';

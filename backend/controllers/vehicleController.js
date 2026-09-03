@@ -76,6 +76,10 @@ exports.getAllVehicles = async (req, res) => {
     const { safePage, safeLimit, offset } = normalizePagination(page, limit);
 
     const pool = await getPool();
+    const parkingSubscriptionExists = await pool.request().query(`
+      SELECT CASE WHEN OBJECT_ID('dbo.ParkingSubscription', 'U') IS NULL THEN 0 ELSE 1 END AS HasParkingSubscription;
+    `);
+    const hasParkingSubscription = !!parkingSubscriptionExists.recordset[0]?.HasParkingSubscription;
 
     // Count
     const countReq = pool.request();
@@ -92,6 +96,40 @@ exports.getAllVehicles = async (req, res) => {
     // List
     const listReq = pool.request();
     const listWhere = buildVehicleWhere(filters, listReq);
+    const parkingSelect = hasParkingSubscription ? `
+        sub.ParkingSubscriptionID,
+        sub.MonthlyFeeSnapshot,
+        sub.StartDate AS SubStart,
+        sub.EndDate AS SubEnd,
+        sub.Status AS SubStatus,
+        pc.CardID,
+        pc.CardCode,
+        pc.IssueDate AS CardIssueDate,
+        pc.ExpiredDate AS CardExpiredDate,
+        pc.Status AS CardStatus,
+        ps.SlotID,
+        ps.SlotNumber,
+        ps.IsOccupied AS SlotOccupied
+    ` : `
+        NULL AS ParkingSubscriptionID,
+        NULL AS MonthlyFeeSnapshot,
+        NULL AS SubStart,
+        NULL AS SubEnd,
+        NULL AS SubStatus,
+        NULL AS CardID,
+        NULL AS CardCode,
+        NULL AS CardIssueDate,
+        NULL AS CardExpiredDate,
+        NULL AS CardStatus,
+        NULL AS SlotID,
+        NULL AS SlotNumber,
+        NULL AS SlotOccupied
+    `;
+    const parkingJoins = hasParkingSubscription ? `
+      LEFT JOIN dbo.ParkingSubscription sub ON sub.VehicleID = v.VehicleID AND sub.Status = 'ACTIVE'
+      LEFT JOIN dbo.ParkingCard pc ON sub.CardID = pc.CardID AND pc.Status = 1
+      LEFT JOIN dbo.ParkingSlot ps ON pc.SlotID = ps.SlotID
+    ` : '';
     const listQuery = `
       SELECT
         v.VehicleID,
@@ -107,21 +145,9 @@ exports.getAllVehicles = async (req, res) => {
         r.Phone AS OwnerPhone,
         r.Address AS OwnerAddress,
         c.ContractID,
-c.ContractNumber,
-c.ApartmentCode,
-sub.ParkingSubscriptionID,
-        sub.MonthlyFeeSnapshot,
-        sub.StartDate AS SubStart,
-        sub.EndDate AS SubEnd,
-        sub.Status AS SubStatus,
-        pc.CardID,
-        pc.CardCode,
-        pc.IssueDate AS CardIssueDate,
-        pc.ExpiredDate AS CardExpiredDate,
-        pc.Status AS CardStatus,
-        ps.SlotID,
-        ps.SlotNumber,
-        ps.IsOccupied AS SlotOccupied
+        c.ContractNumber,
+        c.ApartmentCode,
+        ${parkingSelect}
       FROM dbo.Vehicle v
       INNER JOIN dbo.VehicleType vt ON v.VehicleTypeID = vt.VehicleTypeID
       INNER JOIN dbo.Resident r ON v.ResidentID = r.ResidentID
@@ -144,9 +170,7 @@ sub.ParkingSubscriptionID,
           c.StartDate DESC,
           c.ContractID DESC
       ) c
-      LEFT JOIN dbo.ParkingSubscription sub ON sub.VehicleID = v.VehicleID AND sub.Status = 'ACTIVE'
-      LEFT JOIN dbo.ParkingCard pc ON sub.CardID = pc.CardID AND pc.Status = 1
-      LEFT JOIN dbo.ParkingSlot ps ON pc.SlotID = ps.SlotID
+      ${parkingJoins}
       ${listWhere}
       ORDER BY v.VehicleID DESC
       OFFSET @Offset ROWS
@@ -183,6 +207,44 @@ exports.getVehicleById = async (req, res) => {
     const vehicleId = validatePositiveInt(id, 'vehicleId');
 
     const pool = await getPool();
+    const parkingSubscriptionExists = await pool.request().query(`
+      SELECT CASE WHEN OBJECT_ID('dbo.ParkingSubscription', 'U') IS NULL THEN 0 ELSE 1 END AS HasParkingSubscription;
+    `);
+    const hasParkingSubscription = !!parkingSubscriptionExists.recordset[0]?.HasParkingSubscription;
+    const parkingSelect = hasParkingSubscription ? `
+          sub.ParkingSubscriptionID,
+          sub.MonthlyFeeSnapshot,
+          sub.StartDate AS SubStart,
+          sub.EndDate AS SubEnd,
+          sub.Status AS SubStatus,
+          pc.CardID,
+          pc.CardCode,
+          pc.IssueDate AS CardIssueDate,
+          pc.ExpiredDate AS CardExpiredDate,
+          pc.Status AS CardStatus,
+          ps.SlotID,
+          ps.SlotNumber,
+          ps.IsOccupied AS SlotOccupied
+    ` : `
+          NULL AS ParkingSubscriptionID,
+          NULL AS MonthlyFeeSnapshot,
+          NULL AS SubStart,
+          NULL AS SubEnd,
+          NULL AS SubStatus,
+          NULL AS CardID,
+          NULL AS CardCode,
+          NULL AS CardIssueDate,
+          NULL AS CardExpiredDate,
+          NULL AS CardStatus,
+          NULL AS SlotID,
+          NULL AS SlotNumber,
+          NULL AS SlotOccupied
+    `;
+    const parkingJoins = hasParkingSubscription ? `
+        LEFT JOIN dbo.ParkingSubscription sub ON sub.VehicleID = v.VehicleID AND sub.Status = 'ACTIVE'
+        LEFT JOIN dbo.ParkingCard pc ON sub.CardID = pc.CardID AND pc.Status = 1
+        LEFT JOIN dbo.ParkingSlot ps ON pc.SlotID = ps.SlotID
+    ` : '';
     const result = await pool.request()
       .input('VehicleID', sql.Int, vehicleId)
       .query(`
@@ -203,19 +265,7 @@ exports.getVehicleById = async (req, res) => {
           c.ContractID,
           c.ContractNumber,
           a.ApartmentCode,
-          sub.ParkingSubscriptionID,
-          sub.MonthlyFeeSnapshot,
-          sub.StartDate AS SubStart,
-          sub.EndDate AS SubEnd,
-          sub.Status AS SubStatus,
-          pc.CardID,
-          pc.CardCode,
-          pc.IssueDate AS CardIssueDate,
-          pc.ExpiredDate AS CardExpiredDate,
-          pc.Status AS CardStatus,
-          ps.SlotID,
-          ps.SlotNumber,
-          ps.IsOccupied AS SlotOccupied
+          ${parkingSelect}
         FROM dbo.Vehicle v
         INNER JOIN dbo.VehicleType vt ON v.VehicleTypeID = vt.VehicleTypeID
         INNER JOIN dbo.Resident r ON v.ResidentID = r.ResidentID
@@ -238,9 +288,7 @@ exports.getVehicleById = async (req, res) => {
             c.StartDate DESC,
             c.ContractID DESC
         ) c
-        LEFT JOIN dbo.ParkingSubscription sub ON sub.VehicleID = v.VehicleID AND sub.Status = 'ACTIVE'
-        LEFT JOIN dbo.ParkingCard pc ON sub.CardID = pc.CardID AND pc.Status = 1
-        LEFT JOIN dbo.ParkingSlot ps ON pc.SlotID = ps.SlotID
+        ${parkingJoins}
         WHERE v.VehicleID = @VehicleID
       `);
 
@@ -381,19 +429,24 @@ exports.updateVehicle = async (req, res) => {
         throw new BusinessError('Vehicle type not found', 404);
       }
       if (vehicle.Status) {
-        const subCheck = await pool.request()
-          .input('VehicleID', sql.Int, vehicleId)
-          .query(`
-            SELECT ps.VehicleTypeID AS SlotVehicleTypeID
-            FROM dbo.ParkingSubscription sub
-            INNER JOIN dbo.ParkingCard pc ON sub.CardID = pc.CardID
-            INNER JOIN dbo.ParkingSlot ps ON pc.SlotID = ps.SlotID
-            WHERE sub.VehicleID = @VehicleID AND sub.Status = 'ACTIVE' AND pc.Status = 1
-          `);
-        if (subCheck.recordset[0]) {
-          const slotVtId = subCheck.recordset[0].SlotVehicleTypeID;
-          if (slotVtId !== vtId) {
-            throw new BusinessError('Cannot change vehicle type because active subscription uses a slot of different type', 409);
+        const hasParkingSubscription = await pool.request().query(`
+          SELECT CASE WHEN OBJECT_ID('dbo.ParkingSubscription', 'U') IS NULL THEN 0 ELSE 1 END AS HasParkingSubscription;
+        `);
+        if (hasParkingSubscription.recordset[0]?.HasParkingSubscription) {
+          const subCheck = await pool.request()
+            .input('VehicleID', sql.Int, vehicleId)
+            .query(`
+              SELECT ps.VehicleTypeID AS SlotVehicleTypeID
+              FROM dbo.ParkingSubscription sub
+              INNER JOIN dbo.ParkingCard pc ON sub.CardID = pc.CardID
+              INNER JOIN dbo.ParkingSlot ps ON pc.SlotID = ps.SlotID
+              WHERE sub.VehicleID = @VehicleID AND sub.Status = 'ACTIVE' AND pc.Status = 1
+            `);
+          if (subCheck.recordset[0]) {
+            const slotVtId = subCheck.recordset[0].SlotVehicleTypeID;
+            if (slotVtId !== vtId) {
+              throw new BusinessError('Cannot change vehicle type because active subscription uses a slot of different type', 409);
+            }
           }
         }
       }
@@ -416,16 +469,21 @@ exports.updateVehicle = async (req, res) => {
         throw new BusinessError('status must be 0, 1, true, or false', 400);
       }
       if (stat === 0) {
-        const subActive = await pool.request()
-          .input('VehicleID', sql.Int, vehicleId)
-          .query(`
-            SELECT ParkingSubscriptionID
-            FROM dbo.ParkingSubscription
-            WHERE VehicleID = @VehicleID
-              AND Status = 'ACTIVE'
-          `);
-        if (subActive.recordset[0]) {
-          throw new BusinessError('Cannot deactivate vehicle with active subscription', 409);
+        const hasParkingSubscription = await pool.request().query(`
+          SELECT CASE WHEN OBJECT_ID('dbo.ParkingSubscription', 'U') IS NULL THEN 0 ELSE 1 END AS HasParkingSubscription;
+        `);
+        if (hasParkingSubscription.recordset[0]?.HasParkingSubscription) {
+          const subActive = await pool.request()
+            .input('VehicleID', sql.Int, vehicleId)
+            .query(`
+              SELECT ParkingSubscriptionID
+              FROM dbo.ParkingSubscription
+              WHERE VehicleID = @VehicleID
+                AND Status = 'ACTIVE'
+            `);
+          if (subActive.recordset[0]) {
+            throw new BusinessError('Cannot deactivate vehicle with active subscription', 409);
+          }
         }
         const lastEvent = await pool.request()
           .input('VehicleID', sql.Int, vehicleId)
@@ -492,16 +550,21 @@ exports.deleteVehicle = async (req, res) => {
       });
     }
 
-    const subActive = await pool.request()
-      .input('VehicleID', sql.Int, vehicleId)
-      .query(`
-        SELECT ParkingSubscriptionID
-        FROM dbo.ParkingSubscription
-        WHERE VehicleID = @VehicleID
-          AND Status = 'ACTIVE'
-      `);
-    if (subActive.recordset[0]) {
-      throw new BusinessError('Cannot delete vehicle with active subscription', 409);
+    const hasParkingSubscription = await pool.request().query(`
+      SELECT CASE WHEN OBJECT_ID('dbo.ParkingSubscription', 'U') IS NULL THEN 0 ELSE 1 END AS HasParkingSubscription;
+    `);
+    if (hasParkingSubscription.recordset[0]?.HasParkingSubscription) {
+      const subActive = await pool.request()
+        .input('VehicleID', sql.Int, vehicleId)
+        .query(`
+          SELECT ParkingSubscriptionID
+          FROM dbo.ParkingSubscription
+          WHERE VehicleID = @VehicleID
+            AND Status = 'ACTIVE'
+        `);
+      if (subActive.recordset[0]) {
+        throw new BusinessError('Cannot delete vehicle with active subscription', 409);
+      }
     }
 
     const lastEvent = await pool.request()

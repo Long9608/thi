@@ -5,7 +5,13 @@ const {
     syncInvoiceStatus,
     SUCCESS_PAYMENT_STATUS_ID,
     PAID_INVOICE_STATUS_ID,
-    ensureSmartMetersForActiveContracts,
+    ensureDraftInvoiceForApartment,
+    updateManualMeterReadings,
+    finalizeInvoice,
+    getMeterReadingState,
+    WORKFLOW_DRAFT,
+    WORKFLOW_WAITING_PAYMENT,
+    WORKFLOW_PAID,
     ACTIVE_CONTRACT_STATUS_SQL,
     toNumber,
     roundMoney
@@ -29,8 +35,14 @@ function normalizeInvoice(row) {
     invoice.PaidAmount = toNumber(invoice.PaidAmount);
     invoice.RemainingAmount = Math.max(0, roundMoney(toNumber(invoice.TotalAmount) - invoice.PaidAmount));
     invoice.IsPaid = invoice.PaidAmount >= toNumber(invoice.TotalAmount);
+    invoice.WorkflowStatus = invoice.IsPaid ? WORKFLOW_PAID : (invoice.WorkflowStatus || WORKFLOW_WAITING_PAYMENT);
+    invoice.WorkflowStatusName = {
+        [WORKFLOW_DRAFT]: 'Nháp',
+        [WORKFLOW_WAITING_PAYMENT]: 'Chờ thanh toán',
+        [WORKFLOW_PAID]: 'Đã thanh toán'
+    }[invoice.WorkflowStatus] || invoice.InvoiceStatus;
     invoice.DisplayStatusID = invoice.IsPaid ? PAID_INVOICE_STATUS_ID : invoice.StatusID;
-    invoice.DisplayInvoiceStatus = invoice.IsPaid ? 'Da thanh toan' : invoice.InvoiceStatus;
+    invoice.DisplayInvoiceStatus = invoice.WorkflowStatusName;
     return invoice;
 }
 
@@ -99,6 +111,7 @@ exports.getAllInvoices = async (req, res) => {
                 i.DueDate,
                 i.TotalAmount,
                 i.StatusID,
+                i.WorkflowStatus,
                 ist.StatusName AS InvoiceStatus,
                 c.ContractNumber,
                 a.ApartmentID,
@@ -165,6 +178,7 @@ exports.getInvoiceById = async (req, res) => {
             .query(`
                 SELECT
                     i.*,
+                    i.WorkflowStatus,
                     ist.StatusName AS InvoiceStatus,
                     c.ContractNumber,
                     c.Rent,
@@ -227,7 +241,7 @@ exports.getApartmentCurrentInvoice = async (req, res) => {
         const apartmentId = parseInt(req.params.apartmentId, 10);
         const pool = await getPool();
 
-        await ensureSmartMetersForActiveContracts(pool);
+        await ensureDraftInvoiceForApartment(pool, { apartmentId, invoiceMonth: month, invoiceYear: year });
 
         const invoiceResult = await pool.request()
             .input('ApartmentID', sql.Int, apartmentId)
@@ -243,6 +257,7 @@ exports.getApartmentCurrentInvoice = async (req, res) => {
                     i.DueDate,
                     i.TotalAmount,
                     i.StatusID,
+                    i.WorkflowStatus,
                     ist.StatusName AS InvoiceStatus,
                     c.ContractNumber,
                     a.ApartmentID,
@@ -277,6 +292,14 @@ exports.getApartmentCurrentInvoice = async (req, res) => {
                     WHERE InvoiceID = i.InvoiceID AND StatusID = ${SUCCESS_PAYMENT_STATUS_ID}
                 ) pay
                 WHERE c.ApartmentID = @ApartmentID
+                  AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
+                  AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
+                  AND EXISTS (
+                      SELECT 1
+                      FROM ContractResident cr
+                      WHERE cr.ContractID = c.ContractID
+                        AND cr.MoveOutDate IS NULL
+                  )
                   AND i.InvoiceMonth = @InvoiceMonth
                   AND i.InvoiceYear = @InvoiceYear
                 ORDER BY i.InvoiceID DESC
@@ -292,24 +315,13 @@ exports.getApartmentCurrentInvoice = async (req, res) => {
                 WHERE c.ApartmentID = @ApartmentID
                   AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
                   AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
+                  AND EXISTS (
+                      SELECT 1
+                      FROM ContractResident cr
+                      WHERE cr.ContractID = c.ContractID
+                        AND cr.MoveOutDate IS NULL
+                  )
                 ORDER BY c.StartDate DESC, c.ContractID DESC
-            `);
-
-        const metersResult = await pool.request()
-            .input('ApartmentID', sql.Int, apartmentId)
-            .query(`
-                SELECT sm.MeterID, sm.ApartmentID, sm.UtilityTypeID, ut.UtilityName,
-                       sm.CurrentIndex, sm.LastTickAt, sm.Status,
-                       ISNULL(logs.LogCount, 0) AS LogCount
-                FROM SmartMeter sm
-                JOIN UtilityType ut ON ut.UtilityTypeID = sm.UtilityTypeID
-                OUTER APPLY (
-                    SELECT COUNT(*) AS LogCount
-                    FROM SmartMeterLog sml
-                    WHERE sml.MeterID = sm.MeterID
-                ) logs
-                WHERE sm.ApartmentID = @ApartmentID
-                ORDER BY sm.UtilityTypeID
             `);
 
         const preview = invoiceResult.recordset[0]
@@ -319,17 +331,51 @@ exports.getApartmentCurrentInvoice = async (req, res) => {
                 invoiceMonth: month,
                 invoiceYear: year
             });
+        const meterReadings = await getMeterReadingState(pool, apartmentId, month, year);
+        const activeContract = contractResult.recordset[0] || null;
+        const invoice = invoiceResult.recordset[0] ? normalizeInvoice(invoiceResult.recordset[0]) : null;
+        const showBaselineMeterState = !activeContract || invoice?.WorkflowStatus === WORKFLOW_PAID;
+        const displayedMeterReadings = showBaselineMeterState
+            ? meterReadings.map((reading) => ({
+                ...reading,
+                oldIndex: reading.isEntered ? reading.newIndex : reading.oldIndex,
+                newIndex: null,
+                consumption: 0,
+                amount: 0,
+                averageUnitPrice: reading.averageUnitPrice,
+                isEntered: false
+            }))
+            : meterReadings;
+        let registeredServices = [];
+        if (activeContract) {
+            const servicesResult = await pool.request()
+                .input('ContractID', sql.Int, activeContract.ContractID)
+                .query(`
+                    SELECT sr.RegistrationID, sr.ContractID, sr.ServiceID, sr.Quantity,
+                           sr.RegisterDate, sr.EndDate, sr.Status,
+                           s.ServiceName, s.Unit, s.Price
+                    FROM ServiceRegistration sr
+                    JOIN Service s ON s.ServiceID = sr.ServiceID
+                    WHERE sr.ContractID = @ContractID
+                      AND sr.Status = 1
+                      AND s.Status = 1
+                      AND (sr.EndDate IS NULL OR sr.EndDate >= CAST(GETDATE() AS DATE))
+                    ORDER BY s.ServiceName
+                `);
+            registeredServices = servicesResult.recordset || [];
+        }
 
         res.json({
             success: true,
             data: {
                 month,
                 year,
-                invoice: invoiceResult.recordset[0] ? normalizeInvoice(invoiceResult.recordset[0]) : null,
+                invoice,
                 preview,
-                activeContract: contractResult.recordset[0] || null,
-                meters: metersResult.recordset || [],
-                canGenerate: Boolean(contractResult.recordset[0]) && !invoiceResult.recordset[0]
+                activeContract,
+                registeredServices,
+                meterReadings: displayedMeterReadings,
+                canGenerate: false
             }
         });
     } catch (error) {
@@ -366,6 +412,14 @@ exports.payApartmentCurrentInvoice = async (req, res) => {
                 FROM Invoice i
                 JOIN Contract c ON c.ContractID = i.ContractID
                 WHERE c.ApartmentID = @ApartmentID
+                  AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
+                  AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
+                  AND EXISTS (
+                      SELECT 1
+                      FROM ContractResident cr
+                      WHERE cr.ContractID = c.ContractID
+                        AND cr.MoveOutDate IS NULL
+                  )
                   AND i.InvoiceMonth = @InvoiceMonth
                   AND i.InvoiceYear = @InvoiceYear
                 ORDER BY i.InvoiceID DESC
@@ -374,12 +428,10 @@ exports.payApartmentCurrentInvoice = async (req, res) => {
         if (existing.recordset[0]) {
             invoiceId = existing.recordset[0].InvoiceID;
         } else {
-            const generated = await generateMonthlyInvoice(pool, {
-                apartmentId,
-                invoiceMonth: month,
-                invoiceYear: year
+            return res.status(400).json({
+                success: false,
+                message: 'Chưa có hóa đơn cho căn hộ/tháng này'
             });
-            invoiceId = generated.invoiceId;
         }
 
         const transaction = new sql.Transaction(pool);
@@ -389,7 +441,7 @@ exports.payApartmentCurrentInvoice = async (req, res) => {
             const invoiceCheck = await transaction.request()
                 .input('InvoiceID', sql.Int, invoiceId)
                 .query(`
-                    SELECT TotalAmount
+                    SELECT TotalAmount, WorkflowStatus
                     FROM Invoice WITH (UPDLOCK, ROWLOCK)
                     WHERE InvoiceID = @InvoiceID
                 `);
@@ -398,6 +450,10 @@ exports.payApartmentCurrentInvoice = async (req, res) => {
             if (!invoice) {
                 await transaction.rollback();
                 return res.status(404).json({ success: false, message: 'Invoice not found' });
+            }
+            if (invoice.WorkflowStatus === WORKFLOW_DRAFT) {
+                await transaction.rollback();
+                return res.status(400).json({ success: false, message: 'Hóa đơn còn nháp, cần nhập điện/nước và chốt trước khi thanh toán' });
             }
 
             const paidResult = await transaction.request()
@@ -449,6 +505,67 @@ exports.payApartmentCurrentInvoice = async (req, res) => {
         res.status(error.statusCode || 500).json({
             success: false,
             message: error.message || 'Failed to pay apartment invoice'
+        });
+    }
+};
+
+exports.updateApartmentCurrentMeterReadings = async (req, res) => {
+    try {
+        const now = new Date();
+        const apartmentId = parseInt(req.params.apartmentId, 10);
+        const month = parseInt(req.body?.invoiceMonth || req.body?.month, 10) || now.getMonth() + 1;
+        const year = parseInt(req.body?.invoiceYear || req.body?.year, 10) || now.getFullYear();
+        const pool = await getPool();
+
+        await ensureDraftInvoiceForApartment(pool, { apartmentId, invoiceMonth: month, invoiceYear: year });
+        await updateManualMeterReadings(pool, {
+            apartmentId,
+            invoiceMonth: month,
+            invoiceYear: year,
+            electricNewIndex: req.body?.electricNewIndex,
+            waterNewIndex: req.body?.waterNewIndex
+        });
+
+        res.json({
+            success: true,
+            message: 'Đã cập nhật chỉ số điện/nước',
+            data: {
+                meterReadings: await getMeterReadingState(pool, apartmentId, month, year)
+            }
+        });
+    } catch (error) {
+        console.error('Update apartment meter readings error:', error);
+        res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Không thể cập nhật chỉ số điện/nước'
+        });
+    }
+};
+
+exports.finalizeApartmentCurrentInvoice = async (req, res) => {
+    try {
+        const now = new Date();
+        const apartmentId = parseInt(req.params.apartmentId, 10);
+        const month = parseInt(req.body?.invoiceMonth || req.body?.month, 10) || now.getMonth() + 1;
+        const year = parseInt(req.body?.invoiceYear || req.body?.year, 10) || now.getFullYear();
+        const pool = await getPool();
+
+        const draftId = await ensureDraftInvoiceForApartment(pool, { apartmentId, invoiceMonth: month, invoiceYear: year });
+        if (!draftId) {
+            return res.status(400).json({ success: false, message: 'Căn hộ chưa có hợp đồng hiệu lực' });
+        }
+
+        const result = await finalizeInvoice(pool, draftId);
+        res.json({
+            success: true,
+            message: 'Đã chốt hóa đơn, chuyển sang chờ thanh toán',
+            data: result
+        });
+    } catch (error) {
+        console.error('Finalize apartment invoice error:', error);
+        res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Không thể chốt hóa đơn'
         });
     }
 };
@@ -573,7 +690,7 @@ exports.processPayment = async (req, res) => {
         const invoiceCheck = await transaction.request()
             .input('InvoiceID', sql.Int, invoiceId)
             .query(`
-                SELECT TotalAmount, StatusID
+                SELECT TotalAmount, StatusID, WorkflowStatus
                 FROM Invoice WITH (UPDLOCK, ROWLOCK)
                 WHERE InvoiceID = @InvoiceID
             `);
@@ -582,6 +699,13 @@ exports.processPayment = async (req, res) => {
         if (!invoice) {
             await transaction.rollback();
             return res.status(404).json({ success: false, message: 'Invoice not found' });
+        }
+        if (invoice.WorkflowStatus === WORKFLOW_DRAFT) {
+            await transaction.rollback();
+            return res.status(400).json({
+                success: false,
+                message: 'Hóa đơn còn nháp, cần nhập điện/nước và chốt trước khi thanh toán'
+            });
         }
 
         const paidResult = await transaction.request()

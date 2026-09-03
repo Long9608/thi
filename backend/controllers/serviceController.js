@@ -1,4 +1,4 @@
-const { getPool, sql } = require('../config/db');
+﻿const { getPool, sql } = require('../config/db');
 
 exports.getAllServices = async (req, res) => {
     try {
@@ -355,6 +355,28 @@ exports.registerService = async (req, res) => {
         }
 
         const pool = await getPool();
+        const activeContract = await pool.request()
+            .input('ContractID', sql.Int, contractId)
+            .query(`
+                SELECT TOP 1 c.ContractID
+                FROM Contract c
+                WHERE c.ContractID = @ContractID
+                  AND c.StatusID IN (2, 5)
+                  AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
+                  AND EXISTS (
+                      SELECT 1
+                      FROM ContractResident cr
+                      WHERE cr.ContractID = c.ContractID
+                        AND cr.MoveOutDate IS NULL
+                  )
+            `);
+
+        if (!activeContract.recordset[0]) {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ được đăng ký dịch vụ cho căn hộ đang ở và hợp đồng còn hiệu lực'
+            });
+        }
 
         // Check if already registered
         const checkResult = await pool.request()
@@ -559,3 +581,6 @@ async function updateSpecialServiceMember(req, res, servicePattern) {
 
 exports.getPoolMembers = (req, res) => getSpecialServiceMembers(req, res, '%bơi%');
 exports.updatePoolMember = (req, res) => updateSpecialServiceMember(req, res, '%bơi%');
+exports.getWifiMembers = (req, res) => getSpecialServiceMembers(req, res, '%wifi%');
+exports.updateWifiMember = (req, res) => updateSpecialServiceMember(req, res, '%wifi%');
+

@@ -31,10 +31,7 @@ export default function VehicleManagement({ flash }) {
     residentId: '',
     plateNumber: '',
     vehicleTypeId: '',
-    brand: '',
-    color: '',
-    slotId: '',
-    cardExpiryDate: ''
+    cardExpiryMonths: 1
   });
 
   // ============================================
@@ -167,11 +164,21 @@ export default function VehicleManagement({ flash }) {
     e.preventDefault();
     setLoading(true);
     try {
+      const cardExpiryDate = form.cardExpiryMonths
+        ? new Date(new Date().setMonth(new Date().getMonth() + Number(form.cardExpiryMonths)))
+        : null;
+      const payload = {
+        residentId: form.residentId,
+        plateNumber: form.plateNumber,
+        vehicleTypeId: form.vehicleTypeId,
+        cardExpiryDate: cardExpiryDate ? cardExpiryDate.toISOString().slice(0, 10) : ''
+      };
+
       if (modalMode === 'create') {
-        await vehicleAPI.create(form);
+        await vehicleAPI.create(payload);
         if (flash) flash('✅ Đăng ký xe thành công!');
       } else {
-        await vehicleAPI.update(selectedVehicle.VehicleID, form);
+        await vehicleAPI.update(selectedVehicle.VehicleID, payload);
         if (flash) flash('✅ Cập nhật xe thành công!');
       }
       setModalOpen(false);
@@ -221,10 +228,7 @@ export default function VehicleManagement({ flash }) {
       residentId: '',
       plateNumber: '',
       vehicleTypeId: '',
-      brand: '',
-      color: '',
-      slotId: '',
-      cardExpiryDate: ''
+      cardExpiryMonths: 1
     });
     setSelectedVehicle(null);
   };
@@ -241,10 +245,7 @@ export default function VehicleManagement({ flash }) {
       residentId: vehicle.ResidentID || '',
       plateNumber: vehicle.PlateNumber || '',
       vehicleTypeId: vehicle.VehicleTypeID || '',
-      brand: vehicle.Brand || '',
-      color: vehicle.Color || '',
-      slotId: vehicle.SlotID || '',
-      cardExpiryDate: vehicle.CardExpiredDate || ''
+      cardExpiryMonths: 1
     });
     setModalMode('edit');
     setModalOpen(true);
@@ -305,6 +306,25 @@ const getCardStatusBadge = (vehicle) => {
   return <Badge tone="green">Còn hiệu lực</Badge>;
 };
 
+  const VEHICLE_TYPE_OPTIONS = [
+    { key: 'car', label: 'Xe hơi', vehicleTypeId: 4, fee: 300000 },
+    { key: 'motorbike', label: 'Xe máy', vehicleTypeId: 5, fee: 150000 },
+    { key: 'bicycle', label: 'Xe đạp', vehicleTypeId: 6, fee: 0 }
+  ];
+
+  const resolveVehicleTypeOption = useCallback((name) => {
+    const lower = (name || '').toLowerCase();
+    if (lower.includes('xe máy') || lower.includes('xe may') || lower.includes('motor')) return VEHICLE_TYPE_OPTIONS[1];
+    if (lower.includes('xe đạp') || lower.includes('xe dap') || lower.includes('bicycle')) return VEHICLE_TYPE_OPTIONS[2];
+    return VEHICLE_TYPE_OPTIONS[0];
+  }, []);
+
+  const selectedVehicleTypeOption = useMemo(() => {
+    return resolveVehicleTypeOption(
+      vehicleTypes.find(t => String(t.VehicleTypeID) === String(form.vehicleTypeId))?.TypeName
+    );
+  }, [form.vehicleTypeId, vehicleTypes, resolveVehicleTypeOption]);
+
   // ============================================
   // 📊 FILTER & RENDER
   // ============================================
@@ -314,8 +334,8 @@ const getCardStatusBadge = (vehicle) => {
     return vehicles.filter(v => {
       const plate = (v.PlateNumber || '').toLowerCase();
       const owner = (v.OwnerName || '').toLowerCase();
-      const brand = (v.Brand || '').toLowerCase();
-      return plate.includes(q) || owner.includes(q) || brand.includes(q);
+      const type = (v.VehicleType || '').toLowerCase();
+      return plate.includes(q) || owner.includes(q) || type.includes(q);
     });
   }, [vehicles, search]);
 
@@ -408,6 +428,7 @@ const getCardStatusBadge = (vehicle) => {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredVehicles.map((vehicle) => {
             const status = getVehicleStatus(vehicle);
+            const typeOption = resolveVehicleTypeOption(vehicle.VehicleType);
             return (
               <Card key={vehicle.VehicleID} className="group hover:border-[#1f4f46]/30 transition-all overflow-hidden">
                 <div className="p-5">
@@ -420,7 +441,12 @@ const getCardStatusBadge = (vehicle) => {
                         <h3 className="text-xl font-black text-slate-950 group-hover:text-[#1f4f46] transition">
                           {vehicle.PlateNumber}
                         </h3>
-                        <p className="text-sm text-slate-500">{vehicle.VehicleType}</p>
+                        <p className="text-sm text-slate-500">
+                          {vehicle.VehicleType}
+                          <span className="ml-2 text-[#1f4f46] font-semibold">
+                            {money(typeOption.fee).replace('₫', '')}/tháng
+                          </span>
+                        </p>
                       </div>
                     </div>
                     <Badge tone={status.tone}>{status.label}</Badge>
@@ -435,18 +461,6 @@ const getCardStatusBadge = (vehicle) => {
                       <span className="text-slate-500">Căn hộ</span>
                       <span className="font-medium text-slate-950">{vehicle.ApartmentCode || 'Chưa có'}</span>
                     </div>
-                    {vehicle.Brand && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Hãng</span>
-                        <span className="font-medium text-slate-950">{vehicle.Brand}</span>
-                      </div>
-                    )}
-                    {vehicle.Color && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Màu sắc</span>
-                        <span className="font-medium text-slate-950">{vehicle.Color}</span>
-                      </div>
-                    )}
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Thẻ xe</span>
                       {getCardStatusBadge(vehicle)}
@@ -537,8 +551,6 @@ const getCardStatusBadge = (vehicle) => {
               <div>
                 <p className="text-sm font-semibold text-slate-500">Thông tin xe</p>
                 <div className="mt-2 space-y-2 text-sm">
-                  {selectedVehicle.Brand && <div><span className="text-slate-500">Hãng:</span> {selectedVehicle.Brand}</div>}
-                  {selectedVehicle.Color && <div><span className="text-slate-500">Màu sắc:</span> {selectedVehicle.Color}</div>}
                   <div><span className="text-slate-500">Ngày đăng ký:</span> {formatDate(selectedVehicle.RegisterDate)}</div>
                   <div><span className="text-slate-500">Trạng thái:</span> {selectedVehicle.Status === 1 ? 'Hoạt động' : 'Không hoạt động'}</div>
                 </div>
@@ -606,59 +618,52 @@ const getCardStatusBadge = (vehicle) => {
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-semibold text-slate-700">Loại xe *</label>
-                <select
-                  value={form.vehicleTypeId}
-                  onChange={(e) => setForm({ ...form, vehicleTypeId: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
-                  required
-                >
-                  <option value="">Chọn loại xe</option>
-                  {vehicleTypes.map(t => (
-                    <option key={t.VehicleTypeID} value={t.VehicleTypeID}>
-                      {t.TypeName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-slate-700">Hãng xe</label>
-                <Input
-                  value={form.brand}
-                  onChange={(e) => setForm({ ...form, brand: e.target.value })}
-                  placeholder="Mazda 3"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-slate-700">Màu sắc</label>
-                <Input
-                  value={form.color}
-                  onChange={(e) => setForm({ ...form, color: e.target.value })}
-                  placeholder="Đỏ"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-slate-700">Vị trí đỗ</label>
-                <select
-                  value={form.slotId}
-                  onChange={(e) => setForm({ ...form, slotId: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
-                >
-                  <option value="">Chọn vị trí</option>
-                </select>
+                <div className="grid gap-2 md:grid-cols-3">
+                  {VEHICLE_TYPE_OPTIONS.map((option) => {
+                    const active = String(form.vehicleTypeId) === String(option.vehicleTypeId);
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => setForm(prev => ({
+                          ...prev,
+                          vehicleTypeId: String(option.vehicleTypeId),
+                        }))}
+                        className={`rounded-2xl border px-4 py-3 text-left transition ${
+                          active
+                            ? 'border-[#1f4f46] bg-[#eef5f2]'
+                            : 'border-slate-200 bg-white hover:border-[#1f4f46]/40'
+                        }`}
+                      >
+                        <div className="font-bold text-slate-950">{option.label}</div>
+                        <div className="text-sm text-slate-500">
+                          {option.fee === 0 ? 'Miễn phí' : `${money(option.fee).replace('₫', '')}/tháng`}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Hạn thẻ (tùy chọn)</label>
-              <Input
-                type="date"
-                value={form.cardExpiryDate}
-                onChange={(e) => setForm({ ...form, cardExpiryDate: e.target.value })}
-              />
-              <p className="mt-1 text-xs text-slate-500">Để trống nếu chưa cấp thẻ</p>
+              <label className="mb-1 block text-sm font-semibold text-slate-700">Hạn thẻ</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[1, 3, 6].map((months) => (
+                  <button
+                    key={months}
+                    type="button"
+                    onClick={() => setForm(prev => ({ ...prev, cardExpiryMonths: months }))}
+                    className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                      Number(form.cardExpiryMonths) === months
+                        ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-[#1f4f46]/40'
+                    }`}
+                  >
+                    {months} tháng
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="flex justify-end gap-2">

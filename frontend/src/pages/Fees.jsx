@@ -135,6 +135,12 @@ export default function Fees({ flash }) {
     setModalOpen(true);
   };
 
+  const handlePrintInvoice = (invoice) => {
+    if (flash) {
+      flash(`🖨️ Đã in hóa đơn ${invoice?.ContractNumber || invoice?.InvoiceID || ''}`.trim());
+    }
+  };
+
   const addInvoiceItem = () => {
     setGenerateForm(prev => ({
       ...prev,
@@ -354,6 +360,9 @@ export default function Fees({ flash }) {
                 <div className="mt-4 flex gap-2">
                   <Button variant="secondary" className="flex-1" onClick={() => openViewModal(invoice)}>
                     <Eye size={14} /> Xem
+                  </Button>
+                  <Button variant="secondary" className="flex-1" onClick={() => handlePrintInvoice(invoice)}>
+                    <Printer size={14} /> In
                   </Button>
                 </div>
               </div>

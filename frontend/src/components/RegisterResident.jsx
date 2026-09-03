@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  UserPlus, Mail, Phone, Calendar, MapPin, Shield, User,
+  UserPlus, Mail, Phone, Calendar, MapPin, Shield,
   CheckCircle2, X, RefreshCw, Building2, Home, Users,
   AlertCircle, Save, ArrowLeft, Upload, FileText,
-  ChevronRight, Lock, Eye, EyeOff
+  ChevronRight
 } from 'lucide-react';
 import { residentAPI, apartmentAPI } from '../api';
 import { Card, Button, Input, Badge, Modal } from './UI';
@@ -24,7 +24,6 @@ export default function RegisterResident({ flash, onSuccess }) {
     identityNumber: '',
     issueDate: '',
     issuePlace: '',
-    expiredDate: '',
     frontImage: null,
     backImage: null,
     apartmentId: '',
@@ -32,8 +31,6 @@ export default function RegisterResident({ flash, onSuccess }) {
     relationship: 'Chủ hộ',
     emergencyContactName: '',
     emergencyContactPhone: '',
-    username: '',
-    password: '',
   });
 
   // 🔥 STATE LƯU LỖI
@@ -92,16 +89,6 @@ export default function RegisterResident({ flash, onSuccess }) {
       case 'moveInDate':
         if (!value) error = 'Vui lòng chọn ngày chuyển vào';
         break;
-      case 'username':
-        if (value && value.length < 3) {
-          error = 'Tên đăng nhập phải có ít nhất 3 ký tự';
-        }
-        break;
-      case 'password':
-        if (value && value.length < 6) {
-          error = 'Mật khẩu phải có ít nhất 6 ký tự';
-        }
-        break;
       default:
         break;
     }
@@ -147,16 +134,8 @@ export default function RegisterResident({ flash, onSuccess }) {
       const moveInError = validateField('moveInDate', form.moveInDate);
       if (moveInError) newErrors.moveInDate = moveInError;
       
-      const usernameError = validateField('username', form.username);
-      if (usernameError) newErrors.username = usernameError;
-      
-      const passwordError = validateField('password', form.password);
-      if (passwordError) newErrors.password = passwordError;
-
       touched.apartmentId = true;
       touched.moveInDate = true;
-      touched.username = true;
-      touched.password = true;
     }
 
     setErrors(prev => ({ ...prev, ...newErrors }));
@@ -259,14 +238,11 @@ export default function RegisterResident({ flash, onSuccess }) {
           identityNumber: form.identityNumber.trim(),
           issueDate: form.issueDate || null,
           issuePlace: form.issuePlace.trim() || null,
-          expiredDate: form.expiredDate || null,
           apartmentId: form.apartmentId,
           moveInDate: form.moveInDate,
           relationship: form.relationship,
           emergencyContactName: form.emergencyContactName.trim() || null,
           emergencyContactPhone: form.emergencyContactPhone.trim() || null,
-          username: form.username.trim() || null,
-          password: form.password || null,
         };
 
         await residentAPI.create(data);
@@ -278,10 +254,9 @@ export default function RegisterResident({ flash, onSuccess }) {
         setForm({
           fullName: '', gender: 1, birthDate: '', phone: '', email: '',
           address: '', identityNumber: '', issueDate: '', issuePlace: '',
-          expiredDate: '', frontImage: null, backImage: null,
+          frontImage: null, backImage: null,
           apartmentId: '', moveInDate: '', relationship: 'Chủ hộ',
           emergencyContactName: '', emergencyContactPhone: '',
-          username: '', password: '',
         });
         setStep(1);
         setPreviewFront(null);
@@ -307,11 +282,6 @@ export default function RegisterResident({ flash, onSuccess }) {
           setServerErrors(prev => ({ ...prev, email: '❌ ' + errorMessage }));
           setStep(1);
           setFieldTouched(prev => ({ ...prev, email: true }));
-          flash('⚠️ ' + errorMessage);
-        } else if (errorMessage.includes('tên đăng nhập') || errorMessage.includes('Username')) {
-          setServerErrors(prev => ({ ...prev, username: '❌ ' + errorMessage }));
-          setStep(3);
-          setFieldTouched(prev => ({ ...prev, username: true }));
           flash('⚠️ ' + errorMessage);
         } else if (errorMessage.includes('CCCD') || errorMessage.includes('IdentityNumber')) {
           setServerErrors(prev => ({ ...prev, identityNumber: '❌ ' + errorMessage }));
@@ -368,7 +338,7 @@ export default function RegisterResident({ flash, onSuccess }) {
       {[1, 2, 3].map((s) => {
         const hasErrorInStep = (s === 1 && (errors.fullName || errors.phone || errors.email || serverErrors.phone || serverErrors.email)) ||
                                (s === 2 && (errors.identityNumber || serverErrors.identityNumber)) ||
-                               (s === 3 && (errors.apartmentId || errors.moveInDate || errors.username || errors.password || serverErrors.username));
+                               (s === 3 && (errors.apartmentId || errors.moveInDate));
         
         return (
           <div key={s} className="flex items-center">
@@ -548,14 +518,6 @@ export default function RegisterResident({ flash, onSuccess }) {
                     onChange={(e) => setForm({ ...form, issueDate: e.target.value })}
                   />
                 </div>
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Ngày hết hạn</label>
-                  <Input
-                    type="date"
-                    value={form.expiredDate}
-                    onChange={(e) => setForm({ ...form, expiredDate: e.target.value })}
-                  />
-                </div>
               </div>
 
               <div>
@@ -666,40 +628,6 @@ export default function RegisterResident({ flash, onSuccess }) {
                   className={hasError('moveInDate') ? 'border-rose-300' : ''}
                 />
                 {renderError('moveInDate')}
-              </div>
-
-              <div className="border-t border-slate-200 pt-4">
-                <p className="text-sm font-semibold text-slate-700 mb-3">Tài khoản đăng nhập (tùy chọn)</p>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-sm font-semibold text-slate-500">Tên đăng nhập</label>
-                    <Input
-                      value={form.username}
-                      onChange={(e) => handleFieldChange('username', e.target.value)}
-                      onBlur={() => handleFieldBlur('username')}
-                      placeholder="Tên đăng nhập"
-                      icon={User}
-                      className={hasError('username') ? 'border-rose-300' : ''}
-                    />
-                    {renderError('username')}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-semibold text-slate-500">Mật khẩu</label>
-                    <Input
-                      type="password"
-                      value={form.password}
-                      onChange={(e) => handleFieldChange('password', e.target.value)}
-                      onBlur={() => handleFieldBlur('password')}
-                      placeholder="Mật khẩu"
-                      icon={Lock}
-                      className={hasError('password') ? 'border-rose-300' : ''}
-                    />
-                    {renderError('password')}
-                  </div>
-                </div>
-                <p className="mt-2 text-xs text-slate-500">
-                  Nếu để trống, cư dân sẽ đăng nhập bằng số điện thoại
-                </p>
               </div>
 
               {/* 🔥 HIỂN THỊ TỔNG HỢP LỖI */}

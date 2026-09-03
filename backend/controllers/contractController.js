@@ -1,4 +1,4 @@
-const { getPool, sql } = require('../config/db');
+﻿const { getPool, sql } = require('../config/db');
 
 exports.getAllContracts = async (req, res) => {
     try {
@@ -24,6 +24,11 @@ exports.getAllContracts = async (req, res) => {
                 c.EndDate,
                 c.Deposit,
                 c.Rent,
+                c.ContractTermMonths,
+                c.DepositMonths,
+                c.PaymentCycleMonths,
+                c.MonthlyBillingDay,
+                c.SignedContractImage,
                 c.CreatedDate,
                 a.ApartmentCode,
                 a.Area,
@@ -217,13 +222,23 @@ exports.createContract = async (req, res) => {
             endDate,
             deposit,
             rent,
+            contractTermMonths,
+            depositMonths,
+            paymentCycleMonths,
+            monthlyBillingDay,
             statusId,
             residents,
             services
         } = req.body;
 
+        const fixedRent = 7500000;
+        const safeDepositMonths = [1, 2].includes(Number(depositMonths)) ? Number(depositMonths) : null;
+        const safeDeposit = safeDepositMonths ? fixedRent * safeDepositMonths : Number(deposit || 0);
+        const safePaymentCycleMonths = [1, 3].includes(Number(paymentCycleMonths)) ? Number(paymentCycleMonths) : 1;
+        const safeMonthlyBillingDay = 10;
+
         // Validation
-        if (!apartmentId || !ownerId || !contractNumber || !startDate || !endDate || !rent) {
+        if (!apartmentId || !ownerId || !contractNumber || !startDate || !endDate) {
             return res.status(400).json({
                 success: false,
                 message: 'Missing required fields'
@@ -290,18 +305,26 @@ exports.createContract = async (req, res) => {
             .input('SignDate', sql.Date, signDate || new Date())
             .input('StartDate', sql.Date, startDate)
             .input('EndDate', sql.Date, endDate)
-            .input('Deposit', sql.Decimal, deposit || 0)
-            .input('Rent', sql.Decimal, rent)
+            .input('Deposit', sql.Decimal, safeDeposit)
+            .input('Rent', sql.Decimal, fixedRent)
+            .input('ContractTermMonths', sql.Int, contractTermMonths || null)
+            .input('DepositMonths', sql.Int, safeDepositMonths)
+            .input('PaymentCycleMonths', sql.Int, safePaymentCycleMonths)
+            .input('MonthlyBillingDay', sql.Int, safeMonthlyBillingDay)
             .input('StatusID', sql.Int, statusId || 2)
             .query(`
                 INSERT INTO Contract (
                     ApartmentID, OwnerID, ContractNumber, SignDate, 
-                    StartDate, EndDate, Deposit, Rent, StatusID, CreatedDate
+                    StartDate, EndDate, Deposit, Rent,
+                    ContractTermMonths, DepositMonths, PaymentCycleMonths, MonthlyBillingDay,
+                    StatusID, CreatedDate
                 )
                 OUTPUT INSERTED.ContractID
                 VALUES (
                     @ApartmentID, @OwnerID, @ContractNumber, @SignDate,
-                    @StartDate, @EndDate, @Deposit, @Rent, @StatusID, GETDATE()
+                    @StartDate, @EndDate, @Deposit, @Rent,
+                    @ContractTermMonths, @DepositMonths, @PaymentCycleMonths, @MonthlyBillingDay,
+                    @StatusID, GETDATE()
                 )
             `);
 
@@ -369,19 +392,26 @@ exports.createContract = async (req, res) => {
 };
 
 exports.updateContract = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { 
-            endDate,
-            deposit,
-            rent,
-            statusId
-        } = req.body;
+    const { id } = req.params;
+    const {
+        endDate,
+        deposit,
+        rent,
+        contractTermMonths,
+        depositMonths,
+        paymentCycleMonths,
+        monthlyBillingDay,
+        statusId
+    } = req.body;
 
-        const pool = await getPool();
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+
+    try {
+        await transaction.begin();
 
         const updates = [];
-        const request = pool.request();
+        const request = transaction.request();
         request.input('ContractID', sql.Int, id);
 
         if (typeof endDate !== 'undefined' && endDate !== null && endDate !== '') {
@@ -396,7 +426,31 @@ exports.updateContract = async (req, res) => {
 
         if (typeof rent !== 'undefined' && rent !== null) {
             updates.push('Rent = @Rent');
-            request.input('Rent', sql.Decimal, rent);
+            request.input('Rent', sql.Decimal, 7500000);
+        }
+
+        if (typeof contractTermMonths !== 'undefined') {
+            updates.push('ContractTermMonths = @ContractTermMonths');
+            request.input('ContractTermMonths', sql.Int, contractTermMonths || null);
+        }
+
+        if (typeof depositMonths !== 'undefined') {
+            const safeDepositMonths = [1, 2].includes(Number(depositMonths)) ? Number(depositMonths) : null;
+            updates.push('DepositMonths = @DepositMonths');
+            updates.push('Deposit = @DepositByMonths');
+            request.input('DepositMonths', sql.Int, safeDepositMonths);
+            request.input('DepositByMonths', sql.Decimal, safeDepositMonths ? 7500000 * safeDepositMonths : 0);
+        }
+
+        if (typeof paymentCycleMonths !== 'undefined') {
+            const safePaymentCycleMonths = [1, 3].includes(Number(paymentCycleMonths)) ? Number(paymentCycleMonths) : 1;
+            updates.push('PaymentCycleMonths = @PaymentCycleMonths');
+            request.input('PaymentCycleMonths', sql.Int, safePaymentCycleMonths);
+        }
+
+        if (typeof monthlyBillingDay !== 'undefined') {
+            updates.push('MonthlyBillingDay = @MonthlyBillingDay');
+            request.input('MonthlyBillingDay', sql.Int, 10);
         }
 
         const willUpdateStatus = (typeof statusId !== 'undefined' && statusId !== null);
@@ -406,17 +460,128 @@ exports.updateContract = async (req, res) => {
         }
 
         if (updates.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'No fields to update'
-            });
+            await transaction.rollback();
+            return res.status(400).json({ success: false, message: 'No fields to update' });
         }
 
+        const contractInfo = await transaction.request()
+            .input('ContractID', sql.Int, id)
+            .query('SELECT ApartmentID FROM Contract WHERE ContractID = @ContractID');
+        const apartmentId = contractInfo.recordset[0]?.ApartmentID;
+
         const result = await request.query(`
-            UPDATE Contract 
+            UPDATE Contract
             SET ${updates.join(', ')}
             WHERE ContractID = @ContractID
         `);
+
+        if (result.rowsAffected[0] === 0) {
+            await transaction.rollback();
+            return res.status(404).json({ success: false, message: 'Contract not found' });
+        }
+
+        if (willUpdateStatus && apartmentId) {
+            if (Number(statusId) === 4) {
+                const invoiceIds = await transaction.request()
+                    .input('ContractID', sql.Int, id)
+                    .query('SELECT InvoiceID FROM Invoice WHERE ContractID = @ContractID');
+
+                await transaction.request()
+                    .input('ContractID', sql.Int, id)
+                    .query(`
+                        DELETE p
+                        FROM Payment p
+                        JOIN Invoice i ON i.InvoiceID = p.InvoiceID
+                        WHERE i.ContractID = @ContractID;
+
+                        DELETE idt
+                        FROM InvoiceDetail idt
+                        JOIN Invoice i ON i.InvoiceID = idt.InvoiceID
+                        WHERE i.ContractID = @ContractID;
+
+                        DELETE FROM Invoice
+                        WHERE ContractID = @ContractID;
+
+                        UPDATE ServiceRegistration
+                        SET Status = 0, EndDate = CAST(GETDATE() AS DATE)
+                        WHERE ContractID = @ContractID AND Status = 1;
+
+                        UPDATE ContractResident
+                        SET MoveOutDate = CAST(GETDATE() AS DATE)
+                        WHERE ContractID = @ContractID AND MoveOutDate IS NULL;
+                    `);
+
+                await transaction.request()
+                    .input('ApartmentID', sql.Int, apartmentId)
+                    .query(`
+                        IF OBJECT_ID('dbo.SmartMeter', 'U') IS NOT NULL
+                        BEGIN
+                            UPDATE sm
+                            SET sm.CurrentIndex = mr.NewIndex,
+                                sm.LastTickAt = GETDATE()
+                            FROM dbo.SmartMeter sm
+                            CROSS APPLY (
+                                SELECT TOP 1 mr.NewIndex
+                                FROM dbo.MeterReading mr
+                                WHERE mr.ApartmentID = @ApartmentID
+                                  AND mr.UtilityTypeID = sm.UtilityTypeID
+                                ORDER BY mr.ReadingYear DESC, mr.ReadingMonth DESC, mr.ReadingID DESC
+                            ) mr
+                            WHERE sm.ApartmentID = @ApartmentID
+                              AND mr.NewIndex IS NOT NULL;
+                        END
+                    `);
+
+                if (invoiceIds.recordset.length > 0) {
+                    console.log(`Cleaned ${invoiceIds.recordset.length} invoices for terminated contract #${id}`);
+                }
+
+                await transaction.request()
+                    .input('ApartmentID', sql.Int, apartmentId)
+                    .input('StatusID', sql.Int, 1)
+                    .query('UPDATE Apartment SET StatusID = @StatusID WHERE ApartmentID = @ApartmentID');
+            } else if (Number(statusId) === 2) {
+                await transaction.request()
+                    .input('ApartmentID', sql.Int, apartmentId)
+                    .input('StatusID', sql.Int, 2)
+                    .query('UPDATE Apartment SET StatusID = @StatusID WHERE ApartmentID = @ApartmentID');
+            }
+        }
+
+        await transaction.commit();
+        res.json({ success: true, message: 'Contract updated successfully' });
+    } catch (error) {
+        try {
+            await transaction.rollback();
+        } catch (rollbackError) {
+            console.error('Rollback update contract error:', rollbackError);
+        }
+        console.error('Update contract error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update contract', error: error.message });
+    }
+};
+exports.uploadSignedContractImage = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'No file uploaded'
+            });
+        }
+
+        const pool = await getPool();
+        const imagePath = `/uploads/contracts/${req.file.filename}`;
+
+        const result = await pool.request()
+            .input('ContractID', sql.Int, id)
+            .input('SignedContractImage', sql.NVarChar, imagePath)
+            .query(`
+                UPDATE Contract
+                SET SignedContractImage = @SignedContractImage
+                WHERE ContractID = @ContractID
+            `);
 
         if (result.rowsAffected[0] === 0) {
             return res.status(404).json({
@@ -427,37 +592,14 @@ exports.updateContract = async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Contract updated successfully'
+            message: 'Signed contract image uploaded successfully',
+            data: { imagePath }
         });
-
-        // Nếu cập nhật status hợp đồng, đồng bộ trạng thái căn hộ tương ứng
-        if (willUpdateStatus) {
-            try {
-                // 2 = Hiệu lực (đang ở), 4 = Đã thanh lý (trống)
-                const apartmentStatus = statusId === 2 ? 2 : (statusId === 4 ? 1 : null);
-                if (apartmentStatus !== null) {
-                    // Lấy ApartmentID của hợp đồng
-                    const cidRes = await pool.request()
-                        .input('ContractID', sql.Int, id)
-                        .query('SELECT ApartmentID FROM Contract WHERE ContractID = @ContractID');
-                    const aptId = cidRes.recordset[0]?.ApartmentID;
-                    if (aptId) {
-                        await pool.request()
-                            .input('ApartmentID', sql.Int, aptId)
-                            .input('StatusID', sql.Int, apartmentStatus)
-                            .query('UPDATE Apartment SET StatusID = @StatusID WHERE ApartmentID = @ApartmentID');
-                    }
-                }
-            } catch (syncErr) {
-                console.error('Failed to sync apartment status after contract update:', syncErr);
-            }
-        }
-
     } catch (error) {
-        console.error('Update contract error:', error);
+        console.error('Upload signed contract image error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to update contract',
+            message: 'Failed to upload signed contract image',
             error: error.message
         });
     }
@@ -533,3 +675,4 @@ exports.getContractStatuses = async (req, res) => {
         });
     }
 };
+
