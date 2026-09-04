@@ -165,6 +165,7 @@ exports.createTicket = async (req, res) => {
     try {
         const { 
             apartmentId,
+            residentId: requestedResidentId,
             title,
             description,
             statusId
@@ -179,19 +180,35 @@ exports.createTicket = async (req, res) => {
 
         const pool = await getPool();
 
-        // Get resident ID from user
-        const residentResult = await pool.request()
-            .input('UserID', sql.Int, req.userId)
-            .query('SELECT ResidentID FROM Resident WHERE UserID = @UserID');
+        let residentId = requestedResidentId;
+        const isResidentUser = (req.user?.RoleCodes || []).includes('RESIDENT');
 
-        if (!residentResult.recordset[0]) {
-            return res.status(404).json({
-                success: false,
-                message: 'Resident not found for this user'
-            });
+        // Resident accounts may only create tickets for themselves.
+        if (isResidentUser || !residentId) {
+            const residentResult = await pool.request()
+                .input('UserID', sql.Int, req.userId)
+                .query('SELECT ResidentID FROM Resident WHERE UserID = @UserID');
+
+            if (!residentResult.recordset[0]) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Resident not found for this user'
+                });
+            }
+
+            residentId = residentResult.recordset[0].ResidentID;
         }
 
-        const residentId = residentResult.recordset[0].ResidentID;
+        const residentExists = await pool.request()
+            .input('ResidentID', sql.Int, residentId)
+            .query('SELECT ResidentID FROM Resident WHERE ResidentID = @ResidentID');
+
+        if (!residentExists.recordset[0]) {
+            return res.status(404).json({
+                success: false,
+                message: 'Resident not found'
+            });
+        }
 
         const result = await pool.request()
             .input('ResidentID', sql.Int, residentId)
@@ -359,7 +376,6 @@ exports.getMyTickets = async (req, res) => {
         const pool = await getPool();
         const offset = (page - 1) * limit;
 
-        // Get resident ID from user
         const residentResult = await pool.request()
             .input('UserID', sql.Int, req.userId)
             .query('SELECT ResidentID FROM Resident WHERE UserID = @UserID');

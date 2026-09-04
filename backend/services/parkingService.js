@@ -791,7 +791,7 @@ exports.getParkingSlots = async (filters = {}) => {
       ps.AreaID,
       ar.AreaName,
       vt.VehicleTypeID,
-      vt.TypeName,
+      vt.TypeName AS VehicleType,
       v.PlateNumber,
       r.FullName AS OwnerName
     FROM dbo.ParkingSlot ps

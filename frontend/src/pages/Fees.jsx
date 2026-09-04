@@ -269,9 +269,9 @@ export default function Fees({ flash }) {
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
-            <Button onClick={() => setGenerateModalOpen(true)}>
+            {/* <Button onClick={() => setGenerateModalOpen(true)}>
               <Plus size={16} /> Tạo hóa đơn
-            </Button>
+            </Button> */}
             <Button variant="secondary" onClick={fetchInvoices} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
@@ -298,10 +298,10 @@ export default function Fees({ flash }) {
         <Card className="p-8 text-center">
           <FileText size={48} className="text-slate-300 mx-auto" />
           <h3 className="mt-3 text-xl font-bold text-slate-900">Chưa có hóa đơn</h3>
-          <p className="text-sm text-slate-500">Nhấn "Tạo hóa đơn" để tạo mới</p>
+          {/* <p className="text-sm text-slate-500">Nhấn "Tạo hóa đơn" để tạo mới</p>
           <Button className="mt-4" onClick={() => setGenerateModalOpen(true)}>
             <Plus size={16} /> Tạo hóa đơn
-          </Button>
+          </Button> */}
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

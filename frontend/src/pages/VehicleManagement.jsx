@@ -11,6 +11,14 @@ import { vehicleAPI, residentAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, money, getInitials } from '../utils/formatters';
 
+const isBitOn = (value) => {
+  return (
+    value === true ||
+    value === 1 ||
+    value === '1' ||
+    value === 'true'
+  );
+};
 export default function VehicleManagement({ flash }) {
   // State
   const [vehicles, setVehicles] = useState([]);
@@ -43,9 +51,9 @@ export default function VehicleManagement({ flash }) {
     }
 
     // Kiểm tra Status (0 = không hoạt động, 1 = hoạt động)
-    if (vehicle.Status === 0) {
-      return { label: 'Không hoạt động', tone: 'red' };
-    }
+    if (!isBitOn(vehicle.Status)) {
+  return { label: 'Không hoạt động', tone: 'red' };
+}
 
     // Kiểm tra thẻ xe
     if (vehicle.CardID) {
@@ -83,17 +91,17 @@ export default function VehicleManagement({ flash }) {
     let inactive = 0;
     let hasCard = 0;
 
-    vehicles.forEach(v => {
-      if (v.Status === 1) {
-        active++;
-      } else {
-        inactive++;
-      }
-      
-      if (v.CardID) {
-        hasCard++;
-      }
-    });
+vehicles.forEach(v => {
+  if (isBitOn(v.Status)) {
+    active++;
+  } else {
+    inactive++;
+  }
+
+  if (v.CardID) {
+    hasCard++;
+  }
+});
 
     return { total, active, inactive, hasCard };
   }, [vehicles]);
@@ -204,8 +212,8 @@ export default function VehicleManagement({ flash }) {
     }
   };
 
-  const handleToggleStatus = async (vehicle) => {
-    const newStatus = vehicle.Status === 1 ? 0 : 1;
+const handleToggleStatus = async (vehicle) => {
+  const newStatus = isBitOn(vehicle.Status) ? 0 : 1;
     const action = newStatus === 1 ? 'Kích hoạt' : 'Vô hiệu hóa';
     
     if (!confirm(`Bạn có chắc muốn ${action} xe ${vehicle.PlateNumber}?`)) return;
@@ -484,13 +492,13 @@ const getCardStatusBadge = (vehicle) => {
                       <Edit size={14} /> Sửa
                     </Button>
                     <Button 
-                      variant={vehicle.Status === 1 ? 'warning' : 'success'} 
-                      className="flex-1" 
-                      onClick={() => handleToggleStatus(vehicle)}
-                    >
-                      {vehicle.Status === 1 ? <Lock size={14} /> : <Key size={14} />}
-                      {vehicle.Status === 1 ? 'Vô hiệu' : 'Kích hoạt'}
-                    </Button>
+  variant={isBitOn(vehicle.Status) ? 'warning' : 'success'} 
+  className="flex-1" 
+  onClick={() => handleToggleStatus(vehicle)}
+>
+  {isBitOn(vehicle.Status) ? <Lock size={14} /> : <Key size={14} />}
+  {isBitOn(vehicle.Status) ? 'Vô hiệu' : 'Kích hoạt'}
+</Button>
                     <Button variant="danger" className="flex-1" onClick={() => handleDelete(vehicle.VehicleID)}>
                       <Trash2 size={14} />
                     </Button>
@@ -552,7 +560,10 @@ const getCardStatusBadge = (vehicle) => {
                 <p className="text-sm font-semibold text-slate-500">Thông tin xe</p>
                 <div className="mt-2 space-y-2 text-sm">
                   <div><span className="text-slate-500">Ngày đăng ký:</span> {formatDate(selectedVehicle.RegisterDate)}</div>
-                  <div><span className="text-slate-500">Trạng thái:</span> {selectedVehicle.Status === 1 ? 'Hoạt động' : 'Không hoạt động'}</div>
+                  <div>
+  <span className="text-slate-500">Trạng thái:</span> 
+  {isBitOn(selectedVehicle.Status) ? 'Hoạt động' : 'Không hoạt động'}
+</div>
                 </div>
               </div>
             </div>
@@ -573,7 +584,7 @@ const getCardStatusBadge = (vehicle) => {
             </div>
 
             <div className="flex justify-end gap-2">
-              {selectedVehicle.Status === 1 ? (
+              {isBitOn(selectedVehicle.Status) ? (
                 <Button variant="warning" onClick={() => handleToggleStatus(selectedVehicle)}>
                   <Lock size={16} /> Vô hiệu hóa
                 </Button>

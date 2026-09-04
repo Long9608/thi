@@ -45,7 +45,7 @@ import WifiManagement from "./pages/WifiManagement";
 
 // 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ GỬI XE
 import VehicleManagement from './pages/VehicleManagement';
-import ParkingCardManagement from './pages/ParkingCardManagement';
+import ParkingCardManagement from "./pages/ParkingCardManagement";
 import ParkingSlotManagement from './pages/ParkingSlotManagement';
 import ParkingHistory from './pages/ParkingHistory';
 
@@ -570,27 +570,35 @@ const recentActivities = [];
 // CẤU TRÚC MENU VỚI PERMISSION
 // ============================================================
 const MENU_STRUCTURE = [
-  {
-    id: "dashboard",
-    label: "Tổng quan",
-    icon: Home,
-    permission: "DASHBOARD_VIEW",
-    items: [
-      { id: "dashboard", label: "Dashboard", icon: Home, permission: "DASHBOARD_VIEW" },
-      { id: "quick-report", label: "Báo cáo nhanh", icon: FileText, permission: "REPORT_VIEW" }
-    ]
-  },
+{
+  id: "dashboard",
+  label: "Tổng quan",
+  icon: Home,
+  permission: "REPORT_VIEW",
+  items: [
+    { 
+      id: "quick-report", 
+      label: "Báo cáo nhanh", 
+      icon: FileText, 
+      permission: "REPORT_VIEW" 
+    }
+  ]
+},
   {
     id: "condo",
     label: "Quản lý chung cư",
     icon: Building2,
     permission: null,
     items: [
-      { id: "residents", label: "Danh sách cư dân", icon: Users, permission: "RESIDENT_VIEW" },
-      { id: "buildings", label: "Tòa nhà", icon: Home, permission: "APARTMENT_VIEW" },
-      { id: "contract-list", label: "Danh sách hợp đồng", icon: FileText, permission: "CONTRACT_VIEW" },
-      { id: "fees", label: "Hóa đơn", icon: FileText, permission: "INVOICE_VIEW" },
-      { id: "vehicles", label: "Xe cư dân", icon: Car, permission: "PARKING_VIEW" }
+       { id: "residents", label: "Danh sách cư dân", icon: Users, permission: "RESIDENT_VIEW" },
+  { id: "buildings", label: "Tòa nhà", icon: Home, permission: "APARTMENT_VIEW" },
+  { id: "contract-list", label: "Danh sách hợp đồng", icon: FileText, permission: "CONTRACT_VIEW" },
+  { id: "fees", label: "Hóa đơn", icon: FileText, permission: "INVOICE_VIEW" },
+
+  { id: "vehicles", label: "Xe cư dân", icon: Car, permission: "PARKING_VIEW" },
+  { id: "parking-cards", label: "Thẻ xe", icon: CreditCard, permission: "PARKING_VIEW" },
+  { id: "parking-slots", label: "Bãi xe", icon: Home, permission: "PARKING_VIEW" },
+  { id: "parking-history", label: "Lịch sử ra/vào", icon: Clock, permission: "PARKING_HISTORY" },
     ]
   },
   {
@@ -704,6 +712,9 @@ const CONTENT_TITLES = {
   wifi: ["Wifi", "Quản lý đăng ký wifi"],
   fees: ["Hóa đơn", "Quản lý hóa đơn và thu phí"],
   vehicles: ["Xe cư dân", "Quản lý xe cư dân"],
+  "parking-slots": ["Bãi xe", "Quản lý vị trí đỗ xe"],
+  "parking-cards": ["Thẻ xe", "Quản lý và cấp thẻ gửi xe"],
+  "parking-history": ["Lịch sử ra/vào", "Theo dõi xe vào và ra bãi"],
   tickets: ["Ticket hỗ trợ", "Quản lý yêu cầu hỗ trợ"],
   maintenance: ["Bảo trì", "Quản lý bảo trì"],
   feedbacks: ["Phản ánh", "Quản lý phản ánh của cư dân"],
@@ -1797,6 +1808,22 @@ export default function ApartmentManagementWeb() {
           {tab === "vehicles" && (
             <VehicleManagement flash={flash} />
           )}
+
+          {tab === "parking-cards" && (
+  <ParkingCardManagement flash={flash} />
+)}
+
+          {/* PARKING SLOTS TAB - QUẢN LÝ BÃI XE */}
+{tab === "parking-slots" && (
+  <ParkingSlotManagement flash={flash} />
+)}
+
+{tab === "parking-history" && (
+  <ParkingHistory
+    flash={flash}
+    canRecordAccess={hasPermission("PARKING_ACCESS_CREATE")}
+  />
+)}
 
 
           {/* 🔥 TICKET MANAGEMENT TAB */}

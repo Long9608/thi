@@ -10,7 +10,14 @@ import {
 import { vehicleAPI, apartmentAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, getInitials } from '../utils/formatters';
-
+const isBitOn = (value) => {
+  return (
+    value === true ||
+    value === 1 ||
+    value === '1' ||
+    value === 'true'
+  );
+};
 export default function ParkingSlotManagement({ flash }) {
   const [slots, setSlots] = useState([]);
   const [areas, setAreas] = useState([]);
@@ -27,12 +34,11 @@ export default function ParkingSlotManagement({ flash }) {
   const [totalPages, setTotalPages] = useState(1);
 
   // Form state
-  const [form, setForm] = useState({
-    areaId: '',
-    slotNumber: '',
-    vehicleTypeId: '',
-    isOccupied: 0
-  });
+const [form, setForm] = useState({
+  areaId: '',
+  slotNumber: '',
+  vehicleTypeId: ''
+});
 
   const fetchSlots = useCallback(async () => {
     try {
@@ -89,11 +95,10 @@ export default function ParkingSlotManagement({ flash }) {
     try {
       // Gọi API tạo parking slot
       const response = await vehicleAPI.createParkingSlot({
-        areaId: parseInt(form.areaId),
-        slotNumber: form.slotNumber,
-        vehicleTypeId: parseInt(form.vehicleTypeId),
-        isOccupied: form.isOccupied
-      });
+  areaId: parseInt(form.areaId),
+  slotNumber: form.slotNumber,
+  vehicleTypeId: parseInt(form.vehicleTypeId)
+});
       
       console.log('📊 Create parking slot response:', response);
       
@@ -124,18 +129,18 @@ export default function ParkingSlotManagement({ flash }) {
   };
 
   // 🔥 SỬA: Gọi API cập nhật trạng thái vị trí đỗ
-  const handleToggleOccupied = async (slot) => {
-    try {
-      await vehicleAPI.updateParkingSlot(slot.SlotID, {
-        isOccupied: slot.IsOccupied ? 0 : 1
-      });
-      if (flash) flash(`✅ ${slot.IsOccupied ? 'Mở' : 'Đóng'} vị trí đỗ thành công!`);
-      fetchSlots();
-    } catch (error) {
-      console.error('Toggle error:', error);
-      if (flash) flash('❌ ' + (error.response?.data?.message || 'Có lỗi xảy ra'));
-    }
-  };
+  // const handleToggleOccupied = async (slot) => {
+  //   try {
+  //     await vehicleAPI.updateParkingSlot(slot.SlotID, {
+  //       isOccupied: slot.IsOccupied ? 0 : 1
+  //     });
+  //     if (flash) flash(`✅ ${slot.IsOccupied ? 'Mở' : 'Đóng'} vị trí đỗ thành công!`);
+  //     fetchSlots();
+  //   } catch (error) {
+  //     console.error('Toggle error:', error);
+  //     if (flash) flash('❌ ' + (error.response?.data?.message || 'Có lỗi xảy ra'));
+  //   }
+  // };
 
   // 🔥 SỬA: Gọi API cập nhật vị trí đỗ
   const handleUpdateSlot = async (e) => {
@@ -143,10 +148,9 @@ export default function ParkingSlotManagement({ flash }) {
     setLoading(true);
     try {
       await vehicleAPI.updateParkingSlot(selectedSlot.SlotID, {
-        slotNumber: form.slotNumber,
-        vehicleTypeId: parseInt(form.vehicleTypeId),
-        isOccupied: form.isOccupied
-      });
+  slotNumber: form.slotNumber,
+  vehicleTypeId: parseInt(form.vehicleTypeId)
+});
       if (flash) flash('✅ Cập nhật vị trí đỗ thành công!');
       setModalOpen(false);
       resetForm();
@@ -160,14 +164,13 @@ export default function ParkingSlotManagement({ flash }) {
   };
 
   const resetForm = () => {
-    setForm({
-      areaId: '',
-      slotNumber: '',
-      vehicleTypeId: '',
-      isOccupied: 0
-    });
-    setSelectedSlot(null);
-  };
+  setForm({
+    areaId: '',
+    slotNumber: '',
+    vehicleTypeId: ''
+  });
+  setSelectedSlot(null);
+};
 
   const openCreateModal = () => {
     resetForm();
@@ -178,11 +181,10 @@ export default function ParkingSlotManagement({ flash }) {
   const openEditModal = (slot) => {
     setSelectedSlot(slot);
     setForm({
-      areaId: slot.AreaID || '',
-      slotNumber: slot.SlotNumber || '',
-      vehicleTypeId: slot.VehicleTypeID || '',
-      isOccupied: slot.IsOccupied || 0
-    });
+  areaId: slot.AreaID || '',
+  slotNumber: slot.SlotNumber || '',
+  vehicleTypeId: slot.VehicleTypeID || ''
+});
     setModalMode('edit');
     setModalOpen(true);
   };
@@ -204,20 +206,40 @@ export default function ParkingSlotManagement({ flash }) {
   }, [slots, search]);
 
   // Stats
-  const stats = useMemo(() => {
-    const total = slots.length;
-    const occupied = slots.filter(s => s.IsOccupied === 1).length;
-    const available = slots.filter(s => s.IsOccupied === 0).length;
-    const carSlots = slots.filter(s => s.VehicleType?.includes('Ô tô')).length;
-    const motoSlots = slots.filter(s => s.VehicleType?.includes('Xe máy')).length;
-    return { total, occupied, available, carSlots, motoSlots };
-  }, [slots]);
+const stats = useMemo(() => {
+  const total = slots.length;
 
-  const getStatusBadge = (slot) => {
-    return slot.IsOccupied ? 
-      <Badge tone="red">Đã có xe</Badge> : 
-      <Badge tone="green">Còn trống</Badge>;
+  const occupied = slots.filter(
+    s => isBitOn(s.IsOccupied)
+  ).length;
+
+  const available = slots.filter(
+    s => !isBitOn(s.IsOccupied)
+  ).length;
+
+  const carSlots = slots.filter(
+    s => s.VehicleType?.includes('Xe hơi') ||
+         s.VehicleType?.includes('Ô tô')
+  ).length;
+
+  const motoSlots = slots.filter(
+    s => s.VehicleType?.includes('Xe máy')
+  ).length;
+
+  return {
+    total,
+    occupied,
+    available,
+    carSlots,
+    motoSlots
   };
+}, [slots]);
+
+const getStatusBadge = (slot) => {
+  return isBitOn(slot.IsOccupied)
+    ? <Badge tone="red">Đã có xe</Badge>
+    : <Badge tone="green">Còn trống</Badge>;
+};
 
   return (
     <div className="space-y-5">
@@ -348,7 +370,7 @@ export default function ParkingSlotManagement({ flash }) {
                   >
                     <Eye size={14} /> Xem
                   </Button>
-                  <Button
+                  {/* <Button
                     variant={slot.IsOccupied ? 'warning' : 'success'}
                     size="sm"
                     className="flex-1"
@@ -358,7 +380,7 @@ export default function ParkingSlotManagement({ flash }) {
                     }}
                   >
                     {slot.IsOccupied ? 'Trả chỗ' : 'Đóng chỗ'}
-                  </Button>
+                  </Button> */}
                 </div>
               </div>
             </Card>
@@ -432,7 +454,7 @@ export default function ParkingSlotManagement({ flash }) {
           <form onSubmit={modalMode === 'create' ? handleSubmit : handleUpdateSlot} className="space-y-4">
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-semibold text-slate-700">Khu vực *</label>
+                {/* <label className="mb-1 block text-sm font-semibold text-slate-700">Khu vực *</label> */}
                 <select
                   value={form.areaId}
                   onChange={(e) => setForm({ ...form, areaId: e.target.value })}
