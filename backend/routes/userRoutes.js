@@ -3,13 +3,14 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const { authMiddleware, checkPermission } = require('../middlewares/auth');
+const { hashPasswordBody } = require('../utils/passwordUtils');
 
 // ============================================
 // QUẢN LÝ NHÂN VIÊN
 // ============================================
 router.get('/employees', authMiddleware, checkPermission('EMPLOYEE_VIEW'), userController.getEmployees);
 router.get('/employees/:id', authMiddleware, checkPermission('EMPLOYEE_VIEW'), userController.getEmployeeById);
-router.post('/employees', authMiddleware, checkPermission('EMPLOYEE_CREATE'), userController.createEmployee);
+router.post('/employees', authMiddleware, checkPermission('EMPLOYEE_CREATE'), hashPasswordBody, userController.createEmployee);
 router.put('/employees/:id', authMiddleware, checkPermission('EMPLOYEE_UPDATE'), userController.updateEmployee);
 router.delete('/employees/:id', authMiddleware, checkPermission('EMPLOYEE_DELETE'), userController.deleteEmployee);
 
