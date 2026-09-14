@@ -1,6 +1,10 @@
 // backend/controllers/userController.js
 const { getPool, sql } = require('../config/db');
 
+const {
+    hashPassword
+} = require('../utils/passwordUtils');
+
 // ============================================
 // QUẢN LÝ NHÂN VIÊN
 // ============================================
@@ -243,10 +247,18 @@ exports.createEmployee = async (req, res) => {
             }
         }
 
+        const hashedPassword = await hashPassword(
+            password
+        );
+
         // Tạo user
         const userResult = await pool.request()
             .input('Username', sql.VarChar, username)
-            .input('PasswordHash', sql.VarChar, password)
+            .input(
+                'PasswordHash',
+                sql.VarChar(255),
+                hashedPassword
+            )
             .input('Email', sql.VarChar, email || null)
             .input('Phone', sql.VarChar, phone || null)
             .query(`

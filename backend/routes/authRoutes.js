@@ -1,4 +1,9 @@
 // backend/routes/authRoutes.js
+
+const {
+    verifyPassword,
+    hashPassword
+} = require('../utils/passwordUtils');
 const express = require('express');
 const router = express.Router();
 const { getPool, sql } = require('../config/db');
@@ -54,10 +59,16 @@ router.post('/login', async (req, res) => {
 
         const user = result.recordset[0];
         
-        if (password !== user.PasswordHash) {
+        const passwordCheck = await verifyPassword(
+            password,
+            user.PasswordHash
+        );
+
+        if (!passwordCheck.valid) {
             return res.status(401).json({
                 success: false,
                 message: 'Invalid username or password'
+
             });
         }
 
@@ -66,6 +77,25 @@ router.post('/login', async (req, res) => {
                 success: false,
                 message: 'Account is disabled'
             });
+        }
+
+        // Tài khoản cũ đang lưu plaintext sẽ tự chuyển sang bcrypt
+        // sau lần đăng nhập thành công đầu tiên.
+        if (passwordCheck.needsUpgrade) {
+            const upgradedHash = await hashPassword(password);
+
+            await pool.request()
+                .input('UserID', sql.Int, user.UserID)
+                .input(
+                    'PasswordHash',
+                    sql.VarChar(255),
+                    upgradedHash
+                )
+                .query(`
+                    UPDATE Users
+                    SET PasswordHash = @PasswordHash
+                    WHERE UserID = @UserID
+                `);
         }
 
         await pool.request()
@@ -359,17 +389,34 @@ router.post('/change-password', authMiddleware, async (req, res) => {
             });
         }
 
-        if (oldPassword !== result.recordset[0].PasswordHash) {
+        const passwordCheck = await verifyPassword(
+            oldPassword,
+            result.recordset[0].PasswordHash
+        );
+
+        if (!passwordCheck.valid) {
             return res.status(401).json({
                 success: false,
                 message: 'Current password is incorrect'
             });
         }
 
+        const hashedPassword = await hashPassword(
+            newPassword
+        );
+
         await pool.request()
             .input('UserID', sql.Int, req.userId)
-            .input('NewPassword', sql.VarChar, newPassword)
-            .query('UPDATE Users SET PasswordHash = @NewPassword WHERE UserID = @UserID');
+            .input(
+                'NewPassword',
+                sql.VarChar(255),
+                hashedPassword
+            )
+            .query(`
+                UPDATE Users
+                SET PasswordHash = @NewPassword
+                WHERE UserID = @UserID
+            `);
 
         res.json({
             success: true,
