@@ -174,7 +174,7 @@ export default function NotificationList({ flash }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả</option>
               <option value="0">Chưa đọc</option>
@@ -200,7 +200,7 @@ export default function NotificationList({ flash }) {
       {/* Notification List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách thông báo...</p>
         </Card>
       ) : filteredNotifications.length === 0 ? (
@@ -214,7 +214,7 @@ export default function NotificationList({ flash }) {
           {filteredNotifications.map((notification) => (
             <Card 
               key={notification.NotificationID} 
-              className={`group hover:border-[#1f4f46]/30 transition-all cursor-pointer ${
+              className={`group hover:border-[#635bff]/30 transition-all cursor-pointer ${
                 !notification.IsRead ? 'border-blue-200 bg-blue-50/30' : ''
               }`}
               onClick={() => openViewModal(notification)}
@@ -239,8 +239,8 @@ export default function NotificationList({ flash }) {
                             {formatDateTime(notification.CreatedDate)}
                           </span>
                         </div>
-                        <h3 className={`font-bold text-slate-950 group-hover:text-[#1f4f46] transition ${
-                          !notification.IsRead ? 'text-[#1f4f46]' : ''
+                        <h3 className={`font-bold text-slate-950 group-hover:text-[#635bff] transition ${
+                          !notification.IsRead ? 'text-[#635bff]' : ''
                         }`}>
                           {notification.Title}
                         </h3>
@@ -295,7 +295,7 @@ export default function NotificationList({ flash }) {
               onClick={() => setPage(i + 1)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
                 page === i + 1
-                  ? 'bg-[#1f4f46] text-white'
+                  ? 'bg-[#635bff] text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >

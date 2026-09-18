@@ -101,7 +101,7 @@ export default function SystemInfo({ flash }) {
   if (loading) {
     return (
       <Card className="p-8 text-center">
-        <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+        <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
         <p className="mt-3 font-bold text-slate-900">Đang tải thông tin hệ thống...</p>
       </Card>
     );
@@ -138,7 +138,7 @@ export default function SystemInfo({ flash }) {
         {/* System Details */}
         <Card className="p-6">
           <h4 className="font-bold text-slate-950 mb-4 flex items-center gap-2">
-            <Info size={20} className="text-[#1f4f46]" />
+            <Info size={20} className="text-[#635bff]" />
             Thông tin hệ thống
           </h4>
           
@@ -173,7 +173,7 @@ export default function SystemInfo({ flash }) {
         {/* Server & Database */}
         <Card className="p-6">
           <h4 className="font-bold text-slate-950 mb-4 flex items-center gap-2">
-            <Server size={20} className="text-[#1f4f46]" />
+            <Server size={20} className="text-[#635bff]" />
             Server & Database
           </h4>
           
@@ -213,48 +213,48 @@ export default function SystemInfo({ flash }) {
       {/* Features Stats */}
       <Card className="p-6">
         <h4 className="font-bold text-slate-950 mb-4 flex items-center gap-2">
-          <BarChart3 size={20} className="text-[#1f4f46]" />
+          <BarChart3 size={20} className="text-[#635bff]" />
           Thống kê dữ liệu
         </h4>
         
         <div className="grid gap-3 md:grid-cols-4">
-          <div className="p-4 rounded-xl bg-[#eef5f2] text-center">
-            <Building2 size={28} className="mx-auto text-[#1f4f46] mb-2" />
+          <div className="p-4 rounded-xl bg-[#f0efff] text-center">
+            <Building2 size={28} className="mx-auto text-[#635bff] mb-2" />
             <p className="text-2xl font-bold text-slate-950">{systemInfo?.features.apartments || 0}</p>
             <p className="text-sm text-slate-500">Căn hộ</p>
           </div>
-          <div className="p-4 rounded-xl bg-[#eef5f2] text-center">
-            <Users size={28} className="mx-auto text-[#1f4f46] mb-2" />
+          <div className="p-4 rounded-xl bg-[#f0efff] text-center">
+            <Users size={28} className="mx-auto text-[#635bff] mb-2" />
             <p className="text-2xl font-bold text-slate-950">{systemInfo?.features.residents || 0}</p>
             <p className="text-sm text-slate-500">Cư dân</p>
           </div>
-          <div className="p-4 rounded-xl bg-[#eef5f2] text-center">
-            <FileText size={28} className="mx-auto text-[#1f4f46] mb-2" />
+          <div className="p-4 rounded-xl bg-[#f0efff] text-center">
+            <FileText size={28} className="mx-auto text-[#635bff] mb-2" />
             <p className="text-2xl font-bold text-slate-950">{systemInfo?.features.contracts || 0}</p>
             <p className="text-sm text-slate-500">Hợp đồng</p>
           </div>
-          <div className="p-4 rounded-xl bg-[#eef5f2] text-center">
-            <CreditCard size={28} className="mx-auto text-[#1f4f46] mb-2" />
+          <div className="p-4 rounded-xl bg-[#f0efff] text-center">
+            <CreditCard size={28} className="mx-auto text-[#635bff] mb-2" />
             <p className="text-2xl font-bold text-slate-950">{systemInfo?.features.invoices || 0}</p>
             <p className="text-sm text-slate-500">Hóa đơn</p>
           </div>
-          <div className="p-4 rounded-xl bg-[#eef5f2] text-center">
-            <Wrench size={28} className="mx-auto text-[#1f4f46] mb-2" />
+          <div className="p-4 rounded-xl bg-[#f0efff] text-center">
+            <Wrench size={28} className="mx-auto text-[#635bff] mb-2" />
             <p className="text-2xl font-bold text-slate-950">{systemInfo?.features.services || 0}</p>
             <p className="text-sm text-slate-500">Dịch vụ</p>
           </div>
-          <div className="p-4 rounded-xl bg-[#eef5f2] text-center">
-            <AlertCircle size={28} className="mx-auto text-[#1f4f46] mb-2" />
+          <div className="p-4 rounded-xl bg-[#f0efff] text-center">
+            <AlertCircle size={28} className="mx-auto text-[#635bff] mb-2" />
             <p className="text-2xl font-bold text-slate-950">{systemInfo?.features.tickets || 0}</p>
             <p className="text-sm text-slate-500">Ticket</p>
           </div>
-          <div className="p-4 rounded-xl bg-[#eef5f2] text-center">
-            <Car size={28} className="mx-auto text-[#1f4f46] mb-2" />
+          <div className="p-4 rounded-xl bg-[#f0efff] text-center">
+            <Car size={28} className="mx-auto text-[#635bff] mb-2" />
             <p className="text-2xl font-bold text-slate-950">{systemInfo?.features.vehicles || 0}</p>
             <p className="text-sm text-slate-500">Xe</p>
           </div>
-          <div className="p-4 rounded-xl bg-[#eef5f2] text-center">
-            <Bell size={28} className="mx-auto text-[#1f4f46] mb-2" />
+          <div className="p-4 rounded-xl bg-[#f0efff] text-center">
+            <Bell size={28} className="mx-auto text-[#635bff] mb-2" />
             <p className="text-2xl font-bold text-slate-950">{systemInfo?.features.notifications || 0}</p>
             <p className="text-sm text-slate-500">Thông báo</p>
           </div>
@@ -290,7 +290,7 @@ export default function SystemInfo({ flash }) {
 
         <Card className="p-6">
           <h4 className="font-bold text-slate-950 mb-3 flex items-center gap-2">
-            <Clock size={18} className="text-[#1f4f46]" />
+            <Clock size={18} className="text-[#635bff]" />
             Bảo trì
           </h4>
           <div className="space-y-2">
@@ -311,7 +311,7 @@ export default function SystemInfo({ flash }) {
 
         <Card className="p-6">
           <h4 className="font-bold text-slate-950 mb-3 flex items-center gap-2">
-            <Shield size={18} className="text-[#1f4f46]" />
+            <Shield size={18} className="text-[#635bff]" />
             Bảo mật
           </h4>
           <div className="space-y-2">

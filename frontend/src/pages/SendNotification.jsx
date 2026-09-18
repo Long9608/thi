@@ -156,7 +156,7 @@ export default function SendNotification({ flash }) {
             <h3 className="text-base font-bold text-slate-950">Gửi thông báo</h3>
             <p className="text-sm text-slate-500">
               Gửi thông báo đến cư dân.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {getRecipientCount()} người nhận
               </span>
             </p>
@@ -201,7 +201,7 @@ export default function SendNotification({ flash }) {
               Nội dung thông báo *
             </label>
             <textarea
-              className="w-full rounded-xl border border-slate-200 p-4 text-sm outline-none focus:border-[#1f4f46] min-h-[180px] resize-y"
+              className="w-full rounded-xl border border-slate-200 p-4 text-sm outline-none focus:border-[#635bff] min-h-[180px] resize-y"
               value={form.content}
               onChange={(e) => setForm({ ...form, content: e.target.value })}
               placeholder="Nhập nội dung thông báo..."
@@ -222,7 +222,7 @@ export default function SendNotification({ flash }) {
                 type="button"
                 className={`flex items-center gap-3 rounded-xl border p-4 transition ${
                   form.targetScope === 'ALL'
-                    ? 'border-[#1f4f46] bg-[#eef5f2]'
+                    ? 'border-[#635bff] bg-[#f0efff]'
                     : 'border-slate-200 hover:border-slate-300'
                 }`}
                 onClick={() => {
@@ -230,19 +230,19 @@ export default function SendNotification({ flash }) {
                   setSelectedRecipients([]);
                 }}
               >
-                <Users size={20} className={form.targetScope === 'ALL' ? 'text-[#1f4f46]' : 'text-slate-400'} />
+                <Users size={20} className={form.targetScope === 'ALL' ? 'text-[#635bff]' : 'text-slate-400'} />
                 <div className="text-left">
                   <p className="font-semibold text-slate-950">Tất cả</p>
                   <p className="text-xs text-slate-500">Gửi đến tất cả cư dân</p>
                 </div>
-                {form.targetScope === 'ALL' && <CheckCircle2 size={16} className="ml-auto text-[#1f4f46]" />}
+                {form.targetScope === 'ALL' && <CheckCircle2 size={16} className="ml-auto text-[#635bff]" />}
               </button>
 
               <button
                 type="button"
                 className={`flex items-center gap-3 rounded-xl border p-4 transition ${
                   form.targetScope === 'BUILDING'
-                    ? 'border-[#1f4f46] bg-[#eef5f2]'
+                    ? 'border-[#635bff] bg-[#f0efff]'
                     : 'border-slate-200 hover:border-slate-300'
                 }`}
                 onClick={() => {
@@ -250,31 +250,31 @@ export default function SendNotification({ flash }) {
                   setSelectedRecipients([]);
                 }}
               >
-                <Building2 size={20} className={form.targetScope === 'BUILDING' ? 'text-[#1f4f46]' : 'text-slate-400'} />
+                <Building2 size={20} className={form.targetScope === 'BUILDING' ? 'text-[#635bff]' : 'text-slate-400'} />
                 <div className="text-left">
                   <p className="font-semibold text-slate-950">Theo tòa nhà</p>
                   <p className="text-xs text-slate-500">Chọn tòa nhà cụ thể</p>
                 </div>
-                {form.targetScope === 'BUILDING' && <CheckCircle2 size={16} className="ml-auto text-[#1f4f46]" />}
+                {form.targetScope === 'BUILDING' && <CheckCircle2 size={16} className="ml-auto text-[#635bff]" />}
               </button>
 
               <button
                 type="button"
                 className={`flex items-center gap-3 rounded-xl border p-4 transition ${
                   form.targetScope === 'USER'
-                    ? 'border-[#1f4f46] bg-[#eef5f2]'
+                    ? 'border-[#635bff] bg-[#f0efff]'
                     : 'border-slate-200 hover:border-slate-300'
                 }`}
                 onClick={() => {
                   setForm({ ...form, targetScope: 'USER' });
                 }}
               >
-                <User size={20} className={form.targetScope === 'USER' ? 'text-[#1f4f46]' : 'text-slate-400'} />
+                <User size={20} className={form.targetScope === 'USER' ? 'text-[#635bff]' : 'text-slate-400'} />
                 <div className="text-left">
                   <p className="font-semibold text-slate-950">Cá nhân</p>
                   <p className="text-xs text-slate-500">Chọn cư dân cụ thể</p>
                 </div>
-                {form.targetScope === 'USER' && <CheckCircle2 size={16} className="ml-auto text-[#1f4f46]" />}
+                {form.targetScope === 'USER' && <CheckCircle2 size={16} className="ml-auto text-[#635bff]" />}
               </button>
             </div>
           </div>
@@ -292,7 +292,7 @@ export default function SendNotification({ flash }) {
                     type="button"
                     className={`px-4 py-2 rounded-xl border text-sm transition ${
                       form.targetBuildingIds.includes(apt.BuildingID)
-                        ? 'border-[#1f4f46] bg-[#eef5f2] text-[#1f4f46]'
+                        ? 'border-[#635bff] bg-[#f0efff] text-[#635bff]'
                         : 'border-slate-200 hover:border-slate-300'
                     }`}
                     onClick={() => {
@@ -335,7 +335,7 @@ export default function SendNotification({ flash }) {
 
               {/* Selected count */}
               <p className="text-sm text-slate-500 mb-2">
-                Đã chọn: <span className="font-bold text-[#1f4f46]">{selectedRecipients.length}</span> cư dân
+                Đã chọn: <span className="font-bold text-[#635bff]">{selectedRecipients.length}</span> cư dân
               </p>
 
               {/* Selected recipients */}
@@ -365,11 +365,11 @@ export default function SendNotification({ flash }) {
                       key={resident.ResidentID}
                       type="button"
                       className={`flex w-full items-center gap-3 p-3 hover:bg-slate-50 transition ${
-                        isSelected ? 'bg-[#eef5f2]' : ''
+                        isSelected ? 'bg-[#f0efff]' : ''
                       }`}
                       onClick={() => isSelected ? handleRemoveRecipient(resident.ResidentID) : handleAddRecipient(resident)}
                     >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46] font-bold text-sm">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f0efff] text-[#635bff] font-bold text-sm">
                         {getInitials(resident.FullName)}
                       </div>
                       <div className="flex-1 text-left">
@@ -378,7 +378,7 @@ export default function SendNotification({ flash }) {
                           {resident.ApartmentCode || 'Chưa có căn hộ'} · {resident.Phone || 'Chưa có SĐT'}
                         </p>
                       </div>
-                      {isSelected && <CheckCircle2 size={18} className="text-[#1f4f46]" />}
+                      {isSelected && <CheckCircle2 size={18} className="text-[#635bff]" />}
                     </button>
                   );
                 })}
@@ -400,7 +400,7 @@ export default function SendNotification({ flash }) {
             </div>
             <div className="flex items-center justify-between text-sm mt-1">
               <span className="text-slate-500">Số người nhận</span>
-              <span className="font-semibold text-[#1f4f46]">{getRecipientCount()} người</span>
+              <span className="font-semibold text-[#635bff]">{getRecipientCount()} người</span>
             </div>
           </div>
 

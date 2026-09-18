@@ -1,0 +1,9 @@
+diff --git a/backend/controllers/contractController.js b/backend/controllers/contractController.js
+--- a/backend/controllers/contractController.js
++++ b/backend/controllers/contractController.js
+@@ -427,4 +427,4 @@ exports.updateContract = async (req, res) => {
+         if (typeof rent !== 'undefined' && rent !== null) {
+             updates.push('Rent = @Rent');
+-            request.input('Rent', sql.Decimal, 7500000);
++            request.input('Rent', sql.Decimal, Number(rent));
+         }

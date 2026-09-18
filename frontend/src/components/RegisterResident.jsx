@@ -345,7 +345,7 @@ export default function RegisterResident({ flash, onSuccess }) {
             <div
               className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition cursor-pointer ${
                 s === step
-                  ? 'bg-[#1f4f46] text-white'
+                  ? 'bg-[#635bff] text-white'
                   : s < step
                   ? 'bg-emerald-100 text-emerald-700'
                   : hasErrorInStep
@@ -401,7 +401,7 @@ export default function RegisterResident({ flash, onSuccess }) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
       <Card className="p-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="rounded-xl bg-[#eef5f2] p-3 text-[#1f4f46]">
+          <div className="rounded-xl bg-[#f0efff] p-3 text-[#635bff]">
             <UserPlus size={24} />
           </div>
           <div>
@@ -429,7 +429,7 @@ export default function RegisterResident({ flash, onSuccess }) {
                   <select
                     value={form.gender}
                     onChange={(e) => setForm({ ...form, gender: parseInt(e.target.value) })}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                   >
                     <option value={1}>Nam</option>
                     <option value={0}>Nữ</option>
@@ -524,7 +524,7 @@ export default function RegisterResident({ flash, onSuccess }) {
                 <p className="text-sm font-semibold text-slate-700 mb-3">Ảnh CCCD</p>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="block cursor-pointer rounded-xl border-2 border-dashed border-slate-300 p-6 text-center hover:border-[#1f4f46] hover:bg-slate-50 transition">
+                    <label className="block cursor-pointer rounded-xl border-2 border-dashed border-slate-300 p-6 text-center hover:border-[#635bff] hover:bg-slate-50 transition">
                       <input
                         type="file"
                         accept="image/*"
@@ -542,7 +542,7 @@ export default function RegisterResident({ flash, onSuccess }) {
                     </label>
                   </div>
                   <div>
-                    <label className="block cursor-pointer rounded-xl border-2 border-dashed border-slate-300 p-6 text-center hover:border-[#1f4f46] hover:bg-slate-50 transition">
+                    <label className="block cursor-pointer rounded-xl border-2 border-dashed border-slate-300 p-6 text-center hover:border-[#635bff] hover:bg-slate-50 transition">
                       <input
                         type="file"
                         accept="image/*"
@@ -587,7 +587,7 @@ export default function RegisterResident({ flash, onSuccess }) {
                     onBlur={() => handleFieldBlur('apartmentId')}
                     className={`w-full rounded-xl border ${
                       hasError('apartmentId') ? 'border-rose-300' : 'border-slate-200'
-                    } bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]`}
+                    } bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]`}
                   >
                     <option value="">Chọn căn hộ</option>
                     {apartments.map((apt) => (
@@ -603,7 +603,7 @@ export default function RegisterResident({ flash, onSuccess }) {
                   <select
                     value={form.relationship}
                     onChange={(e) => setForm({ ...form, relationship: e.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                   >
                     <option>Chủ hộ</option>
                     <option>Vợ/Chồng</option>

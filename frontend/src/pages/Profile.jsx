@@ -135,7 +135,7 @@ export default function Profile({ flash }) {
   if (loading) {
     return (
       <Card className="p-8 text-center">
-        <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+        <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
         <p className="mt-3 font-bold text-slate-900">Đang tải thông tin hồ sơ...</p>
       </Card>
     );
@@ -175,10 +175,10 @@ export default function Profile({ flash }) {
         <Card className="p-6 md:col-span-1">
           <div className="text-center">
             <div className="relative mx-auto w-32 h-32">
-              <div className="w-32 h-32 rounded-full bg-[#eef5f2] flex items-center justify-center text-[#1f4f46] text-5xl font-bold">
+              <div className="w-32 h-32 rounded-full bg-[#f0efff] flex items-center justify-center text-[#635bff] text-5xl font-bold">
                 {getInitials(form.fullName || user?.username || 'U')}
               </div>
-              <button className="absolute bottom-0 right-0 rounded-full bg-[#1f4f46] p-2 text-white hover:bg-[#173f38] transition">
+              <button className="absolute bottom-0 right-0 rounded-full bg-[#635bff] p-2 text-white hover:bg-[#4f46e5] transition">
                 <Camera size={18} />
               </button>
             </div>
@@ -267,7 +267,7 @@ export default function Profile({ flash }) {
                   <select
                     value={form.gender}
                     onChange={(e) => setForm({ ...form, gender: parseInt(e.target.value) })}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                   >
                     <option value={1}>Nam</option>
                     <option value={0}>Nữ</option>

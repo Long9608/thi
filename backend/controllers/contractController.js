@@ -168,7 +168,23 @@ exports.getContractById = async (req, res) => {
                         INNER JOIN Service s ON sr.ServiceID = s.ServiceID
                         WHERE sr.ContractID = c.ContractID
                         FOR JSON PATH
-                    ) AS Services
+                    ) AS Services,
+                    (
+                        SELECT
+                            ce.ContractEquipmentID AS EquipmentID,
+                            ce.EquipmentName AS Name,
+                            ce.Category,
+                            ce.Brand,
+                            ce.Model,
+                            ce.Quantity,
+                            ce.Location,
+                            ce.Specifications AS Specs,
+                            ce.ConditionDescription AS Condition,
+                            ce.EquipmentStatus AS Status
+                        FROM ContractEquipment ce
+                        WHERE ce.ContractID = c.ContractID
+                        FOR JSON PATH
+                    ) AS Equipment
                 FROM Contract c
                 INNER JOIN Apartment a ON c.ApartmentID = a.ApartmentID
                 INNER JOIN Floor f ON a.FloorID = f.FloorID
@@ -194,6 +210,9 @@ exports.getContractById = async (req, res) => {
         }
         if (contract.Services) {
             contract.Services = JSON.parse(contract.Services);
+        }
+        if (contract.Equipment) {
+            contract.Equipment = JSON.parse(contract.Equipment);
         }
 
         res.json({
@@ -228,10 +247,11 @@ exports.createContract = async (req, res) => {
             monthlyBillingDay,
             statusId,
             residents,
-            services
+            services,
+            equipment
         } = req.body;
 
-        const fixedRent = 7500000;
+        const fixedRent = Number(rent) > 0 ? Number(rent) : 7500000;
         const safeDepositMonths = [1, 2].includes(Number(depositMonths)) ? Number(depositMonths) : null;
         const safeDeposit = safeDepositMonths ? fixedRent * safeDepositMonths : Number(deposit || 0);
         const safePaymentCycleMonths = [1, 3].includes(Number(paymentCycleMonths)) ? Number(paymentCycleMonths) : 1;
@@ -272,6 +292,14 @@ exports.createContract = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: 'Apartment not found'
+            });
+        }
+
+        // Chỉ căn hộ Còn trống (RoomStatus = 1) mới được lập hợp đồng.
+        if (Number(apartmentCheck.recordset[0].StatusID) !== 1) {
+            return res.status(409).json({
+                success: false,
+                message: 'Only vacant apartments can have a new contract'
             });
         }
 
@@ -369,6 +397,32 @@ exports.createContract = async (req, res) => {
             }
         }
 
+        // Lưu danh mục thiết bị bàn giao theo hợp đồng.
+        if (Array.isArray(equipment) && equipment.length > 0) {
+            for (const item of equipment) {
+                await pool.request()
+                    .input('ContractID', sql.Int, contractId)
+                    .input('EquipmentName', sql.NVarChar, item.name || 'Thiết bị')
+                    .input('Category', sql.NVarChar, item.category || null)
+                    .input('Brand', sql.NVarChar, item.brand || null)
+                    .input('Model', sql.NVarChar, item.model || null)
+                    .input('Quantity', sql.Int, Number(item.quantity) > 0 ? Number(item.quantity) : 1)
+                    .input('Location', sql.NVarChar, item.location || null)
+                    .input('Specifications', sql.NVarChar, item.specs || null)
+                    .input('ConditionDescription', sql.NVarChar, item.condition || null)
+                    .input('EquipmentStatus', sql.NVarChar, item.status || 'operational')
+                    .query(`
+                        INSERT INTO ContractEquipment (
+                            ContractID, EquipmentName, Category, Brand, Model, Quantity,
+                            Location, Specifications, ConditionDescription, EquipmentStatus
+                        ) VALUES (
+                            @ContractID, @EquipmentName, @Category, @Brand, @Model, @Quantity,
+                            @Location, @Specifications, @ConditionDescription, @EquipmentStatus
+                        )
+                    `);
+            }
+        }
+
         // Update apartment status to occupied
         await pool.request()
             .input('ApartmentID', sql.Int, apartmentId)
@@ -426,7 +480,7 @@ exports.updateContract = async (req, res) => {
 
         if (typeof rent !== 'undefined' && rent !== null) {
             updates.push('Rent = @Rent');
-            request.input('Rent', sql.Decimal, 7500000);
+            request.input('Rent', sql.Decimal, Number(rent));
         }
 
         if (typeof contractTermMonths !== 'undefined') {
@@ -675,4 +729,3 @@ exports.getContractStatuses = async (req, res) => {
         });
     }
 };
-

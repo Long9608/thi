@@ -98,7 +98,7 @@ export default function IdentityManagement({ residentId, flash }) {
   if (loading) {
     return (
       <Card className="p-8 text-center">
-        <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+        <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
         <p className="mt-3 font-bold text-slate-900">Đang tải thông tin CCCD...</p>
       </Card>
     );
@@ -122,7 +122,7 @@ export default function IdentityManagement({ residentId, flash }) {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-[#eef5f2] p-3 text-[#1f4f46]">
+            <div className="rounded-xl bg-[#f0efff] p-3 text-[#635bff]">
               <Shield size={24} />
             </div>
             <div>
@@ -184,7 +184,7 @@ export default function IdentityManagement({ residentId, flash }) {
               <p className="text-sm font-semibold text-slate-700 mb-3">Ảnh CCCD</p>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block cursor-pointer rounded-xl border-2 border-dashed border-slate-300 p-4 text-center hover:border-[#1f4f46] hover:bg-slate-50 transition">
+                  <label className="block cursor-pointer rounded-xl border-2 border-dashed border-slate-300 p-4 text-center hover:border-[#635bff] hover:bg-slate-50 transition">
                     <input
                       type="file"
                       accept="image/*"
@@ -202,7 +202,7 @@ export default function IdentityManagement({ residentId, flash }) {
                   </label>
                 </div>
                 <div>
-                  <label className="block cursor-pointer rounded-xl border-2 border-dashed border-slate-300 p-4 text-center hover:border-[#1f4f46] hover:bg-slate-50 transition">
+                  <label className="block cursor-pointer rounded-xl border-2 border-dashed border-slate-300 p-4 text-center hover:border-[#635bff] hover:bg-slate-50 transition">
                     <input
                       type="file"
                       accept="image/*"

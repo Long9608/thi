@@ -173,7 +173,7 @@ export default function WifiManagement({ flash }) {
             <h3 className="text-base font-bold text-slate-950">Quản lý Wifi</h3>
             <p className="text-sm text-slate-500">
               Quản lý đăng ký Wifi theo căn hộ đang ở.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {stats.active} đăng ký đang hoạt động
               </span>
             </p>
@@ -205,7 +205,7 @@ export default function WifiManagement({ flash }) {
 
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải dữ liệu...</p>
         </Card>
       ) : filteredMembers.length === 0 ? (
@@ -217,11 +217,11 @@ export default function WifiManagement({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredMembers.map((member) => (
-            <Card key={member.id} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={member.id} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46] font-bold text-lg">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f0efff] text-[#635bff] font-bold text-lg">
                       {getInitials(member.apartmentCode)}
                     </div>
                     <div>
@@ -245,7 +245,7 @@ export default function WifiManagement({ flash }) {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Số tháng</span>
-                    <span className="font-bold text-[#1f4f46]">{member.months}/{member.totalMonths}</span>
+                    <span className="font-bold text-[#635bff]">{member.months}/{member.totalMonths}</span>
                   </div>
                 </div>
 
@@ -293,7 +293,7 @@ export default function WifiManagement({ flash }) {
                 value={form.contractId || ''}
                 required
                 onChange={(e) => setForm({ ...form, contractId: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
               >
                 <option value="">Chọn căn hộ đang ở</option>
                 {contracts.map((contract) => (
@@ -369,7 +369,7 @@ export default function WifiManagement({ flash }) {
             <select
               value={form.status}
               onChange={(e) => setForm({ ...form, status: parseInt(e.target.value) })}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value={1}>Hoạt động</option>
               <option value={0}>Hết hạn</option>

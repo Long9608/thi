@@ -350,7 +350,7 @@ const getCardStatusBadge = (vehicle) => {
   if (loading && vehicles.length === 0) {
     return (
       <Card className="p-8 text-center">
-        <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+        <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
         <p className="mt-3 font-bold text-slate-900">Đang tải danh sách xe...</p>
       </Card>
     );
@@ -365,7 +365,7 @@ const getCardStatusBadge = (vehicle) => {
             <h3 className="text-base font-bold text-slate-950">Quản lý xe cư dân</h3>
             <p className="text-sm text-slate-500">
               Quản lý biển số, loại xe, vị trí đỗ và trạng thái thẻ xe.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {stats.active} xe đang hoạt động
               </span>
               {stats.inactive > 0 && (
@@ -386,7 +386,7 @@ const getCardStatusBadge = (vehicle) => {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả loại xe</option>
               {vehicleTypes.map(t => (
@@ -398,7 +398,7 @@ const getCardStatusBadge = (vehicle) => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả trạng thái</option>
               <option value="1">Hoạt động</option>
@@ -438,20 +438,20 @@ const getCardStatusBadge = (vehicle) => {
             const status = getVehicleStatus(vehicle);
             const typeOption = resolveVehicleTypeOption(vehicle.VehicleType);
             return (
-              <Card key={vehicle.VehicleID} className="group hover:border-[#1f4f46]/30 transition-all overflow-hidden">
+              <Card key={vehicle.VehicleID} className="group hover:border-[#635bff]/30 transition-all overflow-hidden">
                 <div className="p-5">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#eef5f2] text-[#1f4f46]">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#f0efff] text-[#635bff]">
                         {getVehicleTypeIcon(vehicle.VehicleType)}
                       </div>
                       <div>
-                        <h3 className="text-xl font-black text-slate-950 group-hover:text-[#1f4f46] transition">
+                        <h3 className="text-xl font-black text-slate-950 group-hover:text-[#635bff] transition">
                           {vehicle.PlateNumber}
                         </h3>
                         <p className="text-sm text-slate-500">
                           {vehicle.VehicleType}
-                          <span className="ml-2 text-[#1f4f46] font-semibold">
+                          <span className="ml-2 text-[#635bff] font-semibold">
                             {money(typeOption.fee).replace('₫', '')}/tháng
                           </span>
                         </p>
@@ -477,7 +477,7 @@ const getCardStatusBadge = (vehicle) => {
                       <div className="flex items-center justify-between">
                         <span className="text-slate-500">Vị trí đỗ</span>
                         <span className="font-medium text-slate-950 flex items-center gap-1">
-                          <MapPin size={14} className="text-[#1f4f46]" />
+                          <MapPin size={14} className="text-[#635bff]" />
                           {vehicle.SlotNumber}
                         </span>
                       </div>
@@ -519,7 +519,7 @@ const getCardStatusBadge = (vehicle) => {
               onClick={() => setPage(i + 1)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
                 page === i + 1
-                  ? 'bg-[#1f4f46] text-white'
+                  ? 'bg-[#635bff] text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -604,7 +604,7 @@ const getCardStatusBadge = (vehicle) => {
                 <select
                   value={form.residentId}
                   onChange={(e) => setForm({ ...form, residentId: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                   required
                 >
                   <option value="">Chọn chủ xe</option>
@@ -642,8 +642,8 @@ const getCardStatusBadge = (vehicle) => {
                         }))}
                         className={`rounded-2xl border px-4 py-3 text-left transition ${
                           active
-                            ? 'border-[#1f4f46] bg-[#eef5f2]'
-                            : 'border-slate-200 bg-white hover:border-[#1f4f46]/40'
+                            ? 'border-[#635bff] bg-[#f0efff]'
+                            : 'border-slate-200 bg-white hover:border-[#635bff]/40'
                         }`}
                       >
                         <div className="font-bold text-slate-950">{option.label}</div>
@@ -667,8 +667,8 @@ const getCardStatusBadge = (vehicle) => {
                     onClick={() => setForm(prev => ({ ...prev, cardExpiryMonths: months }))}
                     className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
                       Number(form.cardExpiryMonths) === months
-                        ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-[#1f4f46]/40'
+                        ? 'border-[#635bff] bg-[#635bff] text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-[#635bff]/40'
                     }`}
                   >
                     {months} tháng

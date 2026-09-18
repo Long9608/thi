@@ -223,7 +223,7 @@ export default function Fees({ flash }) {
             <h3 className="text-base font-bold text-slate-950">Hóa đơn</h3>
             <p className="text-sm text-slate-500">
               Quản lý hóa đơn và phí dịch vụ.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {stats.total} hóa đơn
               </span>
               <span className="ml-2 text-rose-600 font-semibold">
@@ -242,7 +242,7 @@ export default function Fees({ flash }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả trạng thái</option>
               {statuses.map(s => (
@@ -252,7 +252,7 @@ export default function Fees({ flash }) {
             <select
               value={monthFilter}
               onChange={(e) => setMonthFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả tháng</option>
               {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
@@ -262,7 +262,7 @@ export default function Fees({ flash }) {
             <select
               value={yearFilter}
               onChange={(e) => setYearFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả năm</option>
               {[2023, 2024, 2025, 2026].map(y => (
@@ -291,7 +291,7 @@ export default function Fees({ flash }) {
       {/* Invoice List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách hóa đơn...</p>
         </Card>
       ) : filteredInvoices.length === 0 ? (
@@ -306,7 +306,7 @@ export default function Fees({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredInvoices.map((invoice) => (
-            <Card key={invoice.InvoiceID} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={invoice.InvoiceID} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
@@ -321,13 +321,13 @@ export default function Fees({ flash }) {
                         return <Badge tone={type.tone} className="text-xs">{type.label}</Badge>;
                       })()}
                     </div>
-                    <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                    <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                       {invoice.ApartmentCode}
                     </h3>
                     <p className="text-sm text-slate-500">{invoice.OwnerName}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-[#1f4f46]">
+                    <p className="text-lg font-bold text-[#635bff]">
                       {money(invoice.TotalAmount || 0)}
                     </p>
                     <p className="text-xs text-slate-400">HĐ: {invoice.ContractNumber}</p>
@@ -380,7 +380,7 @@ export default function Fees({ flash }) {
               onClick={() => setPage(i + 1)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
                 page === i + 1
-                  ? 'bg-[#1f4f46] text-white'
+                  ? 'bg-[#635bff] text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -425,7 +425,7 @@ export default function Fees({ flash }) {
                   <div><span className="text-slate-500">Tháng:</span> {selectedInvoice.InvoiceMonth}/{selectedInvoice.InvoiceYear}</div>
                   <div><span className="text-slate-500">Ngày tạo:</span> {formatDate(selectedInvoice.InvoiceDate)}</div>
                   <div><span className="text-slate-500">Hạn thanh toán:</span> {formatDate(selectedInvoice.DueDate)}</div>
-                  <div><span className="text-slate-500">Tổng tiền:</span> <span className="font-bold text-[#1f4f46]">{money(selectedInvoice.TotalAmount)}</span></div>
+                  <div><span className="text-slate-500">Tổng tiền:</span> <span className="font-bold text-[#635bff]">{money(selectedInvoice.TotalAmount)}</span></div>
                 </div>
               </div>
               <div>
@@ -474,7 +474,7 @@ export default function Fees({ flash }) {
                     <tfoot className="bg-slate-50 border-t border-slate-200">
                       <tr>
                         <td colSpan="3" className="px-4 py-2 text-right font-bold text-slate-950">Tổng cộng</td>
-                        <td className="px-4 py-2 text-right font-bold text-[#1f4f46]">{money(selectedInvoice.TotalAmount)}</td>
+                        <td className="px-4 py-2 text-right font-bold text-[#635bff]">{money(selectedInvoice.TotalAmount)}</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -504,7 +504,7 @@ export default function Fees({ flash }) {
               <select
                 value={generateForm.contractId}
                 onChange={(e) => setGenerateForm({ ...generateForm, contractId: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 required
               >
                 <option value="">Chọn hợp đồng</option>
@@ -531,7 +531,7 @@ export default function Fees({ flash }) {
               <select
                 value={generateForm.invoiceMonth}
                 onChange={(e) => setGenerateForm({ ...generateForm, invoiceMonth: parseInt(e.target.value) })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 required
               >
                 {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
@@ -544,7 +544,7 @@ export default function Fees({ flash }) {
               <select
                 value={generateForm.invoiceYear}
                 onChange={(e) => setGenerateForm({ ...generateForm, invoiceYear: parseInt(e.target.value) })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 required
               >
                 {[2023, 2024, 2025, 2026].map(y => (
@@ -569,7 +569,7 @@ export default function Fees({ flash }) {
                     <select
                       value={item.chargeType}
                       onChange={(e) => updateInvoiceItem(index, 'chargeType', e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#1f4f46]"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#635bff]"
                     >
                       <option value="OTHER">Khác</option>
                     </select>
@@ -605,7 +605,7 @@ export default function Fees({ flash }) {
                   </div>
                   <div className="w-20 text-center">
                     <div className="text-xs text-slate-500">Thành tiền</div>
-                    <div className="text-sm font-semibold text-[#1f4f46]">
+                    <div className="text-sm font-semibold text-[#635bff]">
                       {money((item.quantity || 0) * (item.unitPrice || 0))}
                     </div>
                   </div>
@@ -626,7 +626,7 @@ export default function Fees({ flash }) {
           <div className="rounded-xl bg-slate-50 p-4">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-slate-700">Tổng cộng</span>
-              <span className="text-2xl font-bold text-[#1f4f46]">
+              <span className="text-2xl font-bold text-[#635bff]">
                 {money(generateForm.items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0))}
               </span>
             </div>

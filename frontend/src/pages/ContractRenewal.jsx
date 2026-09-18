@@ -146,7 +146,7 @@ export default function ContractRenewal({ flash }) {
       {/* Contract List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách hợp đồng...</p>
         </Card>
       ) : filteredContracts.length === 0 ? (
@@ -163,7 +163,7 @@ export default function ContractRenewal({ flash }) {
             const urgencyLabel = daysLeft <= 15 ? 'Khẩn cấp' : daysLeft <= 30 ? 'Cảnh báo' : 'Bình thường';
 
             return (
-              <Card key={contract.ContractID} className="group hover:border-[#1f4f46]/30 transition-all">
+              <Card key={contract.ContractID} className="group hover:border-[#635bff]/30 transition-all">
                 <div className="p-5">
                   <div className="flex items-start justify-between">
                     <div>
@@ -190,7 +190,7 @@ export default function ContractRenewal({ flash }) {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Giá thuê</span>
-                      <span className="font-bold text-[#1f4f46]">{money(contract.Rent)}/tháng</span>
+                      <span className="font-bold text-[#635bff]">{money(contract.Rent)}/tháng</span>
                     </div>
                   </div>
 

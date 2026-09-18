@@ -69,7 +69,7 @@ export default function DepositManagement({ flash }) {
             <h3 className="text-base font-bold text-slate-950">Quản lý tiền cọc</h3>
             <p className="text-sm text-slate-500">
               Theo dõi tiền cọc của các hợp đồng.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {money(stats.totalDeposit)} tổng tiền cọc
               </span>
             </p>
@@ -100,7 +100,7 @@ export default function DepositManagement({ flash }) {
       {/* Deposit List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách...</p>
         </Card>
       ) : filteredContracts.length === 0 ? (
@@ -112,7 +112,7 @@ export default function DepositManagement({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredContracts.map((contract) => (
-            <Card key={contract.ContractID} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={contract.ContractID} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
@@ -128,7 +128,7 @@ export default function DepositManagement({ flash }) {
                 <div className="mt-4 space-y-2 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Tiền cọc</span>
-                    <span className="text-2xl font-bold text-[#1f4f46]">
+                    <span className="text-2xl font-bold text-[#635bff]">
                       {money(contract.Deposit)}
                     </span>
                   </div>
@@ -164,9 +164,9 @@ export default function DepositManagement({ flash }) {
       >
         {selectedContract && (
           <div className="space-y-4">
-            <div className="rounded-xl bg-[#eef5f2] p-6 text-center">
+            <div className="rounded-xl bg-[#f0efff] p-6 text-center">
               <p className="text-sm text-slate-500">Tiền cọc</p>
-              <p className="text-4xl font-black text-[#1f4f46]">{money(selectedContract.Deposit)}</p>
+              <p className="text-4xl font-black text-[#635bff]">{money(selectedContract.Deposit)}</p>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">

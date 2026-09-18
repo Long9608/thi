@@ -57,7 +57,7 @@ export default function ResidenceHistory({ residentId, flash }) {
   if (loading) {
     return (
       <Card className="p-8 text-center">
-        <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+        <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
         <p className="mt-3 font-bold text-slate-900">Đang tải lịch sử cư trú...</p>
       </Card>
     );
@@ -67,7 +67,7 @@ export default function ResidenceHistory({ residentId, flash }) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
       <Card className="p-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="rounded-xl bg-[#eef5f2] p-3 text-[#1f4f46]">
+          <div className="rounded-xl bg-[#f0efff] p-3 text-[#635bff]">
             <Clock size={24} />
           </div>
           <div>
@@ -93,14 +93,14 @@ export default function ResidenceHistory({ residentId, flash }) {
               return (
                 <div
                   key={item.HistoryID || item.id || index}
-                  className="rounded-xl border border-slate-200 overflow-hidden hover:border-[#1f4f46]/30 transition"
+                  className="rounded-xl border border-slate-200 overflow-hidden hover:border-[#635bff]/30 transition"
                 >
                   <div
                     className="flex cursor-pointer items-center justify-between p-4 hover:bg-slate-50 transition"
                     onClick={() => toggleExpand(item.HistoryID || item.id || index)}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46]">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f0efff] text-[#635bff]">
                         <Building2 size={18} />
                       </div>
                       <div>

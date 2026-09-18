@@ -220,7 +220,7 @@ export default function ScheduleNotification({ flash }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả trạng thái</option>
               <option value="pending">Chờ gửi</option>
@@ -248,7 +248,7 @@ export default function ScheduleNotification({ flash }) {
       {/* Schedule List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách...</p>
         </Card>
       ) : filteredData.length === 0 ? (
@@ -263,7 +263,7 @@ export default function ScheduleNotification({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {filteredData.map((schedule) => (
-            <Card key={schedule.id} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={schedule.id} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -271,7 +271,7 @@ export default function ScheduleNotification({ flash }) {
                       {getStatusBadge(schedule.status)}
                       {getScopeBadge(schedule.targetScope)}
                     </div>
-                    <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                    <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                       {schedule.title}
                     </h3>
                     <p className="text-sm text-slate-500 mt-1 line-clamp-2">
@@ -396,7 +396,7 @@ export default function ScheduleNotification({ flash }) {
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">Nội dung *</label>
               <textarea
-                className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-[#1f4f46] min-h-[100px]"
+                className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-[#635bff] min-h-[100px]"
                 value={form.content}
                 onChange={(e) => setForm({ ...form, content: e.target.value })}
                 placeholder="Nhập nội dung thông báo..."
@@ -409,7 +409,7 @@ export default function ScheduleNotification({ flash }) {
               <select
                 value={form.targetScope}
                 onChange={(e) => setForm({ ...form, targetScope: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
               >
                 <option value="ALL">Tất cả cư dân</option>
                 <option value="BUILDING">Theo tòa nhà</option>
@@ -442,7 +442,7 @@ export default function ScheduleNotification({ flash }) {
               <select
                 value={form.timezone}
                 onChange={(e) => setForm({ ...form, timezone: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
               >
                 <option value="Asia/Ho_Chi_Minh">Asia/Ho_Chi_Minh (UTC+7)</option>
                 <option value="Asia/Bangkok">Asia/Bangkok (UTC+7)</option>

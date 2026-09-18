@@ -150,7 +150,7 @@ export default function MaintenanceSchedule({ flash }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả trạng thái</option>
               {statuses.map(status => (
@@ -176,7 +176,7 @@ export default function MaintenanceSchedule({ flash }) {
 
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải dữ liệu...</p>
         </Card>
       ) : filteredData.length === 0 ? (
@@ -188,7 +188,7 @@ export default function MaintenanceSchedule({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {filteredData.map((item) => (
-            <Card key={item.id} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={item.id} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -196,7 +196,7 @@ export default function MaintenanceSchedule({ flash }) {
                       {getStatusBadge(item.status)}
                       {getPriorityBadge(item.priority)}
                     </div>
-                    <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                    <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                       {item.title}
                     </h3>
                     <p className="text-sm text-slate-500 mt-1">{item.location}</p>

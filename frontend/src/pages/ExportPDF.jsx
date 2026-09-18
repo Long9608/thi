@@ -73,15 +73,15 @@ export default function ExportPDF({ flash }) {
                 <button
                   key={option.id}
                   className={`flex w-full items-center gap-3 rounded-xl border p-4 transition ${
-                    isSelected ? 'border-[#1f4f46] bg-[#eef5f2]' : 'border-slate-200 hover:border-slate-300'
+                    isSelected ? 'border-[#635bff] bg-[#f0efff]' : 'border-slate-200 hover:border-slate-300'
                   }`}
                   onClick={() => setExportType(option.id)}
                 >
-                  <Icon size={20} className={isSelected ? 'text-[#1f4f46]' : 'text-slate-400'} />
-                  <span className={`font-semibold ${isSelected ? 'text-[#1f4f46]' : 'text-slate-700'}`}>
+                  <Icon size={20} className={isSelected ? 'text-[#635bff]' : 'text-slate-400'} />
+                  <span className={`font-semibold ${isSelected ? 'text-[#635bff]' : 'text-slate-700'}`}>
                     {option.label}
                   </span>
-                  {isSelected && <CheckCircle2 size={16} className="ml-auto text-[#1f4f46]" />}
+                  {isSelected && <CheckCircle2 size={16} className="ml-auto text-[#635bff]" />}
                 </button>
               );
             })}
@@ -119,17 +119,17 @@ export default function ExportPDF({ flash }) {
                     <button
                       key={option.id}
                       className={`flex items-center gap-3 rounded-xl border p-3 transition ${
-                        isSelected ? 'border-[#1f4f46] bg-[#eef5f2]' : 'border-slate-200 hover:border-slate-300'
+                        isSelected ? 'border-[#635bff] bg-[#f0efff]' : 'border-slate-200 hover:border-slate-300'
                       }`}
                       onClick={() => setReportFormat(option.id)}
                     >
                       <div className="flex-1 text-left">
-                        <p className={`font-semibold ${isSelected ? 'text-[#1f4f46]' : 'text-slate-700'}`}>
+                        <p className={`font-semibold ${isSelected ? 'text-[#635bff]' : 'text-slate-700'}`}>
                           {option.label}
                         </p>
                         <p className="text-xs text-slate-500">{option.description}</p>
                       </div>
-                      {isSelected && <CheckCircle2 size={16} className="text-[#1f4f46]" />}
+                      {isSelected && <CheckCircle2 size={16} className="text-[#635bff]" />}
                     </button>
                   );
                 })}
@@ -147,11 +147,11 @@ export default function ExportPDF({ flash }) {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-500">Đang tạo báo cáo...</span>
-                  <span className="font-bold text-[#1f4f46]">{progress}%</span>
+                  <span className="font-bold text-[#635bff]">{progress}%</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                   <div 
-                    className="h-full rounded-full bg-[#1f4f46] transition-all duration-300"
+                    className="h-full rounded-full bg-[#635bff] transition-all duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>

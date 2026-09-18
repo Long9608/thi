@@ -127,7 +127,7 @@ export default function FamilyMembers({ residentId, flash }) {
   if (loading) {
     return (
       <Card className="p-8 text-center">
-        <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+        <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
         <p className="mt-3 font-bold text-slate-900">Đang tải danh sách thành viên...</p>
       </Card>
     );
@@ -138,7 +138,7 @@ export default function FamilyMembers({ residentId, flash }) {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-[#eef5f2] p-3 text-[#1f4f46]">
+            <div className="rounded-xl bg-[#f0efff] p-3 text-[#635bff]">
               <Users size={24} />
             </div>
             <div>
@@ -164,13 +164,13 @@ export default function FamilyMembers({ residentId, flash }) {
             {members.map((member) => (
               <div
                 key={member.MemberID || member.id}
-                className={`rounded-xl border p-4 hover:border-[#1f4f46]/30 transition ${
+                className={`rounded-xl border p-4 hover:border-[#635bff]/30 transition ${
                   member.IsHead ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200'
                 }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46] text-lg font-bold">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f0efff] text-[#635bff] text-lg font-bold">
                       {getInitials(member.FullName)}
                     </div>
                     <div>
@@ -250,7 +250,7 @@ export default function FamilyMembers({ residentId, flash }) {
               <select
                 value={form.gender}
                 onChange={(e) => setForm({ ...form, gender: parseInt(e.target.value) })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
               >
                 <option value={1}>Nam</option>
                 <option value={0}>Nữ</option>
@@ -272,7 +272,7 @@ export default function FamilyMembers({ residentId, flash }) {
               <select
                 value={form.relationship}
                 onChange={(e) => setForm({ ...form, relationship: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 required
               >
                 <option>Chủ hộ</option>
@@ -311,7 +311,7 @@ export default function FamilyMembers({ residentId, flash }) {
               type="checkbox"
               checked={form.isHead}
               onChange={(e) => setForm({ ...form, isHead: e.target.checked })}
-              className="h-4 w-4 rounded border-slate-300 accent-[#1f4f46]"
+              className="h-4 w-4 rounded border-slate-300 accent-[#635bff]"
             />
             <label className="text-sm text-slate-700">Chủ hộ</label>
           </div>

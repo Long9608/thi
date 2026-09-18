@@ -130,7 +130,7 @@ export default function ContractTerminate({ flash }) {
       {/* Contract List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách hợp đồng...</p>
         </Card>
       ) : filteredContracts.length === 0 ? (
@@ -146,7 +146,7 @@ export default function ContractTerminate({ flash }) {
             const isExpired = contract.StatusID === 3;
 
             return (
-              <Card key={contract.ContractID} className="group hover:border-[#1f4f46]/30 transition-all">
+              <Card key={contract.ContractID} className="group hover:border-[#635bff]/30 transition-all">
                 <div className="p-5">
                   <div className="flex items-start justify-between">
                     <div>
@@ -168,7 +168,7 @@ export default function ContractTerminate({ flash }) {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Giá thuê</span>
-                      <span className="font-bold text-[#1f4f46]">{money(contract.Rent)}/tháng</span>
+                      <span className="font-bold text-[#635bff]">{money(contract.Rent)}/tháng</span>
                     </div>
                     {contract.Deposit > 0 && (
                       <div className="flex items-center justify-between">
@@ -249,7 +249,7 @@ export default function ContractTerminate({ flash }) {
               <select
                 value={terminateForm.reason}
                 onChange={(e) => setTerminateForm({ ...terminateForm, reason: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
               >
                 <option>Hết hạn hợp đồng</option>
                 <option>Chấm dứt trước hạn</option>

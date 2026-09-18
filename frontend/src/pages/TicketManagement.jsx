@@ -265,7 +265,7 @@ export default function TicketManagement({ flash }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả trạng thái</option>
               {statuses.map(s => (
@@ -277,7 +277,7 @@ export default function TicketManagement({ flash }) {
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả ưu tiên</option>
               <option value="Cao">Cao</option>
@@ -306,7 +306,7 @@ export default function TicketManagement({ flash }) {
       {/* Ticket List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách ticket...</p>
         </Card>
       ) : filteredTickets.length === 0 ? (
@@ -321,7 +321,7 @@ export default function TicketManagement({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredTickets.map((ticket) => (
-            <Card key={ticket.RequestID} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={ticket.RequestID} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -329,7 +329,7 @@ export default function TicketManagement({ flash }) {
                       {getPriorityBadge(ticket.Priority)}
                       {getStatusBadge(ticket.StatusID, ticket.Status)}
                     </div>
-                    <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46] transition line-clamp-2">
+                    <h3 className="font-bold text-slate-950 group-hover:text-[#635bff] transition line-clamp-2">
                       {ticket.Title}
                     </h3>
                     <p className="text-sm text-slate-500 mt-1">
@@ -401,7 +401,7 @@ export default function TicketManagement({ flash }) {
               onClick={() => setPage(i + 1)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
                 page === i + 1
-                  ? 'bg-[#1f4f46] text-white'
+                  ? 'bg-[#635bff] text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -491,7 +491,7 @@ export default function TicketManagement({ flash }) {
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">Mô tả</label>
               <textarea
-                className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-[#1f4f46] min-h-[100px]"
+                className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-[#635bff] min-h-[100px]"
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 placeholder="Mô tả chi tiết vấn đề..."
@@ -504,7 +504,7 @@ export default function TicketManagement({ flash }) {
                 <select
                   value={form.apartmentId}
                   onChange={(e) => setForm({ ...form, apartmentId: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                   required
                 >
                   <option value="">Chọn căn hộ</option>
@@ -520,7 +520,7 @@ export default function TicketManagement({ flash }) {
                 <select
                   value={form.residentId}
                   onChange={(e) => setForm({ ...form, residentId: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                   required
                 >
                   <option value="">Chọn cư dân</option>
@@ -539,7 +539,7 @@ export default function TicketManagement({ flash }) {
                 <select
                   value={form.priority}
                   onChange={(e) => setForm({ ...form, priority: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 >
                   <option value="Cao">Cao</option>
                   <option value="Trung bình">Trung bình</option>
@@ -551,7 +551,7 @@ export default function TicketManagement({ flash }) {
                 <select
                   value={form.statusId}
                   onChange={(e) => setForm({ ...form, statusId: parseInt(e.target.value) })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 >
                   {statuses.map(s => (
                     <option key={s.StatusID} value={s.StatusID}>

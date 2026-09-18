@@ -115,7 +115,7 @@ export default function AIContractPrediction() {
 
           <Loader2
             size={34}
-            className="mx-auto animate-spin text-[#1f4f46]"
+            className="mx-auto animate-spin text-[#635bff]"
           />
 
           <p className="mt-3 text-sm text-slate-500">
@@ -184,7 +184,7 @@ export default function AIContractPrediction() {
 
             <BrainCircuit
               size={24}
-              className="text-[#1f4f46]"
+              className="text-[#635bff]"
             />
 
             <h3 className="text-xl font-bold text-slate-950">
@@ -425,7 +425,7 @@ export default function AIContractPrediction() {
 
           <ShieldCheck
             size={21}
-            className="mt-0.5 shrink-0 text-[#1f4f46]"
+            className="mt-0.5 shrink-0 text-[#635bff]"
           />
 
           <div>
@@ -472,7 +472,7 @@ function SummaryCard({
   const iconClass =
     tone === 'high'
       ? 'bg-rose-50 text-rose-600'
-      : 'bg-[#eef5f2] text-[#1f4f46]';
+      : 'bg-[#f0efff] text-[#635bff]';
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -720,7 +720,7 @@ function ContractCard({
           {/* Recommendation */}
           <div className="mt-4 rounded-xl border border-[#d9e8e3] bg-[#f5faf8] p-4">
 
-            <p className="text-xs font-bold uppercase tracking-wide text-[#1f4f46]">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#635bff]">
               Khuyến nghị
             </p>
 

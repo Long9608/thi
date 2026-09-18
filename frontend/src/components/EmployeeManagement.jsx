@@ -306,7 +306,7 @@ export default function EmployeeManagement({ flash }) {
       {loading ? (
         <Card className="p-8 text-center">
           <div className="flex flex-col items-center gap-3">
-            <RefreshCw size={32} className="animate-spin text-[#1f4f46]" />
+            <RefreshCw size={32} className="animate-spin text-[#635bff]" />
             <p className="font-bold text-slate-900">Đang tải danh sách nhân viên...</p>
           </div>
         </Card>
@@ -324,15 +324,15 @@ export default function EmployeeManagement({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredEmployees.map((employee) => (
-            <Card key={employee.EmployeeID || employee.employeeId || employee.id} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={employee.EmployeeID || employee.employeeId || employee.id} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46] font-bold text-lg">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f0efff] text-[#635bff] font-bold text-lg">
                       {(employee.FullName || employee.fullName || '?').charAt(0)}
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                      <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                         {employee.FullName || employee.fullName}
                       </h3>
                       <p className="text-xs text-slate-500">@{employee.Username || employee.username}</p>
@@ -398,7 +398,7 @@ export default function EmployeeManagement({ flash }) {
         {modalMode === 'view' && selectedEmployee ? (
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46] text-2xl font-bold">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f0efff] text-[#635bff] text-2xl font-bold">
                 {(selectedEmployee.FullName || selectedEmployee.fullName || '?').charAt(0)}
               </div>
               <div>
@@ -480,7 +480,7 @@ export default function EmployeeManagement({ flash }) {
                 <select 
                   value={form.gender} 
                   onChange={(e) => setForm({...form, gender: parseInt(e.target.value)})}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 >
                   <option value={1}>Nam</option>
                   <option value={0}>Nữ</option>
@@ -539,7 +539,7 @@ export default function EmployeeManagement({ flash }) {
                   }
                   setForm({...form, roleIds: values});
                 }}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46] min-h-[100px]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff] min-h-[100px]"
               >
                 {roles.map(role => (
                   <option key={role.RoleID || role.roleId || role.id} value={role.RoleID || role.roleId || role.id}>

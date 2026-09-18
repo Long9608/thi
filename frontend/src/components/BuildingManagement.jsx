@@ -639,7 +639,7 @@ export default function BuildingManagement({ flash }) {
             <h3 className="text-base font-bold text-slate-950">Quản lý tòa nhà & tầng</h3>
             <p className="text-sm text-slate-500">
               Quản lý cấu trúc tòa nhà, số tầng và căn hộ
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {stats.totalBuildings} tòa nhà / {stats.totalFloors} tầng
               </span>
             </p>
@@ -678,7 +678,7 @@ export default function BuildingManagement({ flash }) {
           onClick={() => setActiveTab('buildings')}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition ${
             activeTab === 'buildings'
-              ? 'border-[#1f4f46] text-[#1f4f46]'
+              ? 'border-[#635bff] text-[#635bff]'
               : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
           }`}
         >
@@ -688,7 +688,7 @@ export default function BuildingManagement({ flash }) {
           onClick={() => setActiveTab('floors')}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition ${
             activeTab === 'floors'
-              ? 'border-[#1f4f46] text-[#1f4f46]'
+              ? 'border-[#635bff] text-[#635bff]'
               : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
           }`}
         >
@@ -701,7 +701,7 @@ export default function BuildingManagement({ flash }) {
         <>
           {loading ? (
             <Card className="p-8 text-center">
-              <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+              <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
               <p className="mt-3 font-bold text-slate-900">Đang tải danh sách tòa nhà...</p>
             </Card>
           ) : filteredBuildings.length === 0 ? (
@@ -716,12 +716,12 @@ export default function BuildingManagement({ flash }) {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredBuildings.map(building => (
-                <Card key={building.BuildingID} className="group hover:border-[#1f4f46]/30 transition-all">
+                <Card key={building.BuildingID} className="group hover:border-[#635bff]/30 transition-all">
                   <div className="p-5">
                     <div className="flex items-start justify-between">
                       <div>
                         <Badge tone="blue" className="mb-2">{building.AreaName || getAreaName(building.AreaID)}</Badge>
-                        <h3 className="text-xl font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                        <h3 className="text-xl font-bold text-slate-950 group-hover:text-[#635bff]">
                           {building.BuildingName}
                         </h3>
                         <p className="text-sm text-slate-500">
@@ -775,7 +775,7 @@ export default function BuildingManagement({ flash }) {
         <>
           {loading ? (
             <Card className="p-8 text-center">
-              <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+              <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
               <p className="mt-3 font-bold text-slate-900">Đang tải danh sách tầng...</p>
             </Card>
           ) : filteredFloors.length === 0 ? (
@@ -790,12 +790,12 @@ export default function BuildingManagement({ flash }) {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredFloors.map(floor => (
-                <Card key={floor.FloorID} className="group hover:border-[#1f4f46]/30 transition-all">
+                <Card key={floor.FloorID} className="group hover:border-[#635bff]/30 transition-all">
                   <div className="p-5">
                     <div className="flex items-start justify-between">
                       <div>
                         <Badge tone="slate" className="mb-2">{floor.BuildingName}</Badge>
-                        <h3 className="text-2xl font-black text-slate-950 group-hover:text-[#1f4f46]">
+                        <h3 className="text-2xl font-black text-slate-950 group-hover:text-[#635bff]">
                           Tầng {floor.FloorNumber}
                         </h3>
                         <p className="text-sm text-slate-500">
@@ -832,7 +832,7 @@ export default function BuildingManagement({ flash }) {
               <select
                 value={form.areaId}
                 onChange={(e) => setForm({...form, areaId: e.target.value})}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 required
               >
                 <option value="">Chọn khu vực</option>
@@ -874,7 +874,7 @@ export default function BuildingManagement({ flash }) {
               <select
                 value={form.buildingId}
                 onChange={(e) => setForm({...form, buildingId: e.target.value})}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 required
               >
                 <option value="">Chọn tòa nhà</option>
@@ -1052,7 +1052,7 @@ export default function BuildingManagement({ flash }) {
                         {(billingInfo.registeredServices || []).map((service) => (
                           <div key={service.RegistrationID} className="flex items-center justify-between text-sm">
                             <span className="text-slate-700">{service.ServiceName} x {service.Quantity || 1}</span>
-                            <span className="font-bold text-[#1f4f46]">{money(Number(service.Price || 0) * Number(service.Quantity || 1))}</span>
+                            <span className="font-bold text-[#635bff]">{money(Number(service.Price || 0) * Number(service.Quantity || 1))}</span>
                           </div>
                         ))}
                       </div>
@@ -1096,7 +1096,7 @@ export default function BuildingManagement({ flash }) {
                         <tfoot className="bg-slate-50">
                           <tr>
                             <td colSpan="2" className="px-4 py-3 text-right font-bold text-slate-950">Tổng cộng</td>
-                            <td className="px-4 py-3 text-right text-lg font-black text-[#1f4f46]">
+                            <td className="px-4 py-3 text-right text-lg font-black text-[#635bff]">
                               {money(billingInfo.invoice.TotalAmount)}
                             </td>
                           </tr>
@@ -1266,7 +1266,7 @@ export default function BuildingManagement({ flash }) {
                       onClick={() => updateContractTerm(contractForm.contractTermMonths === months ? '' : months)}
                       className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
                         contractForm.contractTermMonths === months
-                          ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                          ? 'border-[#635bff] bg-[#635bff] text-white'
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                     >
@@ -1312,7 +1312,7 @@ export default function BuildingManagement({ flash }) {
                     }))}
                     className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
                       Number(contractForm.depositMonths) === months
-                        ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                        ? 'border-[#635bff] bg-[#635bff] text-white'
                         : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                     }`}
                   >
@@ -1320,7 +1320,7 @@ export default function BuildingManagement({ flash }) {
                   </button>
                 ))}
               </div>
-              <p className="mt-1 text-sm font-semibold text-[#1f4f46]">
+              <p className="mt-1 text-sm font-semibold text-[#635bff]">
                 {formatVnd(Number(contractForm.depositMonths || 1) * FIXED_MONTHLY_RENT)} VNĐ
               </p>
             </div>
@@ -1337,7 +1337,7 @@ export default function BuildingManagement({ flash }) {
                     onClick={() => setContractForm(prev => ({ ...prev, paymentCycleMonths: months }))}
                     className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
                       Number(contractForm.paymentCycleMonths) === months
-                        ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                        ? 'border-[#635bff] bg-[#635bff] text-white'
                         : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                     }`}
                   >
@@ -1354,9 +1354,9 @@ export default function BuildingManagement({ flash }) {
 
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Ảnh hợp đồng đã ký</label>
-            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600 hover:border-[#1f4f46] hover:bg-slate-50">
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600 hover:border-[#635bff] hover:bg-slate-50">
               <span>{signedContractImageFile ? signedContractImageFile.name : 'Chọn ảnh hợp đồng đã ký...'}</span>
-              <span className="font-semibold text-[#1f4f46]">Tải ảnh lên</span>
+              <span className="font-semibold text-[#635bff]">Tải ảnh lên</span>
               <input
                 type="file"
                 accept="image/*"

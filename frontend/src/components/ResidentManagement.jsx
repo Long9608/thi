@@ -296,7 +296,7 @@ export default function ResidentManagement({ flash }) {
             <h3 className="text-base font-bold text-slate-950">Quản lý cư dân</h3>
             <p className="text-sm text-slate-500">
               Quản lý hồ sơ cư dân, CCCD, thông tin liên hệ và căn hộ đang ở.
-              <span className="ml-2 text-[#1f4f46] font-semibold">{stats.active} đang ở</span>
+              <span className="ml-2 text-[#635bff] font-semibold">{stats.active} đang ở</span>
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -335,7 +335,7 @@ export default function ResidentManagement({ flash }) {
       {/* Resident List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách cư dân...</p>
         </Card>
       ) : filteredResidents.length === 0 ? (
@@ -353,15 +353,15 @@ export default function ResidentManagement({ flash }) {
             // 🔥 SỬA: Dùng helper function
             const statusInfo = getStatusInfo(resident);
             return (
-              <Card key={resident.ResidentID || resident.id} className="group hover:border-[#1f4f46]/30 transition-all">
+              <Card key={resident.ResidentID || resident.id} className="group hover:border-[#635bff]/30 transition-all">
                 <div className="p-5">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46] font-bold text-lg">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f0efff] text-[#635bff] font-bold text-lg">
                         {getInitials(resident.FullName)}
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                        <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                           {resident.FullName}
                         </h3>
                         <p className="text-xs text-slate-500">
@@ -438,7 +438,7 @@ export default function ResidentManagement({ flash }) {
               onClick={() => setPage(i + 1)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
                 page === i + 1
-                  ? 'bg-[#1f4f46] text-white'
+                  ? 'bg-[#635bff] text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -470,7 +470,7 @@ export default function ResidentManagement({ flash }) {
         {modalMode === 'view' && selectedResident ? (
           <div className="space-y-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46] text-2xl font-bold">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f0efff] text-[#635bff] text-2xl font-bold">
                 {getInitials(selectedResident.FullName)}
               </div>
               <div>
@@ -555,7 +555,7 @@ export default function ResidentManagement({ flash }) {
                 <select
                   value={form.gender}
                   onChange={(e) => setForm({...form, gender: parseInt(e.target.value)})}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 >
                   <option value={1}>Nam</option>
                   <option value={0}>Nữ</option>

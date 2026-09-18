@@ -97,7 +97,7 @@ export default function PoolManagement({ flash }) {
             <h3 className="text-base font-bold text-slate-950">Quản lý Hồ bơi</h3>
             <p className="text-sm text-slate-500">
               Quản lý thành viên sử dụng hồ bơi.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {stats.active} thành viên đang hoạt động
               </span>
             </p>
@@ -129,7 +129,7 @@ export default function PoolManagement({ flash }) {
 
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải dữ liệu...</p>
         </Card>
       ) : filteredMembers.length === 0 ? (
@@ -141,7 +141,7 @@ export default function PoolManagement({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredMembers.map((member) => (
-            <Card key={member.id} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={member.id} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -188,7 +188,7 @@ export default function PoolManagement({ flash }) {
           {modalMode === 'create' && (
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">Cư dân / hợp đồng *</label>
-              <select value={form.contractId || ''} required onChange={(e) => setForm({ ...form, contractId: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]">
+              <select value={form.contractId || ''} required onChange={(e) => setForm({ ...form, contractId: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]">
                 <option value="">Chọn căn hộ đang ở</option>
                 {contracts.map((contract) => <option key={contract.ContractID} value={contract.ContractID}>{contract.ApartmentCode}</option>)}
               </select>

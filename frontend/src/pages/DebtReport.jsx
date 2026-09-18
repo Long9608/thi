@@ -121,7 +121,7 @@ export default function DebtReport({ flash }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả trạng thái</option>
               {statuses.map(s => (
@@ -147,7 +147,7 @@ export default function DebtReport({ flash }) {
 
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải báo cáo...</p>
         </Card>
       ) : (
@@ -178,7 +178,7 @@ export default function DebtReport({ flash }) {
                       <td className="px-5 py-4 font-bold text-slate-950">{debt.ApartmentCode}</td>
                       <td className="px-5 py-4 text-slate-600">{debt.OwnerName}</td>
                       <td className="px-5 py-4 text-slate-600">{debt.InvoiceMonth}/{debt.InvoiceYear}</td>
-                      <td className="px-5 py-4 font-bold text-[#1f4f46]">
+                      <td className="px-5 py-4 font-bold text-[#635bff]">
                         {money(remaining)}
                       </td>
                       <td className="px-5 py-4">

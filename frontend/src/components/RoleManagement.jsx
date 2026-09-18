@@ -219,7 +219,7 @@ export default function RoleManagement({ flash }) {
       {loading ? (
         <Card className="p-8 text-center">
           <div className="flex flex-col items-center gap-3">
-            <RefreshCw size={32} className="animate-spin text-[#1f4f46]" />
+            <RefreshCw size={32} className="animate-spin text-[#635bff]" />
             <p className="font-bold text-slate-900">Đang tải danh sách vai trò...</p>
           </div>
         </Card>
@@ -237,12 +237,12 @@ export default function RoleManagement({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredRoles.map((role) => (
-            <Card key={role.RoleID || role.id} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={role.RoleID || role.id} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
                     <Badge tone="purple" className="mb-2">{role.RoleCode || role.roleCode}</Badge>
-                    <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                    <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                       {role.RoleName || role.roleName}
                     </h3>
                     <p className="text-sm text-slate-500 mt-1">
@@ -327,7 +327,7 @@ export default function RoleManagement({ flash }) {
             <select 
               value={form.status} 
               onChange={(e) => setForm({...form, status: parseInt(e.target.value)})}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value={1}>Hoạt động</option>
               <option value={0}>Khóa</option>

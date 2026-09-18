@@ -179,7 +179,7 @@ export default function CreateContract({ flash, onSuccess }) {
       <Card className="p-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="rounded-xl bg-[#eef5f2] p-3 text-[#1f4f46]">
+          <div className="rounded-xl bg-[#f0efff] p-3 text-[#635bff]">
             <FileText size={24} />
           </div>
           <div>
@@ -195,7 +195,7 @@ export default function CreateContract({ flash, onSuccess }) {
               <div
                 className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition ${
                   s === step
-                    ? 'bg-[#1f4f46] text-white'
+                    ? 'bg-[#635bff] text-white'
                     : s < step
                     ? 'bg-emerald-100 text-emerald-700'
                     : 'bg-slate-100 text-slate-400'
@@ -237,11 +237,11 @@ export default function CreateContract({ flash, onSuccess }) {
                   filteredApartments.map(apartment => (
                     <button
                       key={apartment.ApartmentID}
-                      className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 hover:border-[#1f4f46] hover:bg-slate-50 transition"
+                      className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 hover:border-[#635bff] hover:bg-slate-50 transition"
                       onClick={() => handleSelectApartment(apartment)}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#eef5f2] text-[#1f4f46]">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f0efff] text-[#635bff]">
                           <Home size={18} />
                         </div>
                         <div className="text-left">
@@ -296,7 +296,7 @@ export default function CreateContract({ flash, onSuccess }) {
                       className="flex w-full items-center gap-3 rounded-lg p-2 hover:bg-slate-50 transition"
                       onClick={() => handleSelectResident(resident)}
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eef5f2] text-xs font-bold text-[#1f4f46]">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f0efff] text-xs font-bold text-[#635bff]">
                         {getInitials(resident.FullName)}
                       </div>
                       <div className="text-left">
@@ -314,7 +314,7 @@ export default function CreateContract({ flash, onSuccess }) {
                     {form.residents.map((resident, idx) => (
                       <div key={resident.ResidentID} className="flex items-center justify-between rounded-xl border border-slate-200 p-3 mt-2">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eef5f2] text-xs font-bold text-[#1f4f46]">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f0efff] text-xs font-bold text-[#635bff]">
                             {getInitials(resident.FullName)}
                           </div>
                           <div>
@@ -373,7 +373,7 @@ export default function CreateContract({ flash, onSuccess }) {
                           onClick={() => updateContractTerm(form.contractTermMonths === months ? '' : months)}
                           className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
                             form.contractTermMonths === months
-                              ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                              ? 'border-[#635bff] bg-[#635bff] text-white'
                               : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                           }`}
                         >
@@ -410,7 +410,7 @@ export default function CreateContract({ flash, onSuccess }) {
                         })}
                         className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
                           Number(form.depositMonths) === months
-                            ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                            ? 'border-[#635bff] bg-[#635bff] text-white'
                             : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                         }`}
                       >
@@ -418,7 +418,7 @@ export default function CreateContract({ flash, onSuccess }) {
                       </button>
                     ))}
                   </div>
-                  <p className="mt-1 text-sm font-semibold text-[#1f4f46]">
+                  <p className="mt-1 text-sm font-semibold text-[#635bff]">
                     {formatVnd(Number(form.depositMonths || 1) * FIXED_MONTHLY_RENT)} VNĐ
                   </p>
                 </div>
@@ -443,7 +443,7 @@ export default function CreateContract({ flash, onSuccess }) {
                         onClick={() => setForm({ ...form, paymentCycleMonths: months })}
                         className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
                           Number(form.paymentCycleMonths) === months
-                            ? 'border-[#1f4f46] bg-[#1f4f46] text-white'
+                            ? 'border-[#635bff] bg-[#635bff] text-white'
                             : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                         }`}
                       >
@@ -460,9 +460,9 @@ export default function CreateContract({ flash, onSuccess }) {
 
               <div>
                 <label className="mb-1 block text-sm font-semibold text-slate-700">Ảnh hợp đồng đã ký</label>
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600 hover:border-[#1f4f46] hover:bg-slate-50">
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600 hover:border-[#635bff] hover:bg-slate-50">
                   <span>{form.signedContractImageFile ? form.signedContractImageFile.name : 'Chọn ảnh hợp đồng đã ký...'}</span>
-                  <span className="font-semibold text-[#1f4f46]">Tải ảnh lên</span>
+                  <span className="font-semibold text-[#635bff]">Tải ảnh lên</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -513,7 +513,7 @@ export default function CreateContract({ flash, onSuccess }) {
                     <div><span className="text-slate-500">Mã HĐ:</span> <span className="font-medium">{form.contractNumber}</span></div>
                     <div><span className="text-slate-500">Ngày ký:</span> <span className="font-medium">{formatDate(form.signDate)}</span></div>
                     <div><span className="text-slate-500">Thời hạn:</span> <span className="font-medium">{formatDate(form.startDate)} → {formatDate(form.endDate)}</span></div>
-                    <div><span className="text-slate-500">Giá thuê:</span> <span className="font-medium text-[#1f4f46]">{money(FIXED_MONTHLY_RENT)}/tháng</span></div>
+                    <div><span className="text-slate-500">Giá thuê:</span> <span className="font-medium text-[#635bff]">{money(FIXED_MONTHLY_RENT)}/tháng</span></div>
                     <div><span className="text-slate-500">Tiền cọc:</span> <span className="font-medium">{money(Number(form.depositMonths || 1) * FIXED_MONTHLY_RENT)} ({form.depositMonths} tháng)</span></div>
                     <div><span className="text-slate-500">Chu kỳ đóng:</span> <span className="font-medium">{form.paymentCycleMonths} tháng / lần</span></div>
                     <div><span className="text-slate-500">Ngày chốt tiền:</span> <span className="font-medium">Ngày 10 hằng tháng</span></div>

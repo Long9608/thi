@@ -147,7 +147,7 @@ export default function EquipmentManagement({ flash }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả trạng thái</option>
               <option value="1">Mới</option>
@@ -172,7 +172,7 @@ export default function EquipmentManagement({ flash }) {
 
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải dữ liệu...</p>
         </Card>
       ) : filteredData.length === 0 ? (
@@ -184,7 +184,7 @@ export default function EquipmentManagement({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredData.map((item) => (
-            <Card key={item.id} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={item.id} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -192,7 +192,7 @@ export default function EquipmentManagement({ flash }) {
                       {getStatusIcon(item.status)}
                       {getStatusBadge(item.status)}
                     </div>
-                    <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                    <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                       {item.name}
                     </h3>
                     <p className="text-sm text-slate-500">{item.code}</p>

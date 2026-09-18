@@ -373,7 +373,7 @@ export default function PermissionManagement({ flash }) {
       {loading ? (
         <Card className="p-8 text-center">
           <div className="flex flex-col items-center gap-3">
-            <RefreshCw size={32} className="animate-spin text-[#1f4f46]" />
+            <RefreshCw size={32} className="animate-spin text-[#635bff]" />
             <p className="font-bold text-slate-900">Đang tải dữ liệu...</p>
           </div>
         </Card>
@@ -396,12 +396,12 @@ export default function PermissionManagement({ flash }) {
             const status = role.Status !== undefined ? role.Status : (role.status !== undefined ? role.status : 1);
             
             return (
-              <Card key={roleId} className="group hover:border-[#1f4f46]/30 transition-all">
+              <Card key={roleId} className="group hover:border-[#635bff]/30 transition-all">
                 <div className="p-5">
                   <div className="flex items-start justify-between">
                     <div>
                       <Badge tone="purple" className="mb-2">{roleCode}</Badge>
-                      <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                      <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                         {roleName}
                       </h3>
                       <p className="text-sm text-slate-500 mt-1 line-clamp-2">
@@ -448,7 +448,7 @@ export default function PermissionManagement({ flash }) {
           {/* Select all / Deselect all */}
           <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
             <span className="text-sm font-medium text-slate-700">
-              Đã chọn: <span className="font-bold text-[#1f4f46]">{selectedPermissions.length}</span> quyền trên 45 chức năng menu
+              Đã chọn: <span className="font-bold text-[#635bff]">{selectedPermissions.length}</span> quyền trên 45 chức năng menu
             </span>
             <div className="flex gap-2">
               <Button 
@@ -484,8 +484,8 @@ export default function PermissionManagement({ flash }) {
                         const permission = permissions.find((p) => (p.PermissionCode || p.permissionCode) === code);
                         if (!permission) return null;
                         const permissionId = permission.PermissionID || permission.id;
-                        return <label key={code} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer ${selectedPermissions.includes(permissionId) ? 'border-[#1f4f46] bg-[#1f4f46]/5' : 'border-slate-200'}`}>
-                          <input type="checkbox" checked={selectedPermissions.includes(permissionId)} onChange={() => togglePermission(permissionId)} className="accent-[#1f4f46]" />
+                        return <label key={code} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer ${selectedPermissions.includes(permissionId) ? 'border-[#635bff] bg-[#635bff]/5' : 'border-slate-200'}`}>
+                          <input type="checkbox" checked={selectedPermissions.includes(permissionId)} onChange={() => togglePermission(permissionId)} className="accent-[#635bff]" />
                           {actionName(code)}
                         </label>;
                       })}

@@ -264,7 +264,7 @@ const stats = {
             <h3 className="text-base font-bold text-slate-950">Lịch sử ra/vào</h3>
             <p className="text-sm text-slate-500">
               Theo dõi lịch sử ra vào bãi xe.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {stats.entries} lượt vào / {stats.exits} lượt ra
               </span>
             </p>
@@ -287,7 +287,7 @@ const stats = {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả</option>
               <option value="Vào">Vào</option>
@@ -324,7 +324,7 @@ const stats = {
     }))
   }
   disabled={accessSubmitting || loadingCards}
-  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46] disabled:bg-slate-100"
+  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff] disabled:bg-slate-100"
 >
   <option value="">
     {loadingCards ? 'Đang tải thẻ...' : 'Chọn thẻ xe'}
@@ -435,7 +435,7 @@ const stats = {
       {/* History List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải lịch sử...</p>
         </Card>
       ) : filteredHistory.length === 0 ? (
@@ -468,7 +468,7 @@ const stats = {
                     </td>
                     <td className="px-5 py-4 text-slate-600">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eef5f2] text-xs font-bold text-[#1f4f46]">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f0efff] text-xs font-bold text-[#635bff]">
                           {getInitials(record.ownerName)}
                         </div>
                         {record.ownerName}
@@ -477,7 +477,7 @@ const stats = {
                     <td className="px-5 py-4 text-slate-600">{record.vehicleType}</td>
                     <td className="px-5 py-4 font-medium text-slate-950">
                       <span className="flex items-center gap-1">
-                        <MapPin size={14} className="text-[#1f4f46]" />
+                        <MapPin size={14} className="text-[#635bff]" />
                         {record.slotNumber}
                       </span>
                     </td>
@@ -519,7 +519,7 @@ const stats = {
               onClick={() => setPage(i + 1)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
                 page === i + 1
-                  ? 'bg-[#1f4f46] text-white'
+                  ? 'bg-[#635bff] text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >

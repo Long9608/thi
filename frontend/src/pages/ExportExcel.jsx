@@ -209,15 +209,15 @@ export default function ExportExcel({ flash }) {
                 <button
                   key={option.id}
                   className={`flex w-full items-center gap-3 rounded-xl border p-4 transition ${
-                    isSelected ? 'border-[#1f4f46] bg-[#eef5f2]' : 'border-slate-200 hover:border-slate-300'
+                    isSelected ? 'border-[#635bff] bg-[#f0efff]' : 'border-slate-200 hover:border-slate-300'
                   }`}
                   onClick={() => setExportType(option.id)}
                 >
-                  <Icon size={20} className={isSelected ? 'text-[#1f4f46]' : 'text-slate-400'} />
-                  <span className={`font-semibold ${isSelected ? 'text-[#1f4f46]' : 'text-slate-700'}`}>
+                  <Icon size={20} className={isSelected ? 'text-[#635bff]' : 'text-slate-400'} />
+                  <span className={`font-semibold ${isSelected ? 'text-[#635bff]' : 'text-slate-700'}`}>
                     {option.label}
                   </span>
-                  {isSelected && <CheckCircle2 size={16} className="ml-auto text-[#1f4f46]" />}
+                  {isSelected && <CheckCircle2 size={16} className="ml-auto text-[#635bff]" />}
                 </button>
               );
             })}
@@ -248,7 +248,7 @@ export default function ExportExcel({ flash }) {
 
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">Định dạng</label>
-              <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]">
+              <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]">
                 <option>.xlsx (Excel 2007+)</option>
                 <option>.xls (Excel 97-2003)</option>
                 <option>.csv</option>
@@ -266,11 +266,11 @@ export default function ExportExcel({ flash }) {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-500">Đang xuất...</span>
-                  <span className="font-bold text-[#1f4f46]">{progress}%</span>
+                  <span className="font-bold text-[#635bff]">{progress}%</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                   <div 
-                    className="h-full rounded-full bg-[#1f4f46] transition-all duration-300"
+                    className="h-full rounded-full bg-[#635bff] transition-all duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -356,19 +356,19 @@ export default function ExportExcel({ flash }) {
         <h4 className="font-bold text-slate-950 mb-3">📋 Hướng dẫn</h4>
         <div className="space-y-2 text-sm text-slate-600">
           <div className="flex items-start gap-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1f4f46] text-white text-xs font-bold">1</span>
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#635bff] text-white text-xs font-bold">1</span>
             <span>Chọn loại báo cáo cần xuất</span>
           </div>
           <div className="flex items-start gap-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1f4f46] text-white text-xs font-bold">2</span>
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#635bff] text-white text-xs font-bold">2</span>
             <span>Chọn khoảng thời gian (tùy chọn)</span>
           </div>
           <div className="flex items-start gap-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1f4f46] text-white text-xs font-bold">3</span>
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#635bff] text-white text-xs font-bold">3</span>
             <span>Nhấn "Xuất Excel" để tải file</span>
           </div>
           <div className="flex items-start gap-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1f4f46] text-white text-xs font-bold">4</span>
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#635bff] text-white text-xs font-bold">4</span>
             <span>File sẽ được tải xuống tự động</span>
           </div>
         </div>

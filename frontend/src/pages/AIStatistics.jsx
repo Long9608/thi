@@ -78,7 +78,7 @@ function StatCard({
           </p>
         </div>
 
-        <div className="rounded-xl bg-[#eef5f2] p-3 text-[#1f4f46]">
+        <div className="rounded-xl bg-[#f0efff] p-3 text-[#635bff]">
           <Icon size={21} />
         </div>
       </div>
@@ -187,7 +187,7 @@ export default function AIStatistics() {
           <div className="text-center">
             <RefreshCw
               size={28}
-              className="mx-auto animate-spin text-[#1f4f46]"
+              className="mx-auto animate-spin text-[#635bff]"
             />
 
             <p className="mt-3 text-sm font-medium text-slate-600">
@@ -246,7 +246,7 @@ export default function AIStatistics() {
           <div className="flex items-center gap-2">
             <BrainCircuit
               size={22}
-              className="text-[#1f4f46]"
+              className="text-[#635bff]"
             />
 
             <h3 className="text-xl font-bold text-slate-950">
@@ -389,7 +389,7 @@ export default function AIStatistics() {
 
                   <Bar
                     dataKey="totalBilled"
-                    fill="#1f4f46"
+                    fill="#635bff"
                     radius={[8, 8, 0, 0]}
                     maxBarSize={60}
                   />
@@ -407,7 +407,7 @@ export default function AIStatistics() {
               <div className="flex items-center gap-2">
                 <BrainCircuit
                   size={20}
-                  className="text-[#1f4f46]"
+                  className="text-[#635bff]"
                 />
 
                 <h3 className="font-bold text-slate-950">
@@ -439,7 +439,7 @@ export default function AIStatistics() {
             </div>
           </div>
 
-          <div className="mt-5 rounded-xl bg-[#eef5f2] p-4">
+          <div className="mt-5 rounded-xl bg-[#f0efff] p-4">
             <p className="text-sm leading-6 text-slate-700">
               {insight.insight ||
                 'Chưa có nhận xét từ hệ thống.'}

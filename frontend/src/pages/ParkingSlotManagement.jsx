@@ -269,7 +269,7 @@ const getStatusBadge = (slot) => {
             <select
               value={areaFilter}
               onChange={(e) => setAreaFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả khu vực</option>
               {areas.map(a => (
@@ -281,7 +281,7 @@ const getStatusBadge = (slot) => {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả loại xe</option>
               {vehicleTypes.map(t => (
@@ -293,7 +293,7 @@ const getStatusBadge = (slot) => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả trạng thái</option>
               <option value="0">Còn trống</option>
@@ -321,7 +321,7 @@ const getStatusBadge = (slot) => {
       {/* Slot List - Grid View */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải sơ đồ bãi xe...</p>
         </Card>
       ) : filteredSlots.length === 0 ? (
@@ -338,7 +338,7 @@ const getStatusBadge = (slot) => {
           {filteredSlots.map((slot) => (
             <Card
               key={slot.SlotID}
-              className={`group hover:border-[#1f4f46]/30 transition-all cursor-pointer ${
+              className={`group hover:border-[#635bff]/30 transition-all cursor-pointer ${
                 slot.IsOccupied ? 'border-rose-200 bg-rose-50/30' : 'border-emerald-200 bg-emerald-50/30'
               }`}
               onClick={() => openViewModal(slot)}
@@ -458,7 +458,7 @@ const getStatusBadge = (slot) => {
                 <select
                   value={form.areaId}
                   onChange={(e) => setForm({ ...form, areaId: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                   required
                 >
                   <option value="">Chọn khu vực</option>
@@ -486,7 +486,7 @@ const getStatusBadge = (slot) => {
                 <select
                   value={form.vehicleTypeId}
                   onChange={(e) => setForm({ ...form, vehicleTypeId: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                   required
                 >
                   <option value="">Chọn loại xe</option>
@@ -502,7 +502,7 @@ const getStatusBadge = (slot) => {
                 <select
                   value={form.isOccupied}
                   onChange={(e) => setForm({ ...form, isOccupied: parseInt(e.target.value) })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 >
                   <option value={0}>Còn trống</option>
                   <option value={1}>Đã có xe</option>

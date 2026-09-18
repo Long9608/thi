@@ -221,7 +221,7 @@ export default function FeeCollection({ flash }) {
       {/* Invoice List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách...</p>
         </Card>
       ) : filteredInvoices.length === 0 ? (
@@ -243,7 +243,7 @@ export default function FeeCollection({ flash }) {
             return (
               <Card 
                 key={invoice.InvoiceID} 
-                className={`group hover:border-[#1f4f46]/30 transition-all ${
+                className={`group hover:border-[#635bff]/30 transition-all ${
                   isOverdue ? 'border-rose-200 bg-rose-50/30' : ''
                 }`}
               >
@@ -256,13 +256,13 @@ export default function FeeCollection({ flash }) {
                           <Badge tone="red">Quá hạn {daysOverdue} ngày</Badge>
                         )}
                       </div>
-                      <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                      <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                         {invoice.ApartmentCode}
                       </h3>
                       <p className="text-sm text-slate-500">{invoice.OwnerName}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-[#1f4f46]">
+                      <p className="text-lg font-bold text-[#635bff]">
                         {money(remaining)}
                       </p>
                       <p className="text-xs text-slate-400">
@@ -320,7 +320,7 @@ export default function FeeCollection({ flash }) {
               onClick={() => setPage(i + 1)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
                 page === i + 1
-                  ? 'bg-[#1f4f46] text-white'
+                  ? 'bg-[#635bff] text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -366,11 +366,11 @@ export default function FeeCollection({ flash }) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Tổng hóa đơn</span>
-                  <span className="font-bold text-[#1f4f46]">{money(selectedInvoice.TotalAmount)}</span>
+                  <span className="font-bold text-[#635bff]">{money(selectedInvoice.TotalAmount)}</span>
                 </div>
                 <div className="flex justify-between border-t border-slate-200 pt-2 mt-2">
                   <span className="text-slate-500 font-semibold">Còn lại</span>
-                  <span className={`font-bold ${remainingAfter < 0 ? 'text-rose-600' : 'text-[#1f4f46]'}`}>
+                  <span className={`font-bold ${remainingAfter < 0 ? 'text-rose-600' : 'text-[#635bff]'}`}>
                     {money(Math.max(0, remainingAfter))}
                   </span>
                 </div>
@@ -395,7 +395,7 @@ export default function FeeCollection({ flash }) {
             <select
               value={form.methodId}
               onChange={(e) => setForm({ ...form, methodId: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
               required
             >
               <option value="">Chọn phương thức</option>
@@ -414,7 +414,7 @@ export default function FeeCollection({ flash }) {
               onChange={handleAmountChange}
               placeholder="Nhập số tiền cần thu"
               required
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             />
             {selectedInvoice && (
               <p className="mt-1 text-xs text-slate-500">

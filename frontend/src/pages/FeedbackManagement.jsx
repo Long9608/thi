@@ -164,7 +164,7 @@ export default function FeedbackManagement({ flash }) {
             <select
               value={ratingFilter}
               onChange={(e) => setRatingFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả đánh giá</option>
               <option value="5">5 sao</option>
@@ -189,7 +189,7 @@ export default function FeedbackManagement({ flash }) {
 
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải dữ liệu...</p>
         </Card>
       ) : filteredData.length === 0 ? (
@@ -201,7 +201,7 @@ export default function FeedbackManagement({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {filteredData.map((feedback) => (
-            <Card key={feedback.id} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={feedback.id} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -209,7 +209,7 @@ export default function FeedbackManagement({ flash }) {
                       {renderStars(feedback.rating)}
                       {getStatusBadge(feedback.status)}
                     </div>
-                    <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                    <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                       {feedback.title}
                     </h3>
                     <p className="text-sm text-slate-500 mt-1">
@@ -224,7 +224,7 @@ export default function FeedbackManagement({ flash }) {
 
                 {feedback.reply && (
                   <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
-                    <span className="font-semibold text-[#1f4f46]">Phản hồi:</span> {feedback.reply}
+                    <span className="font-semibold text-[#635bff]">Phản hồi:</span> {feedback.reply}
                   </div>
                 )}
 
@@ -312,7 +312,7 @@ export default function FeedbackManagement({ flash }) {
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">Nội dung phản hồi *</label>
               <textarea
-                className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-[#1f4f46] min-h-[120px]"
+                className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-[#635bff] min-h-[120px]"
                 value={replyForm.reply}
                 onChange={(e) => setReplyForm({ reply: e.target.value })}
                 placeholder="Nhập phản hồi của bạn..."

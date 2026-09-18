@@ -1,0 +1,1217 @@
+// src/api.js
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// ============ ERROR HANDLING ============
+class ApiError extends Error {
+  constructor(message, status, data = null) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
+// Helper để lấy token từ localStorage
+const getAuthToken = () => {
+  return localStorage.getItem('token');
+};
+
+// Helper để set token
+export const setAuthToken = (token) => {
+  if (token) {
+    localStorage.setItem('token', token);
+  } else {
+    localStorage.removeItem('token');
+  }
+};
+
+// Helper để logout
+export const logout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = '/login';
+};
+
+// ============ REQUEST WRAPPER with BETTER ERROR HANDLING ============
+// src/api.js
+async function request(path, options = {}) {
+  try {
+    const token = getAuthToken();
+    
+    const headers = {
+      ...options.headers,
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Chỉ gán Content-Type nếu không phải FormData hoặc URLSearchParams
+    if (
+      options.body &&
+      !(options.body instanceof FormData) &&
+      !(options.body instanceof URLSearchParams)
+    ) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    // 🔥 LOG REQUEST
+    console.log(`📡 API Request: ${options.method || 'GET'} ${path}`);
+    if (options.body && !(options.body instanceof FormData)) {
+      try {
+        console.log('📦 Request body:', JSON.parse(options.body));
+      } catch {
+        console.log('📦 Request body:', options.body);
+      }
+    }
+
+    const res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+    });
+
+    // Parse response
+    const text = await res.text();
+    let data = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
+    }
+
+    // 🔥 LOG RESPONSE
+    console.log(`📡 API Response [${res.status}]:`, data);
+
+    // Xử lý 401 Unauthorized
+    if (res.status === 401) {
+      logout();
+      throw new ApiError(
+        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+        401,
+        data
+      );
+    }
+
+    // Xử lý 403 Forbidden
+    if (res.status === 403) {
+      throw new ApiError(
+        data?.message || 'Bạn không có quyền thực hiện thao tác này.',
+        403,
+        data
+      );
+    }
+
+    // Xử lý 404 Not Found
+    if (res.status === 404) {
+      throw new ApiError(
+        data?.message || 'Không tìm thấy dữ liệu yêu cầu.',
+        404,
+        data
+      );
+    }
+
+    // Xử lý 422 Validation Error
+    if (res.status === 422) {
+      const errors = data?.errors || data?.message || 'Dữ liệu không hợp lệ.';
+      throw new ApiError(
+        typeof errors === 'string' ? errors : 'Dữ liệu không hợp lệ.',
+        422,
+        data
+      );
+    }
+
+    // Xử lý 500 Internal Server Error
+    if (res.status === 500) {
+      throw new ApiError(
+        'Lỗi máy chủ nội bộ. Vui lòng thử lại sau.',
+        500,
+        data
+      );
+    }
+
+    // Xử lý các lỗi khác
+    if (!res.ok) {
+      const errorMessage =
+        data?.message || data?.error || `API request failed with status ${res.status}`;
+      throw new ApiError(errorMessage, res.status, data);
+    }
+
+    return data;
+
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw error;
+    }
+
+    console.error(`❌ API Error [${path}]:`, {
+      message: error.message,
+      status: error.status,
+      data: error.data,
+      stack: error.stack
+    });
+
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    if (error instanceof TypeError) {
+      throw new ApiError(
+        'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
+        0,
+        null
+      );
+    }
+
+    throw error;
+  }
+}
+
+// ============ AUTH API ============
+export const authAPI = {
+  login: async (credentials) => {
+    try {
+      console.log('🔐 Đang gọi API login với:', credentials);
+      const response = await request('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+      });
+      console.log('✅ Login response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      throw error;
+    }
+  },
+  register: (data) => request('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  getMe: () => request('/auth/me'),
+  changePassword: (data) => request('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+};
+
+// ============ APARTMENT API ============
+export const apartmentAPI = {
+  getAll: (search = '', statusId = '', page = 1, limit = 999, buildingId = '', floorId = '') => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (statusId) params.set('statusId', statusId);
+    if (buildingId) params.set('buildingId', buildingId);
+    if (floorId) params.set('floorId', floorId);
+    params.set('page', page);
+    params.set('limit', limit);
+    return request(`/apartments?${params.toString()}`);
+  },
+  getById: (id) => request(`/apartments/${id}`),
+  create: (data) => request('/apartments', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  update: (id, data) => request(`/apartments/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  delete: (id) => request(`/apartments/${id}`, {
+    method: 'DELETE',
+  }),
+  getStatuses: () => request('/apartments/statuses'),
+  getAreas: () => request('/apartments/areas'),
+  getStats: () => request('/apartments/stats'),
+
+  // 🏢 Buildings
+  getBuildings: (areaId) => {
+    const params = new URLSearchParams();
+    if (areaId) params.set('areaId', areaId);
+    return request(`/apartments/buildings?${params.toString()}`);
+  },
+  createBuilding: (data) => request('/apartments/buildings', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateBuilding: (id, data) => request(`/apartments/buildings/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  deleteBuilding: (id) => request(`/apartments/buildings/${id}`, {
+    method: 'DELETE',
+  }),
+
+  // 🪜 Floors
+  getFloors: (buildingId) => {
+    const params = new URLSearchParams();
+    if (buildingId) params.set('buildingId', buildingId);
+    return request(`/apartments/floors?${params.toString()}`);
+  },
+  createFloor: (data) => request('/apartments/floors', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  deleteFloor: (id) => request(`/apartments/floors/${id}`, {
+    method: 'DELETE',
+  })
+};
+
+// ============ CONTRACT API ============
+export const contractAPI = {
+  getAll: (statusId = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams();
+    if (statusId) params.set('statusId', statusId);
+    params.set('page', page);
+    params.set('limit', limit);
+    return request(`/contracts?${params.toString()}`);
+  },
+  getById: (id) => request(`/contracts/${id}`),
+  create: (data) => request('/contracts', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  uploadSignedImage: (contractId, file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    return request(`/contracts/${contractId}/signed-image`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+  update: (id, data) => request(`/contracts/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  delete: (id) => request(`/contracts/${id}`, {
+    method: 'DELETE',
+  }),
+  getStatuses: () => request('/contracts/statuses'),
+};
+
+// ============ INVOICE API ============
+export const invoiceAPI = {
+  getAll: (statusId = '', month = '', year = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams();
+    if (statusId) params.set('statusId', statusId);
+    if (month) params.set('month', month);
+    if (year) params.set('year', year);
+    params.set('page', page);
+    params.set('limit', limit);
+    return request(`/invoices?${params.toString()}`);
+  },
+
+  getById: (id) => request(`/invoices/${id}`),
+
+  generate: (data) => request('/invoices/generate', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  generateMonthly: (data) => request('/invoices/generate-monthly', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  getApartmentCurrent: (apartmentId, month = '', year = '') => {
+    const params = new URLSearchParams();
+    if (month) params.set('month', month);
+    if (year) params.set('year', year);
+    const query = params.toString();
+    return request(`/invoices/current/apartment/${apartmentId}${query ? `?${query}` : ''}`);
+  },
+
+  payApartmentCurrent: (apartmentId, data = {}) => request(`/invoices/current/apartment/${apartmentId}/pay`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  updateApartmentMeterReadings: (apartmentId, data = {}) => request(`/invoices/current/apartment/${apartmentId}/meter-readings`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  finalizeApartmentCurrent: (apartmentId, data = {}) => request(`/invoices/current/apartment/${apartmentId}/finalize`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  updateStatus: (id, statusId) => request(`/invoices/${id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ statusId }),
+  }),
+
+  processPayment: (data) => {
+    console.log('💰 Sending payment data:', data);
+    return request('/invoices/payment', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getStatuses: () => request('/invoices/statuses'),
+
+  getPaymentMethods: () => request('/invoices/payment-methods'),
+};
+
+// ============ RESIDENT API ============
+export const residentAPI = {
+  getAll: (search = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    params.set('page', page);
+    params.set('limit', limit);
+    return request(`/residents?${params.toString()}`);
+  },
+  getById: (id) => request(`/residents/${id}`),
+  create: (data) => request('/residents', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  update: (id, data) => request(`/residents/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  delete: (id) => request(`/residents/${id}`, {
+    method: 'DELETE',
+  }),
+  permanentDelete: (id) => request(`/residents/${id}/permanent`, {
+    method: 'DELETE',
+  }),
+  getBirthdays: (monthDay) => request(`/residents/birthdays?monthDay=${monthDay}`),
+  getByBirthday: (monthDay) => request(`/residents/birthdays?monthDay=${monthDay}`),
+  exportExcel: () => request('/residents/export'),
+  getIdentity: (residentId) => request(`/residents/${residentId}/identity`),
+  updateIdentity: (residentId, data) => request(`/residents/${residentId}/identity`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  uploadIdentityImage: (residentId, file, type) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('type', type);
+    return request(`/residents/${residentId}/identity/upload`, {
+      method: 'POST',
+      body: form,
+    });
+  },
+  getFamilyMembers: (residentId) => request(`/residents/${residentId}/family`),
+  addFamilyMember: (residentId, data) => request(`/residents/${residentId}/family`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateFamilyMember: (residentId, memberId, data) => request(`/residents/${residentId}/family/${memberId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  removeFamilyMember: (residentId, memberId) => request(`/residents/${residentId}/family/${memberId}`, {
+    method: 'DELETE',
+  }),
+  getResidenceHistory: (residentId) => request(`/residents/${residentId}/residence-history`),
+};
+
+// ============ FEEDBACK API ============
+export const feedbackAPI = {
+  getAll: (search = '', rating = '', status = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (rating) params.set('rating', rating);
+    if (status) params.set('status', status);
+    params.set('page', page);
+    params.set('limit', limit);
+    return request(`/feedbacks?${params.toString()}`);
+  },
+  reply: (id, reply) => request(`/feedbacks/${id}/reply`, {
+    method: 'PUT',
+    body: JSON.stringify({ reply }),
+  }),
+};
+
+// ============ SERVICE API ============
+export const serviceAPI = {
+  getAll: (search = '', categoryId = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (categoryId) params.set('categoryId', categoryId);
+    params.set('page', page);
+    params.set('limit', limit);
+    return request(`/services?${params.toString()}`);
+  },
+  getById: (id) => request(`/services/${id}`),
+  create: (data) => request('/services', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  update: (id, data) => request(`/services/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  delete: (id) => request(`/services/${id}`, {
+    method: 'DELETE',
+  }),
+  getCategories: () => request('/services/categories'),
+  register: (data) => request('/services/register', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  unregister: (id) => request(`/services/unregister/${id}`, {
+    method: 'PUT',
+  }),
+  getGymMembers: (search = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams({ page, limit });
+    if (search) params.set('search', search);
+    return request(`/services/gym/members?${params.toString()}`);
+  },
+  updateGymMember: (id, data) => request(`/services/gym/members/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  getPoolMembers: (search = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams({ page, limit });
+    if (search) params.set('search', search);
+    return request(`/services/pool/members?${params.toString()}`);
+  },
+  updatePoolMember: (id, data) => request(`/services/pool/members/${id}`, {
+    method: 'PUT', body: JSON.stringify(data),
+  }),
+  getWifiMembers: (search = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams({ page, limit });
+    if (search) params.set('search', search);
+    return request(`/services/wifi/members?${params.toString()}`);
+  },
+  updateWifiMember: (id, data) => request(`/services/wifi/members/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+};
+
+// ============ TICKET API ============
+export const ticketAPI = {
+  getAll: (statusId = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams();
+    if (statusId) params.set('statusId', statusId);
+    params.set('page', page);
+    params.set('limit', limit);
+    return request(`/tickets?${params.toString()}`);
+  },
+  getById: (id) => request(`/tickets/${id}`),
+  create: (data) => request('/tickets', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  update: (id, data) => request(`/tickets/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  delete: (id) => request(`/tickets/${id}`, {
+    method: 'DELETE',
+  }),
+  getMyTickets: (statusId = '') => {
+    const params = new URLSearchParams();
+    if (statusId) params.set('statusId', statusId);
+    return request(`/tickets/my-tickets?${params.toString()}`);
+  },
+  getStatuses: () => request('/tickets/statuses'),
+};
+
+// ============ VEHICLE API (UPDATED WITH BETTER ERROR HANDLING) ============
+// ============ VEHICLE API ============
+// ============ VEHICLE API ============
+// ============ VEHICLE API ============
+export const vehicleAPI = {
+  /**
+   * Lấy danh sách phương tiện
+   * @param {string} residentId - ID cư dân (tùy chọn)
+   * @param {string} vehicleTypeId - ID loại phương tiện (tùy chọn)
+   * @param {string} status - Trạng thái: active/inactive/pending (tùy chọn)
+   * @param {number} page - Trang hiện tại
+   * @param {number} limit - Số lượng mỗi trang
+   * @returns {Promise<{data: Array, pagination: Object}>}
+   */
+  getAll: async (residentId = '', vehicleTypeId = '', status = '', page = 1, limit = 999) => {
+    try {
+      const params = new URLSearchParams();
+      if (residentId) params.set('residentId', residentId);
+      if (vehicleTypeId) params.set('vehicleTypeId', vehicleTypeId);
+      if (status && status !== '') params.set('status', status);
+      params.set('page', page);
+      params.set('limit', limit);
+      
+      const response = await request(`/vehicles?${params.toString()}`);
+      
+      // Validate response structure
+      if (!response || typeof response !== 'object') {
+        throw new ApiError('Dữ liệu trả về không hợp lệ', 500, response);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('❌ VehicleAPI.getAll error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy chi tiết phương tiện theo ID
+   * @param {string|number} id - ID phương tiện
+   * @returns {Promise<Object>}
+   */
+  getById: async (id) => {
+    try {
+      if (!id) {
+        throw new ApiError('ID phương tiện không hợp lệ', 400);
+      }
+      return await request(`/vehicles/${id}`);
+    } catch (error) {
+      console.error(`❌ VehicleAPI.getById(${id}) error:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tạo mới phương tiện
+   * @param {Object} data - Dữ liệu phương tiện
+   * @returns {Promise<Object>}
+   */
+  create: async (data) => {
+    try {
+      // Validate dữ liệu đầu vào
+      if (!data) {
+        throw new ApiError('Dữ liệu không được để trống', 400);
+      }
+      
+      // Validate các trường bắt buộc
+      const requiredFields = ['plateNumber', 'vehicleTypeId', 'residentId'];
+      const missingFields = requiredFields.filter(field => !data[field]);
+      
+      if (missingFields.length > 0) {
+        throw new ApiError(
+          `Thiếu các trường bắt buộc: ${missingFields.join(', ')}`,
+          400,
+          { missingFields }
+        );
+      }
+
+      // Validate biển số xe (định dạng cơ bản)
+      // Chuẩn hóa và kiểm tra biển số xe
+const normalizedPlate = String(data.plateNumber || '')
+  .trim()
+  .toUpperCase();
+
+const plateRegex = /^[A-Z0-9.-]{5,20}$/;
+
+if (!plateRegex.test(normalizedPlate)) {
+  throw new ApiError(
+    'Biển số xe không hợp lệ. Chỉ dùng chữ, số, dấu chấm và dấu gạch ngang (5-20 ký tự)',
+    400,
+    { field: 'plateNumber' }
+  );
+}
+
+data.plateNumber = normalizedPlate;
+
+      const response = await request('/vehicles', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+
+      return response;
+    } catch (error) {
+      console.error('❌ VehicleAPI.create error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cập nhật phương tiện
+   * @param {string|number} id - ID phương tiện
+   * @param {Object} data - Dữ liệu cập nhật
+   * @returns {Promise<Object>}
+   */
+  update: async (id, data) => {
+    try {
+      if (!id) {
+        throw new ApiError('ID phương tiện không hợp lệ', 400);
+      }
+      
+      if (!data || Object.keys(data).length === 0) {
+        throw new ApiError('Dữ liệu cập nhật không được để trống', 400);
+      }
+
+      // Validate biển số xe nếu có cập nhật
+      if (data.licensePlate) {
+        const licensePlateRegex = /^[0-9]{2}[A-Z]-[0-9]{3}\.[0-9]{2}$/;
+        if (!licensePlateRegex.test(data.licensePlate)) {
+          throw new ApiError(
+            'Biển số xe không đúng định dạng (ví dụ: 30A-123.45)',
+            400,
+            { field: 'licensePlate' }
+          );
+        }
+      }
+
+      const response = await request(`/vehicles/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+
+      return response;
+    } catch (error) {
+      console.error(`❌ VehicleAPI.update(${id}) error:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Xóa phương tiện
+   * @param {string|number} id - ID phương tiện
+   * @returns {Promise<Object>}
+   */
+  delete: async (id) => {
+    try {
+      if (!id) {
+        throw new ApiError('ID phương tiện không hợp lệ', 400);
+      }
+
+      const response = await request(`/vehicles/${id}`, {
+        method: 'DELETE',
+      });
+
+      return response;
+    } catch (error) {
+      console.error(`❌ VehicleAPI.delete(${id}) error:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách loại phương tiện
+   * @returns {Promise<Array>}
+   */
+  getTypes: async () => {
+    try {
+      return await request('/vehicles/types');
+    } catch (error) {
+      console.error('❌ VehicleAPI.getTypes error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách chỗ đỗ xe
+   * @param {string} areaId - ID khu vực (tùy chọn)
+   * @param {string} vehicleTypeId - ID loại phương tiện (tùy chọn)
+   * @param {string} isOccupied - '0' hoặc '1' (tùy chọn)
+   * @returns {Promise<Array>}
+   */
+  getParkingSlots: async (areaId = '', vehicleTypeId = '', isOccupied = '') => {
+    try {
+      const params = new URLSearchParams();
+      if (areaId) params.set('areaId', areaId);
+      if (vehicleTypeId) params.set('vehicleTypeId', vehicleTypeId);
+      
+      if (isOccupied !== undefined && isOccupied !== null && isOccupied !== '') {
+        params.set('isOccupied', isOccupied);
+      }
+
+      const response = await request(`/vehicles/parking-slots?${params.toString()}`);
+
+      // Validate response
+      if (!Array.isArray(response) && response?.data) {
+        return response.data;
+      }
+
+      return response;
+    } catch (error) {
+      console.error('❌ VehicleAPI.getParkingSlots error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tạo vị trí đỗ mới
+   * @param {Object} data - { areaId, slotNumber, vehicleTypeId, isOccupied }
+   * @returns {Promise<Object>}
+   */
+  createParkingSlot: async (data) => {
+    try {
+      if (!data || !data.areaId || !data.slotNumber || !data.vehicleTypeId) {
+        throw new ApiError('Thiếu thông tin khu vực, số vị trí hoặc loại xe', 400);
+      }
+      return await request('/vehicles/parking-slots', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (error) {
+      console.error('❌ VehicleAPI.createParkingSlot error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cập nhật vị trí đỗ
+   * @param {string|number} id - ID vị trí đỗ
+   * @param {Object} data - { slotNumber, vehicleTypeId, isOccupied }
+   * @returns {Promise<Object>}
+   */
+  updateParkingSlot: async (id, data) => {
+    try {
+      if (!id) {
+        throw new ApiError('ID vị trí đỗ không hợp lệ', 400);
+      }
+      return await request(`/vehicles/parking-slots/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    } catch (error) {
+      console.error(`❌ VehicleAPI.updateParkingSlot(${id}) error:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Xóa vị trí đỗ
+   * @param {string|number} id - ID vị trí đỗ
+   * @returns {Promise<Object>}
+   */
+  deleteParkingSlot: async (id) => {
+    try {
+      if (!id) {
+        throw new ApiError('ID vị trí đỗ không hợp lệ', 400);
+      }
+      return await request(`/vehicles/parking-slots/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error(`❌ VehicleAPI.deleteParkingSlot(${id}) error:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách thẻ xe
+   * @param {string} status - Trạng thái thẻ (tùy chọn)
+   * @param {number} page - Trang hiện tại
+   * @param {number} limit - Số lượng mỗi trang
+   * @returns {Promise<Object>}
+   */
+  getParkingCards: async (status = '', page = 1, limit = 20) => {
+    try {
+      const params = new URLSearchParams();
+      if (status !== '') params.set('status', status);
+      params.set('page', page);
+      params.set('limit', limit);
+      return await request(`/vehicles/cards?${params.toString()}`);
+    } catch (error) {
+      console.error('❌ VehicleAPI.getParkingCards error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tạo thẻ xe mới cho một phương tiện
+   * @param {string|number} vehicleId - ID phương tiện
+   * @param {Object} data - Dữ liệu thẻ xe
+   * @returns {Promise<Object>}
+   */
+  createParkingCard: async (vehicleId, data) => {
+    try {
+      if (!vehicleId) {
+        throw new ApiError('Vehicle ID is required', 400);
+      }
+      return await request(`/vehicles/${vehicleId}/card`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (error) {
+      console.error('❌ VehicleAPI.createParkingCard error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cập nhật thẻ xe
+   * @param {string|number} cardId - ID thẻ xe
+   * @param {Object} data - Dữ liệu cập nhật
+   * @returns {Promise<Object>}
+   */
+  updateParkingCard: async (cardId, data) => {
+    try {
+      if (!cardId) {
+        throw new ApiError('Card ID is required', 400);
+      }
+      return await request(`/vehicles/cards/${cardId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    } catch (error) {
+      console.error('❌ VehicleAPI.updateParkingCard error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Xóa thẻ xe
+   * @param {string|number} cardId - ID thẻ xe
+   * @returns {Promise<Object>}
+   */
+  deleteParkingCard: async (cardId) => {
+    try {
+      if (!cardId) {
+        throw new ApiError('Card ID is required', 400);
+      }
+      return await request(`/vehicles/cards/${cardId}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error('❌ VehicleAPI.deleteParkingCard error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy lịch sử gửi xe
+   * @returns {Promise<Object>}
+   */
+  recordParkingAccess: async (data) => {
+  try {
+    const response = await request('/vehicles/access-events', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+
+    return response;
+  } catch (error) {
+    console.error('❌ VehicleAPI.recordParkingAccess error:', error);
+    throw error;
+  }
+},
+
+getParkingHistory: async (filters = {}) => {
+  try {
+    const params = new URLSearchParams();
+
+    if (filters.search) {
+      params.append('search', filters.search);
+    }
+
+    if (filters.dateFrom) {
+      params.append('dateFrom', filters.dateFrom);
+    }
+
+    if (filters.dateTo) {
+      params.append('dateTo', filters.dateTo);
+    }
+
+    if (filters.eventType) {
+      params.append('eventType', filters.eventType);
+    }
+
+    params.append('page', filters.page || 1);
+    params.append('limit', filters.limit || 20);
+
+    const response = await request(
+      `/vehicles/history?${params.toString()}`
+    );
+
+    return response;
+  } catch (error) {
+    console.error('❌ VehicleAPI.getParkingHistory error:', error);
+    throw error;
+  }
+},
+};
+
+// ============ NOTIFICATION API ============
+export const notificationAPI = {
+  getAll: (isRead = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams();
+    if (isRead !== '') params.set('isRead', isRead);
+    params.set('page', page);
+    params.set('limit', limit);
+    return request(`/notifications?${params.toString()}`);
+  },
+  getById: (id) => request(`/notifications/${id}`),
+  create: (data) => request('/notifications', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  markAsRead: (id) => request(`/notifications/${id}/read`, {
+    method: 'PUT',
+  }),
+  markAllAsRead: () => request('/notifications/read-all', {
+    method: 'PUT',
+  }),
+  delete: (id) => request(`/notifications/${id}`, {
+    method: 'DELETE',
+  }),
+  getUnreadCount: () => request('/notifications/unread-count'),
+};
+
+// ============ UTILITY API ============
+export const utilityAPI = {
+  getTypes: () => request('/utilities/types'),
+  getPriceTiers: (utilityTypeId) => request(`/utilities/${utilityTypeId}/tiers`),
+  getReadings: (apartmentId = '', utilityTypeId = '', month = '', year = '', page = 1, limit = 20) => {
+    const params = new URLSearchParams();
+    if (apartmentId) params.set('apartmentId', apartmentId);
+    if (utilityTypeId) params.set('utilityTypeId', utilityTypeId);
+    if (month) params.set('month', month);
+    if (year) params.set('year', year);
+    params.set('page', page);
+    params.set('limit', limit);
+    return request(`/utilities/readings?${params.toString()}`);
+  },
+  createReading: (data) => request('/utilities/readings', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  getMeters: (apartmentId = '') => {
+    const params = new URLSearchParams();
+    if (apartmentId) params.set('apartmentId', apartmentId);
+    return request(`/utilities/meters?${params.toString()}`);
+  },
+  demoTick: (apartmentId = '') => request('/utilities/meters/demo-tick', {
+    method: 'POST',
+    body: JSON.stringify(apartmentId ? { apartmentId } : {}),
+  }),
+};
+
+// ============ DASHBOARD API ============
+export const dashboardAPI = {
+  getStats: () => request('/dashboard/stats'),
+  getActivities: () => request('/dashboard/activities'),
+  getFinancial: () => request('/dashboard/financial'),
+};
+
+// ============ USER & PERMISSION API ============
+export const userAPI = {
+  getEmployees: (search = '', status = '', roleId = '', page = 1, limit = 999) => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (status) params.set('status', status);
+    if (roleId) params.set('roleId', roleId);
+    params.set('page', page);
+    params.set('limit', limit);
+    return request(`/users/employees?${params.toString()}`);
+  },
+  getCurrentUserPermissions: () => {
+    return request('/auth/permissions');
+  },
+  getEmployee: (id) => request(`/users/employees/${id}`),
+  createEmployee: (data) => request('/users/employees', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateEmployee: (id, data) => request(`/users/employees/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  deleteEmployee: (id) => request(`/users/employees/${id}`, {
+    method: 'DELETE',
+  }),
+  getRoles: () => request('/users/roles'),
+  getRole: (id) => request(`/users/roles/${id}`),
+  createRole: (data) => request('/users/roles', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateRole: (id, data) => request(`/users/roles/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  deleteRole: (id) => request(`/users/roles/${id}`, {
+    method: 'DELETE',
+  }),
+  getPermissions: (moduleId) => {
+    const params = new URLSearchParams();
+    if (moduleId) params.set('moduleId', moduleId);
+    return request(`/users/permissions?${params.toString()}`);
+  },
+  getModules: () => request('/users/modules'),
+  getRolePermissions: (roleId) => request(`/users/roles/${roleId}/permissions`),
+  updateRolePermissions: (roleId, permissionIds) => request(`/users/roles/${roleId}/permissions`, {
+    method: 'PUT',
+    body: JSON.stringify({ permissionIds }),
+  }),
+  getAuditLogs: (params = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key]) queryParams.set(key, params[key]);
+    });
+    return request(`/users/audit-logs?${queryParams.toString()}`);
+  },
+};
+
+// ============================================
+// EXPORT DEFAULT
+// ============================================
+const api = {
+  auth: authAPI,
+  apartments: apartmentAPI,
+  contracts: contractAPI,
+  invoices: invoiceAPI,
+  residents: residentAPI,
+  services: serviceAPI,
+  tickets: ticketAPI,
+  vehicles: vehicleAPI,
+  notifications: notificationAPI,
+  utilities: utilityAPI,
+  dashboard: dashboardAPI,
+  user: userAPI,
+  
+  // Shorthands & Helper Functions
+  importResidents: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request('/residents/import-excel', { 
+      method: 'POST', 
+      body: form 
+    });
+  },
+  scheduleNotification: (data) => request('/notifications/schedule', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  sendNotification: (data) => request('/notifications/send', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  history: () => request('/notifications/history'),
+  schedules: () => request('/notifications/schedules'),
+  createTicket: (data) => ticketAPI.create(data),
+  updateTicketStatus: (id, statusId) => request(`/tickets/${id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ statusId }),
+  }),
+  createVehicle: (data) => vehicleAPI.create(data),
+  getAvailableSlots: (vehicleType) => {
+    const params = new URLSearchParams();
+    if (vehicleType) params.set('vehicleType', vehicleType);
+    params.set('isOccupied', '0');
+    return request(`/vehicles/parking-slots?${params.toString()}`);
+  },
+};
+
+// Export ApiError để sử dụng ở component
+export { ApiError };
+
+export default api;
+
+export const aiAPI = {
+  getStatisticsDashboard: async () => {
+    try {
+      const response = await fetch(
+        'http://127.0.0.1:8000/ai/statistics/dashboard'
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `AI Service error: ${response.status}`
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(
+        '❌ aiAPI.getStatisticsDashboard error:',
+        error
+      );
+
+      throw error;
+    }
+  },
+  search: async (keyword) => {
+  try {
+    const query = String(keyword || '').trim();
+
+    if (!query) {
+      return {
+        success: true,
+        query: '',
+        count: 0,
+        data: []
+      };
+    }
+
+    const response = await fetch(
+      `http://127.0.0.1:8000/ai/search?q=${encodeURIComponent(query)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `AI Search error: ${response.status}`
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(
+      '❌ aiAPI.search error:',
+      error
+    );
+
+    throw error;
+  }
+},
+chat: async (message) => {
+  try {
+    const content = String(message || '').trim();
+
+    if (!content) {
+      throw new Error('Vui lòng nhập câu hỏi');
+    }
+
+    const response = await fetch(
+      'http://127.0.0.1:8000/ai/chat',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: content
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `AI Chat error: ${response.status}`
+      );
+    }
+
+    return await response.json();
+
+  } catch (error) {
+    console.error(
+      '❌ aiAPI.chat error:',
+      error
+    );
+
+    throw error;
+  }
+},
+getPredictionDashboard: async () => {
+  try {
+    const response = await fetch(
+      'http://127.0.0.1:8000/ai/prediction/dashboard'
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `AI Prediction error: ${response.status}`
+      );
+    }
+
+    return await response.json();
+
+  } catch (error) {
+    console.error(
+      '❌ aiAPI.getPredictionDashboard error:',
+      error
+    );
+
+    throw error;
+  }
+}
+};

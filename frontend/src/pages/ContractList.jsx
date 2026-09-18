@@ -136,7 +136,7 @@ export default function ContractList({ flash }) {
             <h3 className="text-base font-bold text-slate-950">Danh sách hợp đồng</h3>
             <p className="text-sm text-slate-500">
               Quản lý tất cả hợp đồng thuê căn hộ.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {stats.active} đang hiệu lực / {stats.total} tổng
               </span>
             </p>
@@ -152,7 +152,7 @@ export default function ContractList({ flash }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả trạng thái</option>
               {statuses.map(s => (
@@ -178,7 +178,7 @@ export default function ContractList({ flash }) {
       {/* Contract List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách hợp đồng...</p>
         </Card>
       ) : filteredContracts.length === 0 ? (
@@ -190,12 +190,12 @@ export default function ContractList({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredContracts.map((contract) => (
-            <Card key={contract.ContractID} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={contract.ContractID} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
                     <Badge tone="purple" className="mb-1">{contract.ContractNumber}</Badge>
-                    <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                    <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                       {contract.ApartmentCode}
                     </h3>
                     <p className="text-sm text-slate-500">{contract.BuildingName}</p>
@@ -210,7 +210,7 @@ export default function ContractList({ flash }) {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Giá thuê</span>
-                    <span className="font-bold text-[#1f4f46]">{money(contract.Rent)}/tháng</span>
+                    <span className="font-bold text-[#635bff]">{money(contract.Rent)}/tháng</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Thời hạn</span>
@@ -252,7 +252,7 @@ export default function ContractList({ flash }) {
               onClick={() => setPage(i + 1)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
                 page === i + 1
-                  ? 'bg-[#1f4f46] text-white'
+                  ? 'bg-[#635bff] text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >

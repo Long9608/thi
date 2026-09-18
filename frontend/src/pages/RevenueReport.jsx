@@ -19,7 +19,7 @@ import { formatDate, money, formatNumber } from '../utils/formatters';
 import { invoiceAPI, contractAPI } from '../api';
 
 // Màu sắc cho biểu đồ
-const COLORS = ['#1f4f46', '#0d9488', '#f59e0b', '#3b82f6', '#8b5cf6'];
+const COLORS = ['#635bff', '#06b6d4', '#f59e0b', '#3b82f6', '#8b5cf6'];
 
 export default function RevenueReport({ flash }) {
   const [loading, setLoading] = useState(true);
@@ -203,14 +203,14 @@ export default function RevenueReport({ flash }) {
     
     if (totalPaid === 0 && totalContract === 0) {
       return [
-        { name: 'Hóa đơn', value: 0, color: '#1f4f46' },
-        { name: 'Hợp đồng', value: 0, color: '#0d9488' }
+        { name: 'Hóa đơn', value: 0, color: '#635bff' },
+        { name: 'Hợp đồng', value: 0, color: '#06b6d4' }
       ];
     }
     
     return [
-      { name: 'Từ hóa đơn', value: Math.round(totalPaid), color: '#1f4f46' },
-      { name: 'Từ hợp đồng', value: Math.round(totalContract), color: '#0d9488' }
+      { name: 'Từ hóa đơn', value: Math.round(totalPaid), color: '#635bff' },
+      { name: 'Từ hợp đồng', value: Math.round(totalContract), color: '#06b6d4' }
     ];
   }, [invoices, contracts]);
 
@@ -324,7 +324,7 @@ export default function RevenueReport({ flash }) {
     return (
       <div className="space-y-5">
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải báo cáo...</p>
         </Card>
       </div>
@@ -344,7 +344,7 @@ export default function RevenueReport({ flash }) {
                 <span className="ml-2 text-amber-600 font-semibold">⚠️ Chưa có dữ liệu</span>
               )}
               {invoices.length + contracts.length > 0 && (
-                <span className="ml-2 text-[#1f4f46] font-semibold">
+                <span className="ml-2 text-[#635bff] font-semibold">
                   {invoices.length} hóa đơn + {contracts.length} hợp đồng
                 </span>
               )}
@@ -354,7 +354,7 @@ export default function RevenueReport({ flash }) {
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="month">Theo tháng</option>
               <option value="quarter">Theo quý</option>
@@ -363,7 +363,7 @@ export default function RevenueReport({ flash }) {
             <select
               value={year}
               onChange={(e) => setYear(parseInt(e.target.value))}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               {[2023, 2024, 2025, 2026].map(y => (
                 <option key={y} value={y}>{y}</option>
@@ -372,7 +372,7 @@ export default function RevenueReport({ flash }) {
             <select
               value={month}
               onChange={(e) => setMonth(parseInt(e.target.value))}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
                 <option key={m} value={m}>Tháng {m}</option>
@@ -426,7 +426,7 @@ export default function RevenueReport({ flash }) {
           <div className="flex gap-2">
             <button
               className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${
-                viewMode === 'chart' ? 'bg-[#1f4f46] text-white' : 'bg-slate-100 text-slate-600'
+                viewMode === 'chart' ? 'bg-[#635bff] text-white' : 'bg-slate-100 text-slate-600'
               }`}
               onClick={() => setViewMode('chart')}
             >
@@ -434,7 +434,7 @@ export default function RevenueReport({ flash }) {
             </button>
             <button
               className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${
-                viewMode === 'table' ? 'bg-[#1f4f46] text-white' : 'bg-slate-100 text-slate-600'
+                viewMode === 'table' ? 'bg-[#635bff] text-white' : 'bg-slate-100 text-slate-600'
               }`}
               onClick={() => setViewMode('table')}
             >
@@ -463,8 +463,8 @@ export default function RevenueReport({ flash }) {
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                 />
                 <Legend />
-                <Bar dataKey="paid" name="Từ hóa đơn" fill="#1f4f46" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="contract" name="Từ hợp đồng" fill="#0d9488" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="paid" name="Từ hóa đơn" fill="#635bff" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="contract" name="Từ hợp đồng" fill="#06b6d4" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -483,10 +483,10 @@ export default function RevenueReport({ flash }) {
                 {combinedRevenueData.map((item) => (
                   <tr key={item.month} className="hover:bg-slate-50">
                     <td className="px-4 py-2 font-medium">{item.monthLabel}</td>
-                    <td className="px-4 py-2 text-right text-[#1f4f46]">
+                    <td className="px-4 py-2 text-right text-[#635bff]">
                       {item.paid > 0 ? money(item.paid) : '0'}
                     </td>
-                    <td className="px-4 py-2 text-right text-[#0d9488]">
+                    <td className="px-4 py-2 text-right text-[#06b6d4]">
                       {item.contract > 0 ? money(item.contract) : '0'}
                     </td>
                     <td className="px-4 py-2 text-right font-bold">
@@ -545,15 +545,15 @@ export default function RevenueReport({ flash }) {
           <div className="space-y-3">
             <div className="flex justify-between p-3 rounded-xl bg-slate-50">
               <span className="text-slate-600">Tổng doanh thu</span>
-              <span className="font-bold text-[#1f4f46]">{money(monthlyDetails.total)}</span>
+              <span className="font-bold text-[#635bff]">{money(monthlyDetails.total)}</span>
             </div>
             <div className="flex justify-between p-3 rounded-xl bg-slate-50">
               <span className="text-slate-600">Từ hóa đơn</span>
-              <span className="font-bold text-[#1f4f46]">{money(monthlyDetails.paid)}</span>
+              <span className="font-bold text-[#635bff]">{money(monthlyDetails.paid)}</span>
             </div>
             <div className="flex justify-between p-3 rounded-xl bg-slate-50">
               <span className="text-slate-600">Từ hợp đồng</span>
-              <span className="font-bold text-[#0d9488]">{money(monthlyDetails.contract)}</span>
+              <span className="font-bold text-[#06b6d4]">{money(monthlyDetails.contract)}</span>
             </div>
             <div className="flex justify-between p-3 rounded-xl bg-slate-50">
               <span className="text-slate-600">Tăng trưởng so với tháng trước</span>

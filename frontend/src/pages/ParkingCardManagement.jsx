@@ -370,7 +370,7 @@ if (!selectedVehicle?.ContractID) {
             <h3 className="text-base font-bold text-slate-950">Quản lý thẻ xe</h3>
             <p className="text-sm text-slate-500">
               Quản lý thẻ xe của cư dân.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {stats.active} thẻ đang hoạt động
               </span>
               {stats.expired > 0 && (
@@ -414,7 +414,7 @@ if (!selectedVehicle?.ContractID) {
       {/* Card List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách thẻ...</p>
         </Card>
       ) : filteredCards.length === 0 ? (
@@ -431,13 +431,13 @@ if (!selectedVehicle?.ContractID) {
           {filteredCards.map((card) => {
             const status = getCardStatus(card);
             return (
-              <Card key={card.CardID} className="group hover:border-[#1f4f46]/30 transition-all">
+              <Card key={card.CardID} className="group hover:border-[#635bff]/30 transition-all">
                 <div className="p-5">
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <Shield size={16} className="text-[#1f4f46]" />
-                        <h3 className="text-lg font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                        <Shield size={16} className="text-[#635bff]" />
+                        <h3 className="text-lg font-bold text-slate-950 group-hover:text-[#635bff]">
                           {card.CardCode}
                         </h3>
                       </div>
@@ -468,7 +468,7 @@ if (!selectedVehicle?.ContractID) {
                       <div className="flex items-center justify-between">
                         <span className="text-slate-500">Vị trí đỗ</span>
                         <span className="font-medium text-slate-950 flex items-center gap-1">
-                          <MapPin size={14} className="text-[#1f4f46]" />
+                          <MapPin size={14} className="text-[#635bff]" />
                           {card.SlotNumber}
                         </span>
                       </div>
@@ -512,7 +512,7 @@ if (!selectedVehicle?.ContractID) {
               onClick={() => setPage(i + 1)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
                 page === i + 1
-                  ? 'bg-[#1f4f46] text-white'
+                  ? 'bg-[#635bff] text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -537,7 +537,7 @@ if (!selectedVehicle?.ContractID) {
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <Shield size={20} className="text-[#1f4f46]" />
+                  <Shield size={20} className="text-[#635bff]" />
                   <h3 className="text-2xl font-black text-slate-950">{selectedCard.CardCode}</h3>
                 </div>
                 <p className="text-sm text-slate-500">{selectedCard.PlateNumber}</p>
@@ -610,7 +610,7 @@ if (!selectedVehicle?.ContractID) {
               <select
                 value={form.vehicleId}
                 onChange={(e) => setForm({ ...form, vehicleId: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 required
               >
                 <option value="">Chọn xe</option>
@@ -709,7 +709,7 @@ if (!selectedVehicle?.ContractID) {
             <select
               value={form.slotId}
               onChange={(e) => setForm({ ...form, slotId: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Chọn vị trí</option>
               {parkingSlots.length === 0 ? (
@@ -735,7 +735,7 @@ if (!selectedVehicle?.ContractID) {
               <select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: parseInt(e.target.value) })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
               >
                 <option value={1}>Hoạt động</option>
                 <option value={0}>Khóa</option>

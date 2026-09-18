@@ -1,0 +1,2261 @@
+// src/App.jsx
+import React, { useEffect, useMemo, useState, useCallback, memo } from "react";
+import * as XLSX from "xlsx";
+import { AnimatePresence, motion } from "framer-motion";
+
+// Import từ api.js
+import api, {
+  apartmentAPI,
+  contractAPI,
+  invoiceAPI,
+  residentAPI,
+  serviceAPI,
+  ticketAPI,
+  vehicleAPI,
+  notificationAPI,
+  utilityAPI,
+  dashboardAPI,
+  setAuthToken,
+  logout,
+  authAPI,
+  userAPI
+} from "./api";
+
+// Import các component
+import EmployeeManagement from './components/EmployeeManagement';
+import PermissionManagement from './components/PermissionManagement';
+import RoleManagement from './components/RoleManagement';
+import ResidentManagement from "./components/ResidentManagement";
+import ApartmentManagement from "./components/ApartmentManagement";
+import BuildingManagement from "./components/BuildingManagement";
+
+// 🔥 THÊM IMPORTS COMPONENT MỚI
+import RegisterResident from "./components/RegisterResident";
+import IdentityManagement from "./components/IdentityManagement";
+import FamilyMembers from "./components/FamilyMembers";
+import ResidenceHistory from "./components/ResidenceHistory";
+
+// 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ HỢP ĐỒNG
+import ContractList from "./pages/ContractList";
+import DepositManagement from "./pages/DepositManagement";
+
+import GymManagement from "./pages/GymManagement";
+import PoolManagement from "./pages/PoolManagement";
+import WifiManagement from "./pages/WifiManagement";
+
+// 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ GỬI XE
+import VehicleManagement from './pages/VehicleManagement';
+import ParkingCardManagement from "./pages/ParkingCardManagement";
+import ParkingSlotManagement from './pages/ParkingSlotManagement';
+import ParkingHistory from './pages/ParkingHistory';
+
+
+import AIStatistics from './pages/AIStatistics';
+import AISearch from './pages/AISearch';
+import AIChat from './pages/AIChat';
+import AIContractPrediction from './pages/AIContractPrediction';
+
+// 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ VẬN HÀNH
+import TicketManagement from './pages/TicketManagement';
+import MaintenanceManagement from './pages/MaintenanceManagement';
+import FeedbackManagement from './pages/FeedbackManagement';
+import MaintenanceSchedule from './pages/MaintenanceSchedule';
+import EquipmentManagement from './pages/EquipmentManagement';
+
+// 🔥 THÊM IMPORTS COMPONENT QUẢN LÝ THÔNG BÁO
+import NotificationList from './pages/NotificationList';
+import SendNotification from './pages/SendNotification';
+import ScheduleNotification from './pages/ScheduleNotification';
+
+// 🔥 THÊM IMPORTS COMPONENT BÁO CÁO
+import QuickReport from './pages/QuickReport';
+import RevenueReport from './pages/RevenueReport';
+import DebtReport from './pages/DebtReport';
+import ApartmentReport from './pages/ApartmentReport';
+import ServiceReport from './pages/ServiceReport';
+import Fees from './pages/Fees';
+import Payments from './pages/Payments';
+import FeeCollection from './pages/FeeCollection';
+
+// 🔥 THÊM IMPORTS COMPONENT CÀI ĐẶT
+import Profile from './pages/Profile';
+import ChangePassword from './pages/ChangePassword';
+import SystemInfo from './pages/SystemInfo';
+
+import {
+  AlertCircle,
+  ArrowLeft,
+  Bell,
+  Bolt,
+  Bot,
+  Building2,
+  CalendarClock,
+  Car,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardList,
+  CreditCard,
+  Download,
+  Droplet,
+  Dumbbell,
+  Eye,
+  EyeOff,
+  FileText,
+  Home,
+  Import,
+  Info,
+  KeyRound,
+  LockKeyhole,
+  Mail,
+  Menu,
+  MessageSquare,
+  MoreHorizontal,
+  Phone,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  Settings,
+  ShieldCheck,
+  TrendingUp,
+  UserRound,
+  Users,
+  WalletCards,
+  Waves,
+  Wrench,
+  X,
+  Save,
+  Wifi,
+  // 🔥 THÊM ICON MỚI
+  UserPlus,
+  Shield,
+  Clock,
+  Heart,
+  Edit,
+  Trash2,
+  Calendar,
+  FileSpreadsheet,
+  User,
+  Lock
+} from "lucide-react";
+
+// ============= IMPORT REACT CHARTS =============
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+// ============================================================
+// CÁC HÀM TIỆN ÍCH
+// ============================================================
+function cls(...items) {
+  return items.filter(Boolean).join(" ");
+}
+
+function formatBirthday(date) {
+  if (!date) return "Chưa cập nhật";
+  try {
+    const d = new Date(date);
+    return `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  } catch {
+    return "Chưa cập nhật";
+  }
+}
+
+function money(value) {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0
+  }).format(value || 0);
+}
+
+function getInitials(name) {
+  if (!name) return "?";
+  const parts = name.split(" ");
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return parts
+    .slice(-2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+// ============================================================
+// UI COMPONENTS - Tối ưu với memo
+// ============================================================
+
+const Card = memo(({ children, className = "" }) => {
+  return (
+    <div className={`rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)] ${className}`}>
+      {children}
+    </div>
+  );
+});
+
+const Button = memo(({ children, variant = "primary", className = "", ...props }) => {
+  const styles = {
+    primary: "bg-[#1f4f46] text-white hover:bg-[#173f38] shadow-sm",
+    secondary: "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+    ghost: "text-slate-600 hover:bg-slate-100",
+    success: "bg-emerald-600 text-white hover:bg-emerald-700",
+    warning: "bg-amber-500 text-white hover:bg-amber-600",
+    danger: "bg-rose-600 text-white hover:bg-rose-700",
+  };
+
+  return (
+    <button
+      className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+});
+
+const Input = memo(({ icon: Icon, right, className = "", ...props }) => {
+  return (
+    <div className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-[#1f4f46] ${className}`}>
+      {Icon && <Icon size={16} className="text-slate-400" />}
+      <input className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400" {...props} />
+      {right}
+    </div>
+  );
+});
+
+const SelectInput = memo(({ className = "", ...props }) => {
+  return (
+    <select
+      className={`rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm outline-none focus:border-[#1f4f46] ${className}`}
+      {...props}
+    />
+  );
+});
+
+const Badge = memo(({ children, tone = "slate" }) => {
+  const tones = {
+    slate: "border-slate-200 bg-slate-50 text-slate-700",
+    green: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    amber: "border-amber-200 bg-amber-50 text-amber-700",
+    red: "border-rose-200 bg-rose-50 text-rose-700",
+    blue: "border-blue-200 bg-blue-50 text-blue-700",
+    purple: "border-violet-200 bg-violet-50 text-violet-700",
+  };
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${tones[tone]}`}>
+      {children}
+    </span>
+  );
+});
+
+const PageTitle = memo(({ eyebrow, title, description, actions }) => {
+  return (
+    <div className="flex flex-col justify-between gap-4 border-b border-slate-200 bg-white px-5 py-5 lg:flex-row lg:items-center lg:px-8">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#1f4f46]">{eyebrow}</p>
+        <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">{title}</h2>
+        <p className="mt-1 max-w-2xl text-sm text-slate-500">{description}</p>
+      </div>
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+    </div>
+  );
+});
+
+const StatCard = memo(({ icon: Icon, label, value, hint, trend }) => {
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+      <Card className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-slate-500">{label}</p>
+            <div className="mt-2 flex items-end gap-2">
+              <p className="text-3xl font-bold tracking-tight text-slate-950">{value}</p>
+              {trend && <span className="mb-1 text-xs font-bold text-emerald-600">{trend}</span>}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-500">{hint}</p>
+          </div>
+          <div className="rounded-xl bg-[#eef5f2] p-3 text-[#1f4f46]">
+            <Icon size={20} />
+          </div>
+        </div>
+      </Card>
+    </motion.div>
+  );
+});
+
+const Modal = memo(({ open, title, description, children, onClose, size = "default" }) => {
+  const sizeClasses = {
+    default: "max-w-2xl",
+    lg: "max-w-4xl",
+    xl: "max-w-6xl",
+    sm: "max-w-md"
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            initial={{ scale: 0.98, opacity: 0, y: 12 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.98, opacity: 0, y: 12 }}
+            className={`w-full ${sizeClasses[size]} rounded-2xl bg-white shadow-2xl max-h-[90vh] flex flex-col`}
+          >
+            <div className="flex items-start justify-between border-b border-slate-200 p-6 flex-shrink-0">
+              <div>
+                <h3 className="text-xl font-bold text-slate-950">{title}</h3>
+                {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+              </div>
+              <button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">{children}</div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+});
+
+const EmptyState = memo(({ title, description }) => {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+      <p className="font-semibold text-slate-900">{title}</p>
+      <p className="mt-1 text-sm text-slate-500">{description}</p>
+    </div>
+  );
+});
+
+// ============================================================
+// LOGIN PAGE
+// ============================================================
+function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState("admin@anbinh.vn");
+  const [password, setPassword] = useState("123456");
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    if (!email.trim() || !password.trim()) {
+      setError("Vui lòng nhập email và mật khẩu.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await authAPI.login({
+        username: email,
+        password: password
+      });
+
+      if (response.success) {
+        setAuthToken(response.data.token);
+
+        // Lấy permissions của user
+        let permissions = [];
+        try {
+          const permRes = await userAPI.getCurrentUserPermissions();
+          permissions = permRes?.data?.permissions || [];
+        } catch (e) {
+          console.warn('⚠️ Không thể lấy permissions:', e);
+        }
+
+        const userData = {
+          ...response.data.user,
+          roleCode: response.data.user?.roleCode || response.data.user?.role || 'USER',
+          permissions: permissions
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+
+        onLogin({
+          name: response.data.user?.employee?.fullName ||
+                response.data.user?.username ||
+                'Ban quản lý',
+          email: response.data.user?.email || email,
+          role: response.data.user?.role || 'Quản trị viên',
+          roleCode: userData.roleCode,
+          permissions: permissions,
+          remember,
+        });
+      } else {
+        setError(response.message || 'Đăng nhập thất bại');
+      }
+    } catch (err) {
+      setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f4f6f5] text-slate-900">
+      <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="relative hidden overflow-hidden bg-[#173f38] p-10 text-white lg:block">
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute left-16 top-16 h-56 w-56 rounded-full border border-white" />
+            <div className="absolute bottom-20 right-16 h-72 w-72 rounded-full border border-white" />
+            <div className="absolute left-1/2 top-1/3 h-96 w-96 -translate-x-1/2 rounded-full bg-white blur-3xl" />
+          </div>
+          <div className="relative z-10 flex h-full flex-col justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#1f4f46]">
+                <Building2 size={24} />
+              </div>
+              <div>
+                <p className="text-lg font-bold">Đức Vũ Tower</p>
+                <p className="text-sm text-white/70">Nền tảng quản lý vận hành chung cư</p>
+              </div>
+            </div>
+
+            <div className="max-w-xl">
+              <Badge tone="green">Nội bộ ban quản lý</Badge>
+              <h1 className="mt-6 text-5xl font-bold leading-tight tracking-tight">Quản lý cư dân, căn hộ và vận hành trong một nơi.</h1>
+              <p className="mt-5 text-base leading-7 text-white/75">
+                Quản lý dữ liệu cư dân, căn hộ, thu phí, yêu cầu sửa chữa và bãi xe bằng các thao tác thực tế, dễ kiểm tra và dễ xuất báo cáo.
+              </p>
+              <div className="mt-8 grid grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+                  <p className="text-2xl font-bold">248</p>
+                  <p className="mt-1 text-xs text-white/70">Cư dân</p>
+                </div>
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+                  <p className="text-2xl font-bold">96%</p>
+                  <p className="mt-1 text-xs text-white/70">Lấp đầy</p>
+                </div>
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+                  <p className="text-2xl font-bold">12</p>
+                  <p className="mt-1 text-xs text-white/70">Việc hôm nay</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+              <div className="flex items-center gap-3">
+                <ShieldCheck size={22} />
+                <div>
+                  <p className="font-semibold">Đăng nhập thử nghiệm</p>
+                  <p className="text-sm text-white/70">Email có sẵn: admin@anbinh.vn · Mật khẩu: 123456</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="flex items-center justify-center p-5 sm:p-8">
+          <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
+            <div className="mb-8 flex items-center gap-3 lg:hidden">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1f4f46] text-white">
+                <Building2 size={22} />
+              </div>
+              <div>
+                <p className="font-bold text-slate-950">Đức Vũ Tower</p>
+                <p className="text-sm text-slate-500">Property Admin</p>
+              </div>
+            </div>
+
+            <Card className="overflow-hidden">
+              <div className="border-b border-slate-200 p-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef5f2] text-[#1f4f46]">
+                  <LockKeyhole size={23} />
+                </div>
+                <h2 className="mt-5 text-2xl font-bold tracking-tight text-slate-950">Đăng nhập hệ thống</h2>
+                <p className="mt-1 text-sm text-slate-500">Dành cho ban quản lý và nhân sự vận hành chung cư.</p>
+              </div>
+
+              <form className="space-y-4 p-6" onSubmit={submit}>
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">Email</label>
+                  <Input icon={Mail} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@anbinh.vn" />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">Mật khẩu</label>
+                  <Input
+                    icon={KeyRound}
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu"
+                    right={
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-slate-400 hover:text-slate-700">
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <label className="flex cursor-pointer items-center gap-2 text-slate-600">
+                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-[#1f4f46]" />
+                    Ghi nhớ đăng nhập
+                  </label>
+                  <button type="button" className="font-semibold text-[#1f4f46] hover:underline">Quên mật khẩu?</button>
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                    <AlertCircle size={16} />
+                    {error}
+                  </div>
+                )}
+
+                <Button className="w-full" disabled={loading}>
+                  {loading ? "Đang đăng nhập..." : "Đăng nhập"}
+                </Button>
+              </form>
+            </Card>
+
+            <p className="mt-5 text-center text-xs text-slate-500">Phiên bản giao diện kết nối dữ liệu cục bộ. Khi nối backend, form này sẽ gọi API đăng nhập và lưu token phiên làm việc.</p>
+          </motion.div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// DỮ LIỆU MẪU (FALLBACK)
+// ============================================================
+const revenueData = [
+  { month: "T1", amount: 0 },
+  { month: "T2", amount: 0 },
+  { month: "T3", amount: 0 },
+  { month: "T4", amount: 0 },
+  { month: "T5", amount: 0 },
+  { month: "T6", amount: 0 },
+];
+
+const utilityData = [
+  { month: "T1", electricity: 0, water: 0 },
+  { month: "T2", electricity: 0, water: 0 },
+  { month: "T3", electricity: 0, water: 0 },
+  { month: "T4", electricity: 0, water: 0 },
+  { month: "T5", electricity: 0, water: 0 },
+  { month: "T6", electricity: 0, water: 0 },
+];
+
+const contractStatusData = [
+  { name: "Đang hiệu lực", value: 0 },
+  { name: "Sắp hết hạn", value: 0 },
+  { name: "Đã hết hạn", value: 0 },
+  { name: "Chưa ký", value: 0 },
+];
+
+const recentActivities = [];
+
+// ============================================================
+// CẤU TRÚC MENU VỚI PERMISSION
+// ============================================================
+const MENU_STRUCTURE = [
+{
+  id: "dashboard",
+  label: "Tổng quan",
+  icon: Home,
+  permission: "REPORT_VIEW",
+  items: [
+    { 
+      id: "quick-report", 
+      label: "Báo cáo nhanh", 
+      icon: FileText, 
+      permission: "REPORT_VIEW" 
+    }
+  ]
+},
+  {
+    id: "condo",
+    label: "Quản lý chung cư",
+    icon: Building2,
+    permission: null,
+    items: [
+       { id: "residents", label: "Danh sách cư dân", icon: Users, permission: "RESIDENT_VIEW" },
+  { id: "buildings", label: "Tòa nhà", icon: Home, permission: "APARTMENT_VIEW" },
+  { id: "contract-list", label: "Danh sách hợp đồng", icon: FileText, permission: "CONTRACT_VIEW" },
+  { id: "fees", label: "Hóa đơn", icon: FileText, permission: "INVOICE_VIEW" },
+
+  { id: "vehicles", label: "Xe cư dân", icon: Car, permission: "PARKING_VIEW" },
+  { id: "parking-cards", label: "Thẻ xe", icon: CreditCard, permission: "PARKING_VIEW" },
+  { id: "parking-slots", label: "Bãi xe", icon: Home, permission: "PARKING_VIEW" },
+  { id: "parking-history", label: "Lịch sử ra/vào", icon: Clock, permission: "PARKING_HISTORY" },
+    ]
+  },
+  {
+    id: "services",
+    label: "Dịch vụ công ích",
+    icon: Wrench,
+    permission: "SERVICE_VIEW",
+    items: [
+      { id: "gym", label: "Gym", icon: Dumbbell, permission: "SERVICE_VIEW" },
+      { id: "pool", label: "Hồ bơi", icon: Waves, permission: "SERVICE_VIEW" },
+      { id: "wifi", label: "Wifi", icon: Wifi, permission: "SERVICE_VIEW" }
+    ]
+  },
+  {
+    id: "operations",
+    label: "Vận hành",
+    icon: Wrench,
+    permission: "TICKET_VIEW",
+    items: [
+      { id: "tickets", label: "Ticket hỗ trợ", icon: Wrench, permission: "TICKET_VIEW" },
+      { id: "maintenance", label: "Bảo trì", icon: Settings, permission: "MAINTENANCE_UPDATE" },
+      { id: "feedbacks", label: "Phản ánh", icon: MessageSquare, permission: "TICKET_VIEW" },
+      { id: "maintenance-schedule", label: "Lịch bảo trì", icon: Calendar, permission: "MAINTENANCE_UPDATE" },
+      { id: "equipment", label: "Thiết bị", icon: ClipboardList, permission: "DEVICE_MANAGE" }
+    ]
+  },
+  {
+    id: "notifications",
+    label: "Thông báo",
+    icon: Bell,
+    permission: "NOTIFICATION_VIEW",
+    items: [
+      { id: "notifications", label: "Danh sách", icon: Bell, permission: "NOTIFICATION_VIEW" },
+      { id: "send-notification", label: "Gửi thông báo", icon: Send, permission: "NOTIFICATION_SEND" },
+      { id: "schedule-notification", label: "Lịch gửi", icon: Calendar, permission: "NOTIFICATION_SEND" }
+    ]
+  },
+  {
+    id: "hr",
+    label: "Nhân sự",
+    icon: Users,
+    permission: "EMPLOYEE_VIEW",
+    items: [
+      { id: "employees", label: "Nhân viên", icon: UserRound, permission: "EMPLOYEE_VIEW" },
+      { id: "permissions", label: "Phân quyền", icon: ShieldCheck, permission: "PERMISSION_MANAGE" },
+      { id: "roles", label: "Vai trò", icon: Users, permission: "ROLE_MANAGE" },
+      { id: "system-logs", label: "Nhật ký hệ thống", icon: ClipboardList, permission: "SYSTEM_SETTING" }
+    ]
+  },
+  {
+    id: "reports",
+    label: "Báo cáo",
+    icon: FileText,
+    permission: "REPORT_VIEW",
+    items: [
+      { id: "revenue-report", label: "Doanh thu", icon: TrendingUp, permission: "REPORT_VIEW" },
+      { id: "debt-report", label: "Công nợ", icon: AlertCircle, permission: "REPORT_VIEW" },
+      { id: "apartment-report", label: "Căn hộ", icon: Building2, permission: "REPORT_VIEW" },
+      { id: "service-report", label: "Dịch vụ", icon: Wrench, permission: "REPORT_VIEW" }
+    ]
+  },
+  {
+    id: "ai",
+    label: "AI Assistant",
+    icon: Bot,
+    permission: "AI_CHAT",
+    items: [
+      { id: "ai-chat", label: "Chat AI", icon: MessageSquare, permission: "AI_CHAT" },
+      { id: "ai-stats", label: "Thống kê AI", icon: BarChart, permission: "AI_STATISTIC" },
+      { id: "ai-predict", label: "Dự đoán hợp đồng", icon: TrendingUp, permission: "AI_PREDICT" },
+      { id: "ai-search", label: "AI tìm kiếm", icon: Search, permission: "AI_SEARCH" }
+    ]
+  },
+  {
+    id: "settings",
+    label: "Cài đặt",
+    icon: Settings,
+    permission: "PROFILE_UPDATE",
+    items: [
+      { id: "profile", label: "Hồ sơ", icon: User, permission: "PROFILE_UPDATE" },
+      { id: "change-password", label: "Đổi mật khẩu", icon: Lock, permission: "PASSWORD_CHANGE" },
+      { id: "system-info", label: "Thông tin hệ thống", icon: Info, permission: "SYSTEM_SETTING" }
+    ]
+  }
+];
+const TAB_PERMISSION_MAP = {
+  'register-resident': 'RESIDENT_VIEW',
+  'id-cards': 'RESIDENT_VIEW',
+  'family-members': 'RESIDENT_VIEW',
+  'residence-history': 'RESIDENT_VIEW',
+  'deposits': 'CONTRACT_VIEW',
+};
+
+// ============================================================
+// CONTENT TITLES
+// ============================================================
+const CONTENT_TITLES = {
+  dashboard: ["Bảng điều khiển", "Theo dõi vận hành chung cư, thông báo và tình trạng căn hộ trong ngày."],
+  "quick-report": ["Báo cáo nhanh", "Xem báo cáo tổng hợp nhanh"],
+  residents: ["Danh sách cư dân", "Quản lý hồ sơ cư dân, liên hệ, ngày sinh và căn hộ đang ở."],
+  "register-resident": ["Đăng ký cư dân mới", "Thêm cư dân mới vào hệ thống"],
+  "id-cards": ["CCCD / Hồ sơ", "Quản lý CCCD và hồ sơ cư dân"],
+  "family-members": ["Thành viên hộ gia đình", "Quản lý thành viên trong hộ gia đình"],
+  "residence-history": ["Lịch sử cư trú", "Xem lịch sử cư trú của cư dân"],
+  buildings: ["Tòa nhà", "Quản lý thông tin tòa nhà"],
+  residents: ["Quản lý cư dân", "Danh sách cư dân và thông tin cư trú"],
+  "contract-list": ["Danh sách hợp đồng", "Quản lý hợp đồng thuê"],
+  deposits: ["Tiền cọc", "Quản lý tiền cọc"],
+  gym: ["Gym", "Quản lý phòng gym"],
+  pool: ["Hồ bơi", "Quản lý hồ bơi"],
+  wifi: ["Wifi", "Quản lý đăng ký wifi"],
+  fees: ["Hóa đơn", "Quản lý hóa đơn và thu phí"],
+  vehicles: ["Xe cư dân", "Quản lý xe cư dân"],
+  "parking-slots": ["Bãi xe", "Quản lý vị trí đỗ xe"],
+  "parking-cards": ["Thẻ xe", "Quản lý và cấp thẻ gửi xe"],
+  "parking-history": ["Lịch sử ra/vào", "Theo dõi xe vào và ra bãi"],
+  tickets: ["Ticket hỗ trợ", "Quản lý yêu cầu hỗ trợ"],
+  maintenance: ["Bảo trì", "Quản lý bảo trì"],
+  feedbacks: ["Phản ánh", "Quản lý phản ánh của cư dân"],
+  "maintenance-schedule": ["Lịch bảo trì", "Lịch bảo trì thiết bị"],
+  equipment: ["Thiết bị", "Quản lý thiết bị"],
+  notifications: ["Danh sách thông báo", "Quản lý danh sách thông báo"],
+  "send-notification": ["Gửi thông báo", "Gửi thông báo đến cư dân"],
+  "schedule-notification": ["Lịch gửi", "Lịch gửi thông báo"],
+  employees: ["Nhân viên", "Quản lý nhân viên"],
+  permissions: ["Phân quyền", "Phân quyền người dùng"],
+  roles: ["Vai trò", "Quản lý vai trò"],
+  "system-logs": ["Nhật ký hệ thống", "Xem nhật ký hệ thống"],
+  "revenue-report": ["Báo cáo doanh thu", "Báo cáo doanh thu chi tiết"],
+  "debt-report": ["Báo cáo công nợ", "Báo cáo công nợ chi tiết"],
+  "apartment-report": ["Báo cáo căn hộ", "Báo cáo căn hộ"],
+  "service-report": ["Báo cáo dịch vụ", "Báo cáo dịch vụ"],
+  "ai-chat": ["Chat AI", "Trò chuyện với AI"],
+  "ai-stats": ["Thống kê AI", "Thống kê từ AI"],
+  "ai-predict": ["Dự đoán hợp đồng", "Dự đoán từ AI"],
+  "ai-search": ["AI tìm kiếm", "Tìm kiếm với AI"],
+  profile: ["Hồ sơ", "Quản lý hồ sơ cá nhân"],
+  "change-password": ["Đổi mật khẩu", "Đổi mật khẩu đăng nhập"],
+  "system-info": ["Thông tin hệ thống", "Thông tin chi tiết về hệ thống"],
+};
+
+// ============================================================
+// COMPONENT CHÍNH: ApartmentManagementWeb
+// ============================================================
+export default function ApartmentManagementWeb() {
+  // ===== State =====
+  const [user, setUser] = useState(null);
+  const [userPermissions, setUserPermissions] = useState([]);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [tab, setTab] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [apartmentStatus, setApartmentStatus] = useState("Tất cả");
+  const [toast, setToast] = useState("");
+
+  // 🔥 THÊM STATE MỚI
+  const [subTab, setSubTab] = useState('list');
+  const [selectedResidentForDetail, setSelectedResidentForDetail] = useState(null);
+  const [residentDetailOpen, setResidentDetailOpen] = useState(false);
+  const [residentSelectOpen, setResidentSelectOpen] = useState(false);
+  const [targetSubTab, setTargetSubTab] = useState(null);
+
+  // Menu expanded states
+  const getInitialExpanded = () => {
+    try {
+      const saved = localStorage.getItem('menuExpanded');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...parsed, dashboard: true };
+      }
+    } catch {}
+    return { dashboard: true };
+  };
+
+  const [expandedMenus, setExpandedMenus] = useState(getInitialExpanded);
+
+  // Lưu trạng thái menu
+  useEffect(() => {
+    localStorage.setItem('menuExpanded', JSON.stringify(expandedMenus));
+  }, [expandedMenus]);
+
+  // ===== Phục hồi phiên từ localStorage =====
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        setUserPermissions(userData.permissions || []);
+        setPermissionsLoaded(true);
+      } catch {}
+    }
+  }, []);
+
+  // ===== Lấy permissions từ user (khi user thay đổi) =====
+  useEffect(() => {
+    if (user) {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          setUserPermissions(userData.permissions || []);
+          setPermissionsLoaded(true);
+        } catch {}
+      }
+    }
+  }, [user]);
+
+  // Data states
+  const [residents, setResidents] = useState([]);
+  const [apartments, setApartments] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [queue, setQueue] = useState([]);
+  const [fees, setFees] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+
+  // Loading states
+  const [loadingApartments, setLoadingApartments] = useState(true);
+  const [loadingResidents, setLoadingResidents] = useState(true);
+  const [loadingFees, setLoadingFees] = useState(true);
+  const [loadingTickets, setLoadingTickets] = useState(true);
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
+
+  // Modal states
+  const [selectedResident, setSelectedResident] = useState(null);
+  const [selectedApartment, setSelectedApartment] = useState(null);
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [ticketOpen, setTicketOpen] = useState(false);
+  const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [birthdayMonthDay, setBirthdayMonthDay] = useState("04-27");
+
+  // Notice form
+  const [notice, setNotice] = useState({
+    title: "Bảo trì thang máy Block A",
+    body: "Ban quản lý thông báo thang máy Block A bảo trì từ 09:00 đến 11:00. Mong cư dân thông cảm.",
+    target: "Tất cả cư dân",
+    start: "2026-04-27T09:00",
+    end: "2026-04-27T11:00",
+    timezone: "Asia/Ho_Chi_Minh",
+  });
+
+  // New ticket form
+  const [newTicket, setNewTicket] = useState({
+    title: "",
+    resident: "",
+    apartment: "",
+    category: "Bảo trì",
+    priority: "Trung bình",
+  });
+
+  // New vehicle form
+  const [newVehicle, setNewVehicle] = useState({
+    plate: "",
+    owner: "",
+    apartment: "",
+    type: "Ô tô",
+    slot: "",
+  });
+
+  // ===== Functions =====
+  const flash = useCallback((message) => {
+    setToast(message);
+    setTimeout(() => setToast(""), 2800);
+  }, []);
+
+  const toggleMenu = useCallback((menuKey) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [menuKey]: !prev[menuKey]
+    }));
+  }, []);
+
+  // ===== HÀM KIỂM TRA QUYỀN DUY NHẤT (FAIL‑CLOSED) =====
+  const hasPermission = useCallback((permission) => {
+    if (!user || !permissionsLoaded) return false;
+    if (user.roleCode === 'ADMIN') return true;
+    if (!permission) return false; // từ chối nếu không có quyền yêu cầu
+    return userPermissions.includes(permission);
+  }, [user, userPermissions, permissionsLoaded]);
+
+  // ===== Filter menu theo permissions =====
+  const filteredMenu = useMemo(() => {
+    if (!permissionsLoaded) return [];
+    if (user?.roleCode === 'ADMIN') return MENU_STRUCTURE;
+
+    return MENU_STRUCTURE
+      .filter(menu => {
+        if (menu.permission && hasPermission(menu.permission)) return true;
+        if (!menu.permission) {
+          return menu.items.some(item => hasPermission(item.permission));
+        }
+        return false;
+      })
+      .map(menu => ({
+        ...menu,
+        items: menu.items.filter(item => hasPermission(item.permission))
+      }))
+      .filter(menu => menu.items.length > 0);
+  }, [user, userPermissions, permissionsLoaded, hasPermission]);
+
+  // ===== Hàm kiểm tra quyền truy cập tab =====
+  const hasTabPermission = useCallback((tabId) => {
+    if (!tabId || !permissionsLoaded) return false;
+    if (user?.roleCode === 'ADMIN') return true;
+
+    // Tìm permission trong MENU_STRUCTURE
+    let permission = null;
+    for (const menu of MENU_STRUCTURE) {
+      for (const item of menu.items) {
+        if (item.id === tabId) {
+          permission = item.permission;
+          break;
+        }
+      }
+      if (permission) break;
+    }
+    // Nếu không có, dùng TAB_PERMISSION_MAP
+    if (!permission) {
+      permission = TAB_PERMISSION_MAP[tabId];
+    }
+    if (!permission) return false;
+
+    return hasPermission(permission);
+  }, [user, userPermissions, permissionsLoaded, hasPermission]);
+
+  // ===== Khi đổi tab, kiểm tra quyền =====
+  const handleTabChange = useCallback((newTab) => {
+    if (newTab && hasTabPermission(newTab)) {
+      setTab(newTab);
+      setSidebarOpen(false);
+      setSelectedResident(null);
+      setSelectedApartment(null);
+
+      // Reset subTab khi chuyển tab
+      if (newTab === 'residents') {
+        setSubTab('list');
+      } else if (newTab === 'register-resident') {
+        setSubTab('register');
+        setTab('residents');
+      } else if (newTab === 'id-cards') {
+        setSubTab('identity');
+        setTab('residents');
+      } else if (newTab === 'family-members') {
+        setSubTab('family');
+        setTab('residents');
+      } else if (newTab === 'residence-history') {
+        setSubTab('history');
+        setTab('residents');
+      } else {
+        setSubTab(null);
+      }
+
+      // Reset selected resident
+      setSelectedResidentForDetail(null);
+      setResidentDetailOpen(false);
+      setResidentSelectOpen(false);
+    } else if (newTab) {
+      flash('⚠️ Bạn không có quyền truy cập chức năng này');
+    }
+  }, [hasTabPermission, flash]);
+
+  // ===== Excel Functions =====
+  const exportSheet = useCallback((fileName, sheetName, rows) => {
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    XLSX.writeFile(workbook, fileName);
+  }, []);
+
+  const downloadResidentTemplate = useCallback(() => {
+    exportSheet("mau-import-cu-dan.xlsx", "CuDan", [
+      {
+        MaCuDan: "R007",
+        HoTen: "Nguyễn Văn A",
+        Email: "vana@example.com",
+        SoDienThoai: "0912345678",
+        NgaySinh: "1998-04-27",
+        CanHo: "A-0101",
+        Block: "A",
+        TrangThai: "Đang ở",
+      },
+    ]);
+  }, [exportSheet]);
+
+  // ===== API Functions =====
+  const fetchAllData = useCallback(async () => {
+    const canLoad = (permission) => {
+      if (user?.roleCode === 'ADMIN') return true;
+      return userPermissions.includes(permission);
+    };
+
+    try {
+      setLoadingApartments(true);
+      if (canLoad('APARTMENT_VIEW')) try {
+        const aptData = await apartmentAPI.getAll('', '', 1, 999);
+        const data = aptData?.data || aptData || [];
+        const mappedApartments = data.map((item) => ({
+          id: item.ApartmentCode || item.apartmentCode || item.code || item.id,
+          code: item.ApartmentCode || item.apartmentCode || item.code,
+          tower: item.BuildingName || item.buildingName || item.tower || '',
+          floor: item.FloorNumber || item.floorNumber || item.floor || '',
+          area: item.Area || item.area || 0,
+          status: item.Status || item.statusName || item.status || 'Trống',
+          owners: item.OwnerName || item.ownerName || item.owners || 'Chưa cập nhật',
+          view: item.view || 'Nội khu',
+          balcony: item.balcony || 'Đông Nam',
+          furniture: item.furniture || 'Cơ bản',
+          purpose: item.purpose || 'Để ở',
+          handoverDate: item.handoverDate || 'Đã đồng bộ',
+        }));
+        setApartments(mappedApartments);
+      } catch (e) {
+        console.error('❌ Error fetching apartments:', e);
+      } finally {
+        setLoadingApartments(false);
+      } else { setApartments([]); setLoadingApartments(false); }
+
+      setLoadingResidents(true);
+      if (canLoad('RESIDENT_VIEW')) try {
+        const resData = await residentAPI.getAll('', 1, 999);
+        const data = resData?.data || resData || [];
+        const mappedResidents = data.map((item) => ({
+          id: item.ResidentID || item.residentId || item.id,
+          name: item.FullName || item.fullName || item.name,
+          phone: item.Phone || item.phone || '',
+          email: item.Email || item.email || '',
+          birthday: item.BirthDate || item.birthDate || item.birthday || '',
+          apartment: item.ApartmentCode || item.apartmentCode || item.apartment || '',
+          tower: item.BuildingName || item.buildingName || item.tower || '',
+          idCard: {
+            number: item.IdentityNumber || item.identityNumber || '',
+            date: item.IssueDate || item.issueDate || '',
+            place: item.IssuePlace || item.issuePlace || '',
+          },
+          isOwner: item.isOwner || false,
+          household: item.household || 'Chưa cập nhật',
+          address: item.Address || item.address || 'Chưa cập nhật',
+          status: item.Status || item.status || 'Đang ở',
+        }));
+        setResidents(mappedResidents);
+      } catch (e) {
+        console.error('❌ Error fetching residents:', e);
+      } finally {
+        setLoadingResidents(false);
+      } else { setResidents([]); setLoadingResidents(false); }
+
+      setLoadingFees(true);
+      if (canLoad('INVOICE_VIEW')) try {
+        const invData = await invoiceAPI.getAll('', '', '', 1, 999);
+        const data = invData?.data || invData || [];
+        const mappedFees = data.map((item) => ({
+          id: item.InvoiceID || item.invoiceId || item.id,
+          apartment: item.ApartmentCode || item.apartmentCode || item.apartment || '',
+          owner: item.OwnerName || item.ownerName || item.owner || '',
+          month: item.InvoiceMonth || item.invoiceMonth || item.month || '01',
+          year: item.InvoiceYear || item.invoiceYear || item.year || '2026',
+          service: item.serviceFee || 0,
+          parking: item.parkingFee || 0,
+          water: item.waterFee || 0,
+          status: item.StatusName || item.statusName || item.status || 'Chưa thanh toán',
+          total: item.TotalAmount || item.totalAmount || 0,
+        }));
+        setFees(mappedFees);
+      } catch (e) {
+        console.error('❌ Error fetching invoices:', e);
+      } finally {
+        setLoadingFees(false);
+      } else { setFees([]); setLoadingFees(false); }
+
+      setLoadingTickets(true);
+      if (canLoad('TICKET_VIEW')) try {
+        const tickData = await ticketAPI.getAll('', 1, 999);
+        const data = tickData?.data || tickData || [];
+        const mappedTickets = data.map((item) => ({
+          id: item.RequestID || item.requestId || item.id,
+          title: item.Title || item.title || '',
+          resident: item.ResidentName || item.residentName || item.resident || '',
+          apartment: item.ApartmentCode || item.apartmentCode || item.apartment || '',
+          category: item.Category || item.category || 'Bảo trì',
+          priority: item.Priority || item.priority || 'Trung bình',
+          status: item.StatusName || item.statusName || item.status || 'Mới',
+          createdAt: item.RequestDate || item.requestDate || item.createdAt || new Date().toLocaleString(),
+        }));
+        setTickets(mappedTickets);
+      } catch (e) {
+        console.error('❌ Error fetching tickets:', e);
+      } finally {
+        setLoadingTickets(false);
+      } else { setTickets([]); setLoadingTickets(false); }
+
+      setLoadingVehicles(true);
+      if (canLoad('PARKING_VIEW')) try {
+        const vehData = await vehicleAPI.getAll('', '', '', 1, 999);
+        const data = vehData?.data || vehData || [];
+        const mappedVehicles = data.map((item) => ({
+          id: item.VehicleID || item.vehicleId || item.id,
+          plate: item.PlateNumber || item.plateNumber || item.plate || '',
+          owner: item.OwnerName || item.ownerName || item.owner || '',
+          apartment: item.ApartmentCode || item.apartmentCode || item.apartment || '',
+          type: item.VehicleType || item.vehicleType || item.type || 'Ô tô',
+          slot: item.SlotNumber || item.slotNumber || item.slot || '',
+          status: item.StatusName || item.statusName || item.status || 'Hoạt động',
+        }));
+        setVehicles(mappedVehicles);
+      } catch (e) {
+        console.error('❌ Error fetching vehicles:', e);
+      } finally {
+        setLoadingVehicles(false);
+      } else { setVehicles([]); setLoadingVehicles(false); }
+
+      try {
+        const historyData = await notificationAPI.getAll('', 1, 999);
+        const data = historyData?.data || historyData || [];
+        setHistory(data);
+      } catch (e) {
+        console.warn('⚠️ Notifications not available:', e.message);
+        setHistory([]);
+      }
+
+      flash('✅ Đã tải dữ liệu thành công!');
+    } catch (error) {
+      console.error('❌ Lỗi khi tải dữ liệu:', error);
+      flash('Không thể tải dữ liệu từ máy chủ!');
+    }
+  }, [flash, user, userPermissions]);
+
+  // ===== Business Functions =====
+  const validateNotice = useCallback(() => {
+    if (!notice.title.trim()) return "Vui lòng nhập tiêu đề thông báo.";
+    if (!notice.body.trim()) return "Vui lòng nhập nội dung thông báo.";
+    if (!notice.start || !notice.end) return "Vui lòng chọn thời gian bắt đầu và kết thúc.";
+    if (new Date(notice.start) >= new Date(notice.end)) return "Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.";
+    if (!notice.timezone.includes("/")) return "Timezone chưa hợp lệ, ví dụ: Asia/Ho_Chi_Minh.";
+    return "";
+  }, [notice]);
+
+  const scheduleNotice = useCallback(() => {
+    const error = validateNotice();
+    if (error) {
+      flash(error);
+      return;
+    }
+
+    const newItem = {
+      id: `Q${String(queue.length + 1).padStart(3, "0")}`,
+      title: notice.title,
+      start: notice.start,
+      end: notice.end,
+      timezone: notice.timezone,
+      target: notice.target,
+      status: "Chờ gửi",
+    };
+
+    setQueue([newItem, ...queue]);
+    setNotifyOpen(false);
+    flash("Đã thêm lịch gửi thông báo.");
+  }, [validateNotice, flash, queue, notice]);
+
+  const markFeePaid = useCallback((id) => {
+    setFees(fees.map((fee) => (fee.id === id ? { ...fee, status: "Đã thanh toán" } : fee)));
+    flash("Đã cập nhật trạng thái thanh toán.");
+  }, [fees, flash]);
+
+  const createTicket = useCallback(() => {
+    if (!newTicket.title || !newTicket.resident || !newTicket.apartment) {
+      flash("Vui lòng nhập đủ tiêu đề, cư dân và căn hộ.");
+      return;
+    }
+    setTickets([
+      {
+        id: `T${String(tickets.length + 1).padStart(3, "0")}`,
+        ...newTicket,
+        status: "Mới",
+        createdAt: new Date().toLocaleString("vi-VN", { hour12: false }),
+      },
+      ...tickets,
+    ]);
+    setNewTicket({ title: "", resident: "", apartment: "", category: "Bảo trì", priority: "Trung bình" });
+    setTicketOpen(false);
+    flash("Đã tạo yêu cầu xử lý mới.");
+  }, [newTicket, tickets, flash]);
+
+  const updateTicketStatus = useCallback((id, status) => {
+    setTickets(tickets.map((ticket) => (ticket.id === id ? { ...ticket, status } : ticket)));
+    flash("Đã cập nhật trạng thái yêu cầu.");
+  }, [tickets, flash]);
+
+  const createVehicle = useCallback(() => {
+    if (!newVehicle.plate || !newVehicle.owner || !newVehicle.apartment || !newVehicle.slot) {
+      flash("Vui lòng nhập đủ biển số, chủ xe, căn hộ và vị trí đỗ.");
+      return;
+    }
+    setVehicles([
+      {
+        id: `V${String(vehicles.length + 1).padStart(3, "0")}`,
+        ...newVehicle,
+        status: "Hoạt động",
+      },
+      ...vehicles,
+    ]);
+    setNewVehicle({ plate: "", owner: "", apartment: "", type: "Ô tô", slot: "" });
+    setVehicleOpen(false);
+    flash("Đã đăng ký xe mới.");
+  }, [newVehicle, vehicles, flash]);
+
+  // 🔥 Hàm xử lý chọn cư dân
+  const handleSelectResident = useCallback((resident, targetTab) => {
+    setSelectedResidentForDetail(resident);
+    setTargetSubTab(targetTab);
+    setResidentSelectOpen(false);
+    setSubTab(targetTab);
+  }, []);
+
+  // ===== useEffect =====
+  useEffect(() => {
+    if (!user || !permissionsLoaded) return;
+    fetchAllData();
+    // Nhật ký hệ thống là dữ liệu quản trị; không gọi API này cho cư dân.
+    if (user.roleCode === 'ADMIN' || userPermissions.includes('SYSTEM_SETTING')) {
+      userAPI.getAuditLogs({ limit: 50 }).then(res => {
+        if (res?.data) setAuditLogs(res.data);
+      }).catch(() => {});
+    } else {
+      setAuditLogs([]);
+    }
+  }, [user, userPermissions, permissionsLoaded, fetchAllData]);
+
+  // ===== Filtered Data =====
+  const filteredResidents = useMemo(() => {
+    const q = search.toLowerCase();
+    return residents.filter((r) =>
+      [r.name, r.phone, r.email, r.apartment, r.tower].some((field) => String(field).toLowerCase().includes(q))
+    );
+  }, [residents, search]);
+
+  const filteredApartments = useMemo(() => {
+    return apartments.filter((a) => {
+      const matchStatus = apartmentStatus === "Tất cả" || a.status === apartmentStatus;
+      const q = search.toLowerCase();
+      const ownersText = Array.isArray(a.owners) ? a.owners.join(" ") : a.owners || "";
+      const matchSearch = [a.id, a.tower, a.type, ownersText, a.status].some((field) => String(field).toLowerCase().includes(q));
+      return matchStatus && matchSearch;
+    });
+  }, [apartments, apartmentStatus, search]);
+
+  const filteredFees = useMemo(() => {
+    const q = search.toLowerCase();
+    return fees.filter((f) =>
+      [f.apartment, f.owner, f.month, f.status].some((field) => String(field).toLowerCase().includes(q))
+    );
+  }, [fees, search]);
+
+  const filteredTickets = useMemo(() => {
+    const q = search.toLowerCase();
+    return tickets.filter((t) =>
+      [t.title, t.resident, t.apartment, t.category, t.status].some((field) => String(field).toLowerCase().includes(q))
+    );
+  }, [tickets, search]);
+
+  const filteredVehicles = useMemo(() => {
+    const q = search.toLowerCase();
+    return vehicles.filter((v) =>
+      [v.plate, v.owner, v.apartment, v.type, v.slot, v.status].some((field) => String(field).toLowerCase().includes(q))
+    );
+  }, [vehicles, search]);
+
+  const birthdayResidents = useMemo(
+    () => residents.filter((r) => formatBirthday(r.birthday) === birthdayMonthDay),
+    [residents, birthdayMonthDay]
+  );
+
+  const occupancyData = useMemo(() => {
+    const groups = apartments.reduce((acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(groups).map(([name, value]) => ({ name, value }));
+  }, [apartments]);
+
+  const historyChart = useMemo(() => {
+    const groups = history.reduce((acc, item) => {
+      acc[item.type] = (acc[item.type] || 0) + (item.count || 0);
+      return acc;
+    }, {});
+    return Object.entries(groups).map(([name, count]) => ({ name, count }));
+  }, [history]);
+
+  const totalFees = useMemo(() => fees.reduce((sum, item) => sum + (item.service || 0) + (item.parking || 0) + (item.water || 0), 0), [fees]);
+  const unpaidFees = useMemo(() => fees
+    .filter((item) => item.status !== "Đã thanh toán")
+    .reduce((sum, item) => sum + (item.service || 0) + (item.parking || 0) + (item.water || 0), 0), [fees]);
+
+  // ===== Đăng xuất =====
+  const handleLogout = useCallback(() => {
+    logout();
+    localStorage.removeItem('user');
+    setUser(null);
+    setUserPermissions([]);
+    setPermissionsLoaded(false);
+    setTab(null);
+  }, []);
+
+  // ===== Sidebar Component =====
+  const Sidebar = useMemo(() => (
+    <aside className="flex h-full flex-col border-r border-slate-200 bg-white">
+      <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1f4f46] text-white">
+          <Building2 size={21} />
+        </div>
+        <div>
+          <h1 className="text-base font-bold leading-tight text-slate-950">Đức Vũ Tower</h1>
+          <p className="text-xs text-slate-500">Property Admin</p>
+        </div>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        {filteredMenu.map((menu) => {
+          const Icon = menu.icon;
+          const isExpanded = expandedMenus[menu.id];
+          const isActive = menu.items.some(item => item.id === tab);
+
+          return (
+            <div key={menu.id} className="mb-1">
+              <button
+                onClick={() => toggleMenu(menu.id)}
+                className={cls(
+                  "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition",
+                  isActive ? "bg-[#eef5f2] text-[#1f4f46]" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                )}
+              >
+                <span className="flex items-center gap-3">
+                  <Icon size={18} />
+                  {menu.label}
+                </span>
+                <ChevronRight
+                  size={16}
+                  className={cls(
+                    "transition-transform duration-200",
+                    isExpanded ? "rotate-90" : ""
+                  )}
+                />
+              </button>
+
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="ml-3 mt-1 space-y-0.5 border-l border-slate-200 pl-3">
+                      {menu.items.map((item) => {
+                        const ItemIcon = item.icon;
+                        const isItemActive = tab === item.id;
+
+                        // Không cần kiểm tra quyền ở đây vì filteredMenu đã lọc rồi
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => handleTabChange(item.id)}
+                            className={cls(
+                              "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition",
+                              isItemActive
+                                ? "bg-[#eef5f2] text-[#1f4f46] font-semibold"
+                                : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                            )}
+                          >
+                            <ItemIcon size={16} />
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </nav>
+
+      <div className="m-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+          <ShieldCheck size={16} className="text-[#1f4f46]" />
+          Đã đăng nhập
+        </div>
+        <p className="mt-2 text-xs leading-5 text-slate-500">{user?.email}</p>
+        <div className="mt-2 flex flex-wrap gap-1">
+          {userPermissions.slice(0, 3).map((perm, idx) => (
+            <Badge key={idx} tone="slate" className="text-[10px]">{perm}</Badge>
+          ))}
+          {userPermissions.length > 3 && (
+            <Badge tone="slate" className="text-[10px]">+{userPermissions.length - 3}</Badge>
+          )}
+        </div>
+        <Button variant="secondary" className="mt-3 w-full" onClick={handleLogout}>
+          Đăng xuất
+        </Button>
+      </div>
+    </aside>
+  ), [filteredMenu, tab, expandedMenus, toggleMenu, handleTabChange, user, userPermissions, handleLogout]);
+
+  // ===== Render =====
+  if (!user || !permissionsLoaded) {
+    return <LoginPage onLogin={setUser} />;
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f4f6f5] text-slate-900">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-72">
+        {Sidebar}
+      </div>
+
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div className="fixed inset-0 z-40 lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="absolute inset-0 bg-slate-950/40" onClick={() => setSidebarOpen(false)} />
+            <motion.div initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }} className="relative h-full w-72">
+              {Sidebar}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="lg:pl-72">
+        {/* Header */}
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur lg:px-8">
+          <div className="flex items-center gap-3">
+            <button className="rounded-xl border border-slate-200 p-2 text-slate-600 lg:hidden" onClick={() => setSidebarOpen(true)}>
+              <Menu size={20} />
+            </button>
+            <Input icon={Search} placeholder="Tìm kiếm..." className="hidden w-[360px] md:flex" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50">
+              <Bell size={18} />
+            </button>
+            <button className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50">
+              <Settings size={18} />
+            </button>
+            <button className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50" onClick={fetchAllData}>
+              <RefreshCw size={18} />
+            </button>
+            <div className="ml-2 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1f4f46] text-xs font-bold text-white">QL</div>
+              <div className="hidden sm:block">
+                <p className="text-sm font-bold leading-tight text-slate-900">{user.name}</p>
+                <p className="text-xs text-slate-500">{user.role}</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Title */}
+        {tab && tab !== "quick-report" && tab !== "dashboard" && (
+          <PageTitle
+            eyebrow="Chung cư Đức Vũ Tower"
+            title={CONTENT_TITLES[tab]?.[0] || "Dashboard"}
+            description={CONTENT_TITLES[tab]?.[1] || ""}
+            actions={
+              tab === "residents" ? (
+                <>
+                  <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                    <Import size={16} /> Nhập Excel
+                  </Button>
+                  <Button onClick={() => setNotifyOpen(true)}>
+                    <CalendarClock size={16} /> Lên lịch gửi
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                    <Import size={16} /> Nhập Excel
+                  </Button>
+                  <Button onClick={() => setNotifyOpen(true)}>
+                    <CalendarClock size={16} /> Lên lịch gửi
+                  </Button>
+                </>
+              )
+            }
+          />
+        )}
+
+        <main className="p-4 lg:p-8">
+          {/* TRANG TRỐNG KHI CHƯA CHỌN TAB */}
+          {!tab && (
+            <motion.section
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center min-h-[60vh]"
+            >
+              <div className="text-center max-w-2xl">
+                <div className="mb-8 flex justify-center">
+                  <div className="rounded-full bg-[#eef5f2] p-8">
+                    <Building2 size={80} className="text-[#1f4f46]" />
+                  </div>
+                </div>
+                <h2 className="text-4xl font-bold text-slate-950 mb-4">Chào mừng đến với Đức Vũ Tower</h2>
+                <p className="text-lg text-slate-600 mb-6">
+                  Vui lòng chọn một chức năng từ menu bên trái để bắt đầu quản lý vận hành chung cư.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <Users className="text-[#1f4f46] mx-auto mb-2" size={32} />
+                    <p className="font-semibold text-slate-900">Quản lý cư dân</p>
+                    <p className="text-sm text-slate-500">Theo dõi hồ sơ cư dân</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <Building2 className="text-[#1f4f46] mx-auto mb-2" size={32} />
+                    <p className="font-semibold text-slate-900">Quản lý căn hộ</p>
+                    <p className="text-sm text-slate-500">Kiểm soát tình trạng căn hộ</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <CreditCard className="text-[#1f4f46] mx-auto mb-2" size={32} />
+                    <p className="font-semibold text-slate-900">Quản lý tài chính</p>
+                    <p className="text-sm text-slate-500">Theo dõi thu chi và công nợ</p>
+                  </div>
+                </div>
+              </div>
+            </motion.section>
+          )}
+
+          {/* DASHBOARD TAB */}
+          {tab === "dashboard" && (
+            <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <StatCard icon={Users} label="Cư dân" value={residents.length} trend="+12%" hint="Hồ sơ đang quản lý trong hệ thống" />
+                <StatCard icon={Building2} label="Căn hộ" value={apartments.length} hint="Bao gồm đang thuê, trống và bảo trì" />
+                <StatCard icon={FileText} label="Hợp đồng" value="0" trend="+0%" hint="Đang hiệu lực" />
+                <StatCard icon={CreditCard} label="Doanh thu tháng" value={money(totalFees).replace("₫", "")} trend="+8%" hint="Tổng thu từ phí dịch vụ" />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <StatCard icon={AlertCircle} label="Công nợ" value={money(unpaidFees).replace("₫", "")} hint="Cần thu hồi" />
+                <StatCard icon={Wrench} label="Ticket" value={tickets.filter((t) => t.status !== "Hoàn tất").length} hint="Đang xử lý" />
+                <StatCard icon={Car} label="Xe" value={vehicles.length} hint="Đang hoạt động" />
+                <StatCard icon={Bolt} label="Điện" value="0 kWh" trend="+0%" hint="Tiêu thụ tháng này" />
+                <StatCard icon={Droplet} label="Nước" value="0 m³" trend="+0%" hint="Tiêu thụ tháng này" />
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+                <Card className="overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-slate-200 p-5">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-950">Doanh thu & Tiêu thụ dịch vụ</h3>
+                      <p className="text-sm text-slate-500">Biểu đồ so sánh doanh thu và tiêu thụ điện/nước.</p>
+                    </div>
+                    <Badge tone="green">6 tháng</Badge>
+                  </div>
+                  <div className="h-80 p-5">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={revenueData}>
+                        <defs>
+                          <linearGradient id="revenue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#1f4f46" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="#1f4f46" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="month" tickLine={false} axisLine={false} />
+                        <YAxis tickLine={false} axisLine={false} />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="amount" stroke="#1f4f46" strokeWidth={3} fill="url(#revenue)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+
+                <Card className="overflow-hidden">
+                  <div className="border-b border-slate-200 p-5">
+                    <h3 className="text-base font-bold text-slate-950">Tình trạng căn hộ</h3>
+                    <p className="text-sm text-slate-500">Trống / đã thuê / bảo trì.</p>
+                  </div>
+                  <div className="h-64 p-5">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={occupancyData} dataKey="value" nameKey="name" innerRadius={54} outerRadius={88} paddingAngle={4} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
+                          {occupancyData.map((_, index) => (
+                            <Cell key={index} fill={["#1f4f46", "#d99a35", "#64748b"][index % 3]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid grid-cols-3 border-t border-slate-200 text-center text-sm">
+                    {occupancyData.map((item) => (
+                      <div key={item.name} className="p-3">
+                        <p className="font-bold text-slate-900">{item.value}</p>
+                        <p className="text-xs text-slate-500">{item.name}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+                <Card className="overflow-hidden">
+                  <div className="border-b border-slate-200 p-5">
+                    <h3 className="text-base font-bold text-slate-950">Tiêu thụ điện & nước</h3>
+                    <p className="text-sm text-slate-500">Biểu đồ so sánh tiêu thụ theo tháng.</p>
+                  </div>
+                  <div className="h-72 p-5">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={utilityData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="month" tickLine={false} axisLine={false} />
+                        <YAxis tickLine={false} axisLine={false} />
+                        <Tooltip />
+                        <Bar dataKey="electricity" name="Điện (kWh)" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                        <Bar dataKey="water" name="Nước (m³)" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+
+                <Card className="overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-slate-200 p-5">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-950">Tình trạng hợp đồng</h3>
+                      <p className="text-sm text-slate-500">Phân bố hợp đồng theo trạng thái.</p>
+                    </div>
+                    <Badge tone="blue">0 hợp đồng</Badge>
+                  </div>
+                  <div className="h-72 p-5">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={contractStatusData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85} paddingAngle={4} label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}>
+                          {contractStatusData.map((_, index) => (
+                            <Cell key={index} fill={["#10b981", "#f59e0b", "#ef4444", "#94a3b8"][index % 4]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid grid-cols-2 border-t border-slate-200 text-center text-sm">
+                    {contractStatusData.map((item) => (
+                      <div key={item.name} className="p-3 border-r border-slate-200 last:border-r-0">
+                        <p className="font-bold text-slate-900">{item.value}</p>
+                        <p className="text-xs text-slate-500">{item.name}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+
+              <Card className="overflow-hidden">
+                <div className="flex items-center justify-between border-b border-slate-200 p-5">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-950">Hoạt động gần đây</h3>
+                    <p className="text-sm text-slate-500">Các sự kiện và giao dịch mới nhất.</p>
+                  </div>
+                  <Button variant="secondary" onClick={() => flash("Đã tải thêm hoạt động.")}>Xem tất cả</Button>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {recentActivities.length === 0 && (
+                    <div className="p-8 text-center text-sm text-slate-500">
+                      Chưa có hoạt động nào.
+                    </div>
+                  )}
+                  {recentActivities.map((activity) => {
+                    const getIcon = () => {
+                      switch(activity.type) {
+                        case "resident": return <Users size={16} className="text-emerald-600" />;
+                        case "contract": return <FileText size={16} className="text-blue-600" />;
+                        case "ticket": return <Wrench size={16} className="text-amber-600" />;
+                        case "payment": return <CreditCard size={16} className="text-green-600" />;
+                        case "vehicle": return <Car size={16} className="text-purple-600" />;
+                        default: return <Bell size={16} className="text-slate-600" />;
+                      }
+                    };
+
+                    const getBadgeColor = () => {
+                      switch(activity.type) {
+                        case "resident": return "green";
+                        case "contract": return "blue";
+                        case "ticket": return "amber";
+                        case "payment": return "green";
+                        case "vehicle": return "purple";
+                        default: return "slate";
+                      }
+                    };
+
+                    return (
+                      <div key={activity.id} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">{getIcon()}</div>
+                          <div>
+                            <p className="font-medium text-slate-900">
+                              <span className="font-bold">{activity.name}</span>
+                              <span className="text-slate-500 ml-1">{activity.action}</span>
+                            </p>
+                            <p className="text-xs text-slate-400">{activity.time}</p>
+                          </div>
+                        </div>
+                        <Badge tone={getBadgeColor()}>{activity.type.charAt(0).toUpperCase() + activity.type.slice(1)}</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                <Card className="p-5 bg-gradient-to-br from-emerald-50 to-white border-emerald-200">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-emerald-100 p-3 text-emerald-700"><CheckCircle2 size={24} /></div>
+                    <div>
+                      <p className="text-sm font-medium text-emerald-700">Tỷ lệ lấp đầy</p>
+                      <p className="text-2xl font-bold text-slate-950">
+                        {apartments.length > 0 ? Math.round((apartments.filter(a => a.status === "Đã thuê").length / apartments.length) * 100) : 0}%
+                      </p>
+                      <p className="text-xs text-emerald-600">Căn hộ đã cho thuê</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-5 bg-gradient-to-br from-blue-50 to-white border-blue-200">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-blue-100 p-3 text-blue-700"><CalendarClock size={24} /></div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-700">Sắp hết hạn</p>
+                      <p className="text-2xl font-bold text-slate-950">0</p>
+                      <p className="text-xs text-blue-600">Hợp đồng cần gia hạn</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-5 bg-gradient-to-br from-amber-50 to-white border-amber-200">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-amber-100 p-3 text-amber-700"><Bell size={24} /></div>
+                    <div>
+                      <p className="text-sm font-medium text-amber-700">Thông báo mới</p>
+                      <p className="text-2xl font-bold text-slate-950">0</p>
+                      <p className="text-xs text-amber-600">Chưa đọc</p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </motion.section>
+          )}
+
+          {/* QUICK REPORT TAB */}
+          {tab === "quick-report" && (
+            <QuickReport flash={flash} />
+          )}
+
+          {/* NOTIFICATIONS TAB - DANH SÁCH THÔNG BÁO */}
+          {tab === "notifications" && (
+            <NotificationList flash={flash} />
+          )}
+
+          {/* SEND NOTIFICATION TAB */}
+          {tab === "send-notification" && (
+            <SendNotification flash={flash} />
+          )}
+
+          {/* SCHEDULE NOTIFICATION TAB */}
+          {tab === "schedule-notification" && (
+            <ScheduleNotification flash={flash} />
+          )}
+
+          {/* RESIDENTS TAB */}
+          {tab === "residents" && (
+            <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+              <ResidentManagement flash={flash} />
+            </motion.section>
+          )}
+
+          {/* BUILDINGS TAB */}
+          {tab === "buildings" && (
+            <BuildingManagement flash={flash} />
+          )}
+
+          {/* CONTRACT LIST TAB */}
+          {tab === "contract-list" && (
+            <ContractList flash={flash} />
+          )}
+
+          {/* DEPOSIT MANAGEMENT TAB */}
+          {tab === "deposits" && (
+            <DepositManagement flash={flash} />
+          )}
+
+          {/* GYM TAB */}
+          {tab === "gym" && (
+            <GymManagement flash={flash} />
+          )}
+
+          {/* POOL TAB */}
+          {tab === "pool" && (
+            <PoolManagement flash={flash} />
+          )}
+
+          {/* WIFI TAB */}
+          {tab === "wifi" && (
+            <WifiManagement flash={flash} />
+          )}
+
+          {/* VEHICLES TAB - QUẢN LÝ XE CƯ DÂN */}
+          {tab === "vehicles" && (
+            <VehicleManagement flash={flash} />
+          )}
+
+          {tab === "parking-cards" && (
+  <ParkingCardManagement flash={flash} />
+)}
+
+          {/* PARKING SLOTS TAB - QUẢN LÝ BÃI XE */}
+{tab === "parking-slots" && (
+  <ParkingSlotManagement flash={flash} />
+)}
+
+{tab === "parking-history" && (
+  <ParkingHistory
+    flash={flash}
+    canRecordAccess={hasPermission("PARKING_ACCESS_CREATE")}
+  />
+)}
+
+
+          {/* 🔥 TICKET MANAGEMENT TAB */}
+          {tab === "tickets" && (
+            <TicketManagement flash={flash} />
+          )}
+
+          {/* 🔥 MAINTENANCE MANAGEMENT TAB */}
+          {tab === "maintenance" && (
+            <MaintenanceManagement flash={flash} />
+          )}
+
+          {/* 🔥 FEEDBACK MANAGEMENT TAB */}
+          {tab === "feedbacks" && (
+            <FeedbackManagement flash={flash} />
+          )}
+
+          {/* 🔥 MAINTENANCE SCHEDULE TAB */}
+          {tab === "maintenance-schedule" && (
+            <MaintenanceSchedule flash={flash} />
+          )}
+
+          {/* 🔥 EQUIPMENT MANAGEMENT TAB */}
+          {tab === "equipment" && (
+            <EquipmentManagement flash={flash} />
+          )}
+
+          {/* 🔥 BÁO CÁO DOANH THU */}
+          {tab === "revenue-report" && (
+            <RevenueReport flash={flash} />
+          )}
+
+          {/* 🔥 BÁO CÁO CÔNG NỢ */}
+          {tab === "debt-report" && (
+            <DebtReport flash={flash} />
+          )}
+
+          {/* 🔥 BÁO CÁO CĂN HỘ */}
+          {tab === "apartment-report" && (
+            <ApartmentReport flash={flash} />
+          )}
+
+          {/* 🔥 BÁO CÁO DỊCH VỤ */}
+          {tab === "service-report" && (
+            <ServiceReport flash={flash} />
+          )}
+
+          {/* 🔥 PROFILE TAB - HỒ SƠ */}
+          {tab === "profile" && (
+            <Profile flash={flash} />
+          )}
+
+          {/* 🔥 CHANGE PASSWORD TAB - ĐỔI MẬT KHẨU */}
+          {tab === "change-password" && (
+            <ChangePassword flash={flash} />
+          )}
+
+          {/* 🔥 SYSTEM INFO TAB - THÔNG TIN HỆ THỐNG */}
+          {tab === "system-info" && (
+            <SystemInfo flash={flash} />
+          )}
+
+          {/* FEES TAB */}
+          {tab === "fees" && (
+            <Fees flash={flash} />
+          )}
+
+          {/* EMPLOYEES TAB */}
+          {tab === "employees" && (
+            <EmployeeManagement flash={flash} />
+          )}
+
+          {/* PERMISSIONS TAB */}
+          {tab === "permissions" && (
+            <PermissionManagement flash={flash} />
+          )}
+
+          {/* ROLES TAB */}
+          {tab === "roles" && (
+            <RoleManagement flash={flash} />
+          )}
+
+          {/* SYSTEM LOGS TAB */}
+          {tab === "system-logs" && (
+            <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+              <Card className="p-5">
+                <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-950">Nhật ký hệ thống</h3>
+                    <p className="text-sm text-slate-500">Theo dõi các hoạt động và thay đổi trong hệ thống.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={() => flash('Đã tải lại nhật ký')}>
+                      <RefreshCw size={16} /> Làm mới
+                    </Button>
+                    <Button variant="secondary">
+                      <Download size={16} /> Xuất Excel
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+              <Card className="overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[800px] text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-5 py-3">Thời gian</th>
+                        <th className="px-5 py-3">Người dùng</th>
+                        <th className="px-5 py-3">Hành động</th>
+                        <th className="px-5 py-3">Bảng</th>
+                        <th className="px-5 py-3">ID</th>
+                        <th className="px-5 py-3">IP</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {auditLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan="6" className="px-5 py-8 text-center text-slate-500">Chưa có nhật ký hoạt động</td>
+                        </tr>
+                      ) : (
+                        auditLogs.map((log, index) => (
+                          <tr key={index} className="hover:bg-slate-50/80">
+                            <td className="px-5 py-4 text-slate-600">{new Date(log.Timestamp).toLocaleString('vi-VN')}</td>
+                            <td className="px-5 py-4 font-medium text-slate-900">{log.Username || 'System'}</td>
+                            <td className="px-5 py-4">
+                              <Badge tone={log.Action === 'INSERT' ? 'green' : log.Action === 'UPDATE' ? 'blue' : 'red'}>
+                                {log.Action}
+                              </Badge>
+                            </td>
+                            <td className="px-5 py-4 text-slate-600">{log.TableName}</td>
+                            <td className="px-5 py-4 text-slate-600">{log.RecordID}</td>
+                            <td className="px-5 py-4 text-slate-600">{log.IPAddress || '-'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </motion.section>
+          )}
+
+          {tab === "ai-stats" && (
+  <AIStatistics />
+)}
+{tab === "ai-search" && (
+  <AISearch />
+)}
+{tab === "ai-chat" && (
+  <AIChat />
+)}
+{tab === "ai-predict" && (
+  <AIContractPrediction />
+)}
+
+          {/* Placeholder cho các tab khác chưa có component */}
+          {[
+            
+            
+            
+          ].includes(tab) && (
+            <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+              <Card className="p-8 text-center">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="rounded-full bg-[#eef5f2] p-6">
+                    <Building2 size={48} className="text-[#1f4f46]" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Tính năng đang được phát triển</h3>
+                  <p className="text-sm text-slate-500 max-w-md">Chức năng này đang trong quá trình xây dựng. Vui lòng quay lại sau.</p>
+                  <Badge tone="amber">Đang phát triển</Badge>
+                </div>
+              </Card>
+            </motion.section>
+          )}
+        </main>
+      </div>
+
+      {/* MODAL CHỌN CƯ DÂN */}
+      <Modal
+        open={residentSelectOpen}
+        title="Chọn cư dân"
+        description="Chọn cư dân để xem thông tin chi tiết"
+        onClose={() => setResidentSelectOpen(false)}
+        size="lg"
+      >
+        <div className="max-h-96 overflow-y-auto space-y-2">
+          {residents.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <Users size={48} className="mx-auto mb-3 text-slate-300" />
+              <p>Chưa có cư dân trong hệ thống</p>
+              <Button
+                className="mt-3"
+                onClick={() => {
+                  setResidentSelectOpen(false);
+                  setSubTab('register');
+                }}
+              >
+                <UserPlus size={16} /> Đăng ký cư dân mới
+              </Button>
+            </div>
+          ) : (
+            residents.map(resident => (
+              <button
+                key={resident.id || resident.ResidentID}
+                className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 hover:border-[#1f4f46] hover:bg-slate-50 transition"
+                onClick={() => {
+                  setSelectedResidentForDetail(resident);
+                  setResidentSelectOpen(false);
+                  if (targetSubTab) {
+                    setSubTab(targetSubTab);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46] font-bold">
+                    {getInitials(resident.name || resident.FullName)}
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-slate-950">{resident.name || resident.FullName}</p>
+                    <p className="text-sm text-slate-500">
+                      {resident.apartment || resident.ApartmentCode || 'Chưa có căn hộ'}
+                      {(resident.phone || resident.Phone) && ` • ${resident.phone || resident.Phone}`}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-slate-400" />
+              </button>
+            ))
+          )}
+        </div>
+      </Modal>
+
+      {/* MODALS */}
+      <Modal open={notifyOpen} title="Tạo lịch gửi thông báo" description="Lưu lịch để scheduler gửi tự động hoặc gửi ngay nếu cần." onClose={() => setNotifyOpen(false)}>
+        <div className="space-y-4">
+          <Input value={notice.title} onChange={(e) => setNotice({ ...notice, title: e.target.value })} placeholder="Tiêu đề thông báo" />
+          <textarea
+            className="min-h-28 w-full rounded-xl border border-slate-200 p-4 text-sm outline-none focus:border-[#1f4f46]"
+            value={notice.body}
+            onChange={(e) => setNotice({ ...notice, body: e.target.value })}
+          />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input type="datetime-local" value={notice.start} onChange={(e) => setNotice({ ...notice, start: e.target.value })} />
+            <Input type="datetime-local" value={notice.end} onChange={(e) => setNotice({ ...notice, end: e.target.value })} />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <SelectInput value={notice.target} onChange={(e) => setNotice({ ...notice, target: e.target.value })}>
+              <option>Tất cả cư dân</option>
+              <option>Block A</option>
+              <option>Block B</option>
+              <option>Block C</option>
+              <option>Cư dân sinh nhật hôm nay</option>
+            </SelectInput>
+            <Input value={notice.timezone} onChange={(e) => setNotice({ ...notice, timezone: e.target.value })} />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setNotifyOpen(false)}>Hủy</Button>
+            <Button onClick={scheduleNotice}><CheckCircle2 size={16} /> Lưu lịch gửi</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={importOpen} title="Nhập dữ liệu cư dân từ Excel" description="Đọc file .xlsx trực tiếp trên trình duyệt, kiểm tra dữ liệu rồi thêm vào danh sách." onClose={() => setImportOpen(false)}>
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+            <h4 className="font-bold text-slate-950">Cột cần có trong file</h4>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              MaCuDan, HoTen, Email, SoDienThoai, NgaySinh, CanHo, Block, TrangThai. Ngày sinh dùng định dạng YYYY-MM-DD.
+            </p>
+          </div>
+
+          <label className="block cursor-pointer rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center hover:bg-slate-50">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eef5f2] text-[#1f4f46]">
+              <Import size={26} />
+            </div>
+            <h4 className="mt-4 text-lg font-bold text-slate-950">Chọn file Excel .xlsx</h4>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+              Hệ thống sẽ báo lỗi nếu thiếu họ tên, căn hộ, số điện thoại, email sai định dạng hoặc trùng mã cư dân.
+            </p>
+            <input type="file" accept=".xlsx,.xls" className="hidden" onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                try {
+                  const data = new Uint8Array(e.target.result);
+                  const workbook = XLSX.read(data, { type: "array" });
+                  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                  const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+
+                  if (!rows.length) {
+                    flash("File Excel không có dữ liệu.");
+                    return;
+                  }
+
+                  const imported = rows.map((row, index) => {
+                    const id = String(row.MaCuDan || row.ID || row.id || `R${String(residents.length + index + 1).padStart(3, "0")}`).trim();
+                    const name = String(row.HoTen || row.Name || row.name || "").trim();
+                    const email = String(row.Email || row.email || "").trim();
+                    const phone = String(row.SoDienThoai || row.Phone || row.phone || "").trim();
+                    const birthdayRaw = row.NgaySinh || row.Birthday || row.birthday || "";
+                    const apartment = String(row.CanHo || row.Apartment || row.apartment || "").trim().toUpperCase();
+                    const tower = String(row.Block || row.Tower || row.tower || apartment.split("-")[0] || "").trim().toUpperCase();
+                    const status = String(row.TrangThai || row.Status || row.status || "Đang ở").trim();
+
+                    let birthday = String(birthdayRaw).trim();
+                    if (typeof birthdayRaw === "number") {
+                      const parsed = XLSX.SSF.parse_date_code(birthdayRaw);
+                      if (parsed) birthday = `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(parsed.d).padStart(2, "0")}`;
+                    }
+
+                    return { id, name, email, phone, birthday, apartment, tower, status };
+                  });
+
+                  const existingIds = new Set(residents.map((r) => r.id));
+                  const errors = [];
+                  const validRows = [];
+
+                  imported.forEach((row, index) => {
+                    const line = index + 2;
+                    if (!row.name) errors.push(`Dòng ${line}: thiếu họ tên`);
+                    if (!row.apartment) errors.push(`Dòng ${line}: thiếu căn hộ`);
+                    if (!row.phone) errors.push(`Dòng ${line}: thiếu số điện thoại`);
+                    if (!row.email.includes("@") || !row.email.includes(".")) errors.push(`Dòng ${line}: email không hợp lệ`);
+                    const parts = String(row.birthday).split("-");
+                    if (!(parts.length === 3 && parts[0].length === 4 && parts[1].length === 2 && parts[2].length === 2)) {
+                      errors.push(`Dòng ${line}: ngày sinh phải dạng YYYY-MM-DD`);
+                    }
+                    if (existingIds.has(row.id)) errors.push(`Dòng ${line}: mã cư dân đã tồn tại`);
+                    validRows.push(row);
+                  });
+
+                  if (errors.length) {
+                    flash(errors.slice(0, 3).join(" • ") + (errors.length > 3 ? "..." : ""));
+                    return;
+                  }
+
+                  setResidents([...validRows, ...residents]);
+                  setImportOpen(false);
+                  flash(`Đã nhập ${validRows.length} cư dân từ Excel.`);
+                } catch {
+                  flash("Không đọc được file Excel. Vui lòng kiểm tra đúng định dạng .xlsx.");
+                } finally {
+                  event.target.value = "";
+                }
+              };
+              reader.readAsArrayBuffer(file);
+            }} />
+          </label>
+
+          <div className="flex flex-wrap justify-between gap-2">
+            <Button variant="secondary" onClick={downloadResidentTemplate}><Download size={16} /> Tải file mẫu</Button>
+            <Button variant="secondary" onClick={() => {
+              exportSheet("danh-sach-cu-dan.xlsx", "CuDan", residents.map((r) => ({
+                MaCuDan: r.id,
+                HoTen: r.name,
+                Email: r.email,
+                SoDienThoai: r.phone,
+                NgaySinh: r.birthday,
+                CanHo: r.apartment,
+                Block: r.tower,
+                TrangThai: r.status,
+              })));
+            }}><Download size={16} /> Xuất danh sách hiện tại</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={ticketOpen} title="Tạo yêu cầu cư dân" description="Ghi nhận phản ánh hoặc yêu cầu sửa chữa mới." onClose={() => setTicketOpen(false)}>
+        <div className="space-y-4">
+          <Input value={newTicket.title} onChange={(e) => setNewTicket({ ...newTicket, title: e.target.value })} placeholder="Tiêu đề yêu cầu" />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input value={newTicket.resident} onChange={(e) => setNewTicket({ ...newTicket, resident: e.target.value })} placeholder="Tên cư dân" />
+            <Input value={newTicket.apartment} onChange={(e) => setNewTicket({ ...newTicket, apartment: e.target.value })} placeholder="Mã căn hộ" />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <SelectInput value={newTicket.category} onChange={(e) => setNewTicket({ ...newTicket, category: e.target.value })}>
+              <option>Bảo trì</option>
+              <option>Điện</option>
+              <option>Nước</option>
+              <option>An ninh</option>
+              <option>Vệ sinh</option>
+            </SelectInput>
+            <SelectInput value={newTicket.priority} onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}>
+              <option>Thấp</option>
+              <option>Trung bình</option>
+              <option>Cao</option>
+            </SelectInput>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setTicketOpen(false)}>Hủy</Button>
+            <Button onClick={createTicket}>Tạo yêu cầu</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={vehicleOpen} title="Đăng ký xe" description="Thêm xe mới và gán vị trí đỗ trong bãi xe." onClose={() => setVehicleOpen(false)}>
+        <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input value={newVehicle.plate} onChange={(e) => setNewVehicle({ ...newVehicle, plate: e.target.value })} placeholder="Biển số" />
+            <SelectInput value={newVehicle.type} onChange={(e) => setNewVehicle({ ...newVehicle, type: e.target.value })}>
+              <option>Ô tô</option>
+              <option>Xe máy</option>
+              <option>Xe đạp điện</option>
+            </SelectInput>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input value={newVehicle.owner} onChange={(e) => setNewVehicle({ ...newVehicle, owner: e.target.value })} placeholder="Chủ xe" />
+            <Input value={newVehicle.apartment} onChange={(e) => setNewVehicle({ ...newVehicle, apartment: e.target.value })} placeholder="Mã căn hộ" />
+          </div>
+          <Input value={newVehicle.slot} onChange={(e) => setNewVehicle({ ...newVehicle, slot: e.target.value })} placeholder="Vị trí đỗ, ví dụ B1-022" />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setVehicleOpen(false)}>Hủy</Button>
+            <Button onClick={createVehicle}>Đăng ký xe</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* TOAST */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-5 left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 rounded-2xl bg-slate-950 px-5 py-4 text-sm font-semibold text-white shadow-2xl"
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

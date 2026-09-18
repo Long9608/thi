@@ -15,9 +15,9 @@ import { apartmentAPI } from '../api';
 // Constants
 const STATUS_CONFIG = {
   1: { tone: 'slate', label: 'Còn trống', color: '#94a3b8' },
-  2: { tone: 'green', label: 'Đang ở', color: '#1f4f46' },
+  2: { tone: 'green', label: 'Đang ở', color: '#635bff' },
   3: { tone: 'amber', label: 'Bảo trì', color: '#f59e0b' },
-  4: { tone: 'blue', label: 'Đang thuê', color: '#0d9488' }
+  4: { tone: 'blue', label: 'Đang thuê', color: '#06b6d4' }
 };
 
 const STATUS_OPTIONS = [
@@ -154,7 +154,7 @@ export default function ApartmentReport({ flash }) {
   }, [apartments]);
 
   // Chart colors
-  const COLORS = ['#1f4f46', '#0d9488', '#f59e0b', '#94a3b8'];
+  const COLORS = ['#635bff', '#06b6d4', '#f59e0b', '#94a3b8'];
 
   // Handlers
   const handleRefresh = useCallback(() => {
@@ -235,7 +235,7 @@ export default function ApartmentReport({ flash }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46] focus:ring-2 focus:ring-[#1f4f46]/20 transition-all"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff] focus:ring-2 focus:ring-[#635bff]/20 transition-all"
               aria-label="Lọc theo trạng thái"
             >
               {STATUS_OPTIONS.map(option => (
@@ -270,7 +270,7 @@ export default function ApartmentReport({ flash }) {
       {/* Charts and Table */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải báo cáo...</p>
         </Card>
       ) : (

@@ -216,7 +216,7 @@ export default function Payments({ flash }) {
             <h3 className="text-base font-bold text-slate-950">Thanh toán</h3>
             <p className="text-sm text-slate-500">
               Quản lý lịch sử thanh toán.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {stats.total} giao dịch
               </span>
               <span className="ml-2 text-emerald-600 font-semibold">
@@ -235,7 +235,7 @@ export default function Payments({ flash }) {
             <select
               value={methodFilter}
               onChange={(e) => setMethodFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả phương thức</option>
               {paymentMethods.map(m => (
@@ -245,7 +245,7 @@ export default function Payments({ flash }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả trạng thái</option>
               <option value="2">Thành công</option>
@@ -274,7 +274,7 @@ export default function Payments({ flash }) {
       {/* Payment List */}
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải danh sách thanh toán...</p>
         </Card>
       ) : filteredPayments.length === 0 ? (
@@ -289,7 +289,7 @@ export default function Payments({ flash }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredPayments.map((payment, index) => (
-            <Card key={payment.PaymentID || index} className="group hover:border-[#1f4f46]/30 transition-all">
+            <Card key={payment.PaymentID || index} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
@@ -298,13 +298,13 @@ export default function Payments({ flash }) {
                       {getMethodBadge(payment.PaymentMethod)}
                       {getStatusBadge(payment.StatusID)}
                     </div>
-                    <h3 className="font-bold text-slate-950 group-hover:text-[#1f4f46]">
+                    <h3 className="font-bold text-slate-950 group-hover:text-[#635bff]">
                       {payment.ApartmentCode || 'Chưa xác định'}
                     </h3>
                     <p className="text-sm text-slate-500">{payment.OwnerName || 'Chưa có chủ hộ'}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-[#1f4f46]">
+                    <p className="text-lg font-bold text-[#635bff]">
                       {money(payment.Amount || 0)}
                     </p>
                     <p className="text-xs text-slate-400">{payment.PaymentMethod || 'Chưa xác định'}</p>
@@ -357,7 +357,7 @@ export default function Payments({ flash }) {
               onClick={() => setPage(i + 1)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
                 page === i + 1
-                  ? 'bg-[#1f4f46] text-white'
+                  ? 'bg-[#635bff] text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -389,9 +389,9 @@ export default function Payments({ flash }) {
               {getStatusBadge(selectedPayment.StatusID)}
             </div>
 
-            <div className="rounded-xl bg-[#eef5f2] p-6 text-center">
+            <div className="rounded-xl bg-[#f0efff] p-6 text-center">
               <p className="text-sm text-slate-500">Số tiền thanh toán</p>
-              <p className="text-3xl font-black text-[#1f4f46]">{money(selectedPayment.Amount || 0)}</p>
+              <p className="text-3xl font-black text-[#635bff]">{money(selectedPayment.Amount || 0)}</p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -445,7 +445,7 @@ export default function Payments({ flash }) {
                   setPaymentForm(prev => ({ ...prev, amount: remaining.toString() }));
                 }
               }}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
               required
             >
               <option value="">Chọn hóa đơn</option>
@@ -466,7 +466,7 @@ export default function Payments({ flash }) {
             <select
               value={paymentForm.methodId}
               onChange={(e) => setPaymentForm({ ...paymentForm, methodId: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
               required
             >
               <option value="">Chọn phương thức</option>

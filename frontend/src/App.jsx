@@ -205,7 +205,7 @@ const Card = memo(({ children, className = "" }) => {
 
 const Button = memo(({ children, variant = "primary", className = "", ...props }) => {
   const styles = {
-    primary: "bg-[#1f4f46] text-white hover:bg-[#173f38] shadow-sm",
+    primary: "bg-[#635bff] text-white hover:bg-[#4f46e5] shadow-sm",
     secondary: "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
     ghost: "text-slate-600 hover:bg-slate-100",
     success: "bg-emerald-600 text-white hover:bg-emerald-700",
@@ -225,7 +225,7 @@ const Button = memo(({ children, variant = "primary", className = "", ...props }
 
 const Input = memo(({ icon: Icon, right, className = "", ...props }) => {
   return (
-    <div className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-[#1f4f46] ${className}`}>
+    <div className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-[#635bff] ${className}`}>
       {Icon && <Icon size={16} className="text-slate-400" />}
       <input className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400" {...props} />
       {right}
@@ -236,7 +236,7 @@ const Input = memo(({ icon: Icon, right, className = "", ...props }) => {
 const SelectInput = memo(({ className = "", ...props }) => {
   return (
     <select
-      className={`rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm outline-none focus:border-[#1f4f46] ${className}`}
+      className={`rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm outline-none focus:border-[#635bff] ${className}`}
       {...props}
     />
   );
@@ -261,9 +261,9 @@ const Badge = memo(({ children, tone = "slate" }) => {
 
 const PageTitle = memo(({ eyebrow, title, description, actions }) => {
   return (
-    <div className="flex flex-col justify-between gap-4 border-b border-slate-200 bg-white px-5 py-5 lg:flex-row lg:items-center lg:px-8">
+    <div className="app-page-title flex flex-col justify-between gap-4 border-b border-slate-200 bg-white px-5 py-5 lg:flex-row lg:items-center lg:px-8">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#1f4f46]">{eyebrow}</p>
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#635bff]">{eyebrow}</p>
         <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">{title}</h2>
         <p className="mt-1 max-w-2xl text-sm text-slate-500">{description}</p>
       </div>
@@ -285,7 +285,7 @@ const StatCard = memo(({ icon: Icon, label, value, hint, trend }) => {
             </div>
             <p className="mt-2 text-xs leading-5 text-slate-500">{hint}</p>
           </div>
-          <div className="rounded-xl bg-[#eef5f2] p-3 text-[#1f4f46]">
+          <div className="rounded-xl bg-[#f0efff] p-3 text-[#635bff]">
             <Icon size={20} />
           </div>
         </div>
@@ -411,9 +411,9 @@ function LoginPage({ onLogin }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6f5] text-slate-900">
+    <div className="login-shell min-h-screen bg-[#f6f7fb] text-slate-900">
       <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="relative hidden overflow-hidden bg-[#173f38] p-10 text-white lg:block">
+        <section className="relative hidden overflow-hidden bg-[#4f46e5] p-10 text-white lg:block">
           <div className="absolute inset-0 opacity-10">
             <div className="absolute left-16 top-16 h-56 w-56 rounded-full border border-white" />
             <div className="absolute bottom-20 right-16 h-72 w-72 rounded-full border border-white" />
@@ -421,7 +421,7 @@ function LoginPage({ onLogin }) {
           </div>
           <div className="relative z-10 flex h-full flex-col justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#1f4f46]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#635bff]">
                 <Building2 size={24} />
               </div>
               <div>
@@ -467,7 +467,7 @@ function LoginPage({ onLogin }) {
         <section className="flex items-center justify-center p-5 sm:p-8">
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
             <div className="mb-8 flex items-center gap-3 lg:hidden">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1f4f46] text-white">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#635bff] text-white">
                 <Building2 size={22} />
               </div>
               <div>
@@ -478,7 +478,7 @@ function LoginPage({ onLogin }) {
 
             <Card className="overflow-hidden">
               <div className="border-b border-slate-200 p-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef5f2] text-[#1f4f46]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f0efff] text-[#635bff]">
                   <LockKeyhole size={23} />
                 </div>
                 <h2 className="mt-5 text-2xl font-bold tracking-tight text-slate-950">Đăng nhập hệ thống</h2>
@@ -509,10 +509,10 @@ function LoginPage({ onLogin }) {
 
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <label className="flex cursor-pointer items-center gap-2 text-slate-600">
-                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-[#1f4f46]" />
+                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-[#635bff]" />
                     Ghi nhớ đăng nhập
                   </label>
-                  <button type="button" className="font-semibold text-[#1f4f46] hover:underline">Quên mật khẩu?</button>
+                  <button type="button" className="font-semibold text-[#635bff] hover:underline">Quên mật khẩu?</button>
                 </div>
 
                 {error && (
@@ -1306,9 +1306,9 @@ export default function ApartmentManagementWeb() {
 
   // ===== Sidebar Component =====
   const Sidebar = useMemo(() => (
-    <aside className="flex h-full flex-col border-r border-slate-200 bg-white">
+    <aside className="app-sidebar flex h-full flex-col border-r border-slate-200 bg-white">
       <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1f4f46] text-white">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#635bff] text-white">
           <Building2 size={21} />
         </div>
         <div>
@@ -1329,7 +1329,7 @@ export default function ApartmentManagementWeb() {
                 onClick={() => toggleMenu(menu.id)}
                 className={cls(
                   "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition",
-                  isActive ? "bg-[#eef5f2] text-[#1f4f46]" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                  isActive ? "bg-[#f0efff] text-[#635bff]" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
                 )}
               >
                 <span className="flex items-center gap-3">
@@ -1367,7 +1367,7 @@ export default function ApartmentManagementWeb() {
                             className={cls(
                               "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition",
                               isItemActive
-                                ? "bg-[#eef5f2] text-[#1f4f46] font-semibold"
+                                ? "bg-[#f0efff] text-[#635bff] font-semibold"
                                 : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                             )}
                           >
@@ -1387,7 +1387,7 @@ export default function ApartmentManagementWeb() {
 
       <div className="m-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-          <ShieldCheck size={16} className="text-[#1f4f46]" />
+          <ShieldCheck size={16} className="text-[#635bff]" />
           Đã đăng nhập
         </div>
         <p className="mt-2 text-xs leading-5 text-slate-500">{user?.email}</p>
@@ -1412,8 +1412,8 @@ export default function ApartmentManagementWeb() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6f5] text-slate-900">
-      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-72">
+    <div className="app-shell min-h-screen bg-[#f6f7fb] text-slate-900">
+      <div className="app-sidebar-desktop hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[17rem]">
         {Sidebar}
       </div>
 
@@ -1421,16 +1421,16 @@ export default function ApartmentManagementWeb() {
         {sidebarOpen && (
           <motion.div className="fixed inset-0 z-40 lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-slate-950/40" onClick={() => setSidebarOpen(false)} />
-            <motion.div initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }} className="relative h-full w-72">
+            <motion.div initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }} className="app-sidebar-mobile relative h-full w-[17rem]">
               {Sidebar}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="lg:pl-72">
+      <div className="app-content lg:pl-[17rem]">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur lg:px-8">
+        <header className="app-topbar sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur lg:px-8">
           <div className="flex items-center gap-3">
             <button className="rounded-xl border border-slate-200 p-2 text-slate-600 lg:hidden" onClick={() => setSidebarOpen(true)}>
               <Menu size={20} />
@@ -1449,7 +1449,7 @@ export default function ApartmentManagementWeb() {
               <RefreshCw size={18} />
             </button>
             <div className="ml-2 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1f4f46] text-xs font-bold text-white">QL</div>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#635bff] text-xs font-bold text-white">QL</div>
               <div className="hidden sm:block">
                 <p className="text-sm font-bold leading-tight text-slate-900">{user.name}</p>
                 <p className="text-xs text-slate-500">{user.role}</p>
@@ -1459,7 +1459,7 @@ export default function ApartmentManagementWeb() {
         </header>
 
         {/* Page Title */}
-        {tab && (
+        {tab && tab !== "quick-report" && tab !== "dashboard" && (
           <PageTitle
             eyebrow="Chung cư Đức Vũ Tower"
             title={CONTENT_TITLES[tab]?.[0] || "Dashboard"}
@@ -1488,7 +1488,7 @@ export default function ApartmentManagementWeb() {
           />
         )}
 
-        <main className="p-4 lg:p-8">
+        <main className="app-main p-4 lg:p-8">
           {/* TRANG TRỐNG KHI CHƯA CHỌN TAB */}
           {!tab && (
             <motion.section
@@ -1498,8 +1498,8 @@ export default function ApartmentManagementWeb() {
             >
               <div className="text-center max-w-2xl">
                 <div className="mb-8 flex justify-center">
-                  <div className="rounded-full bg-[#eef5f2] p-8">
-                    <Building2 size={80} className="text-[#1f4f46]" />
+                  <div className="rounded-full bg-[#f0efff] p-8">
+                    <Building2 size={80} className="text-[#635bff]" />
                   </div>
                 </div>
                 <h2 className="text-4xl font-bold text-slate-950 mb-4">Chào mừng đến với Đức Vũ Tower</h2>
@@ -1508,17 +1508,17 @@ export default function ApartmentManagementWeb() {
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
                   <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                    <Users className="text-[#1f4f46] mx-auto mb-2" size={32} />
+                    <Users className="text-[#635bff] mx-auto mb-2" size={32} />
                     <p className="font-semibold text-slate-900">Quản lý cư dân</p>
                     <p className="text-sm text-slate-500">Theo dõi hồ sơ cư dân</p>
                   </div>
                   <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                    <Building2 className="text-[#1f4f46] mx-auto mb-2" size={32} />
+                    <Building2 className="text-[#635bff] mx-auto mb-2" size={32} />
                     <p className="font-semibold text-slate-900">Quản lý căn hộ</p>
                     <p className="text-sm text-slate-500">Kiểm soát tình trạng căn hộ</p>
                   </div>
                   <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                    <CreditCard className="text-[#1f4f46] mx-auto mb-2" size={32} />
+                    <CreditCard className="text-[#635bff] mx-auto mb-2" size={32} />
                     <p className="font-semibold text-slate-900">Quản lý tài chính</p>
                     <p className="text-sm text-slate-500">Theo dõi thu chi và công nợ</p>
                   </div>
@@ -1559,15 +1559,15 @@ export default function ApartmentManagementWeb() {
                       <AreaChart data={revenueData}>
                         <defs>
                           <linearGradient id="revenue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#1f4f46" stopOpacity={0.25} />
-                            <stop offset="95%" stopColor="#1f4f46" stopOpacity={0} />
+                            <stop offset="5%" stopColor="#635bff" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="#635bff" stopOpacity={0} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="month" tickLine={false} axisLine={false} />
                         <YAxis tickLine={false} axisLine={false} />
                         <Tooltip />
-                        <Area type="monotone" dataKey="amount" stroke="#1f4f46" strokeWidth={3} fill="url(#revenue)" />
+                        <Area type="monotone" dataKey="amount" stroke="#635bff" strokeWidth={3} fill="url(#revenue)" />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -1583,7 +1583,7 @@ export default function ApartmentManagementWeb() {
                       <PieChart>
                         <Pie data={occupancyData} dataKey="value" nameKey="name" innerRadius={54} outerRadius={88} paddingAngle={4} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
                           {occupancyData.map((_, index) => (
-                            <Cell key={index} fill={["#1f4f46", "#d99a35", "#64748b"][index % 3]} />
+                            <Cell key={index} fill={["#635bff", "#d99a35", "#64748b"][index % 3]} />
                           ))}
                         </Pie>
                         <Tooltip />
@@ -1988,8 +1988,8 @@ export default function ApartmentManagementWeb() {
             <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
               <Card className="p-8 text-center">
                 <div className="flex flex-col items-center gap-4">
-                  <div className="rounded-full bg-[#eef5f2] p-6">
-                    <Building2 size={48} className="text-[#1f4f46]" />
+                  <div className="rounded-full bg-[#f0efff] p-6">
+                    <Building2 size={48} className="text-[#635bff]" />
                   </div>
                   <h3 className="text-xl font-bold text-slate-900">Tính năng đang được phát triển</h3>
                   <p className="text-sm text-slate-500 max-w-md">Chức năng này đang trong quá trình xây dựng. Vui lòng quay lại sau.</p>
@@ -2028,7 +2028,7 @@ export default function ApartmentManagementWeb() {
             residents.map(resident => (
               <button
                 key={resident.id || resident.ResidentID}
-                className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 hover:border-[#1f4f46] hover:bg-slate-50 transition"
+                className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 hover:border-[#635bff] hover:bg-slate-50 transition"
                 onClick={() => {
                   setSelectedResidentForDetail(resident);
                   setResidentSelectOpen(false);
@@ -2038,7 +2038,7 @@ export default function ApartmentManagementWeb() {
                 }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eef5f2] text-[#1f4f46] font-bold">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f0efff] text-[#635bff] font-bold">
                     {getInitials(resident.name || resident.FullName)}
                   </div>
                   <div className="text-left">
@@ -2061,7 +2061,7 @@ export default function ApartmentManagementWeb() {
         <div className="space-y-4">
           <Input value={notice.title} onChange={(e) => setNotice({ ...notice, title: e.target.value })} placeholder="Tiêu đề thông báo" />
           <textarea
-            className="min-h-28 w-full rounded-xl border border-slate-200 p-4 text-sm outline-none focus:border-[#1f4f46]"
+            className="min-h-28 w-full rounded-xl border border-slate-200 p-4 text-sm outline-none focus:border-[#635bff]"
             value={notice.body}
             onChange={(e) => setNotice({ ...notice, body: e.target.value })}
           />
@@ -2096,7 +2096,7 @@ export default function ApartmentManagementWeb() {
           </div>
 
           <label className="block cursor-pointer rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center hover:bg-slate-50">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eef5f2] text-[#1f4f46]">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f0efff] text-[#635bff]">
               <Import size={26} />
             </div>
             <h4 className="mt-4 text-lg font-bold text-slate-950">Chọn file Excel .xlsx</h4>

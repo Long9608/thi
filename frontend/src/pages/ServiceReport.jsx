@@ -21,7 +21,7 @@ const SERVICE_ICONS = {
   'Event Space': Calendar
 };
 
-const COLORS = ['#1f4f46', '#0d9488', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
+const COLORS = ['#635bff', '#06b6d4', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
 
 const PERIOD_OPTIONS = [
   { value: 'month', label: 'Theo tháng' },
@@ -42,8 +42,8 @@ const ServiceCard = React.memo(({ service, index }) => {
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#1f4f46]/10 rounded-lg">
-            <Icon size={20} className="text-[#1f4f46]" />
+          <div className="p-2 bg-[#635bff]/10 rounded-lg">
+            <Icon size={20} className="text-[#635bff]" />
           </div>
           <div>
             <p className="font-semibold text-slate-950">{service.name}</p>
@@ -219,7 +219,7 @@ export default function ServiceReport({ flash }) {
             <h3 className="text-base font-bold text-slate-950">Báo cáo dịch vụ</h3>
             <p className="text-sm text-slate-500">
               Thống kê sử dụng dịch vụ.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {stats.totalRegistrations} lượt đăng ký
               </span>
               <span className="ml-2 text-slate-400">|</span>
@@ -240,7 +240,7 @@ export default function ServiceReport({ flash }) {
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46] focus:ring-2 focus:ring-[#1f4f46]/20 transition-all"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff] focus:ring-2 focus:ring-[#635bff]/20 transition-all"
               aria-label="Chọn kỳ báo cáo"
             >
               {PERIOD_OPTIONS.map(option => (
@@ -293,7 +293,7 @@ export default function ServiceReport({ flash }) {
 
       {loading ? (
         <Card className="p-8 text-center">
-          <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+          <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
           <p className="mt-3 font-bold text-slate-900">Đang tải báo cáo...</p>
         </Card>
       ) : (
@@ -321,7 +321,7 @@ export default function ServiceReport({ flash }) {
                       formatter={(value) => [money(value), 'Doanh thu']}
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                     />
-                    <Bar dataKey="revenue" fill="#1f4f46" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="revenue" fill="#635bff" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -395,7 +395,7 @@ export default function ServiceReport({ flash }) {
                       <Line type="monotone" dataKey="internet" stroke="#8b5cf6" name="Internet" strokeWidth={2} />
                     </>
                   ) : (
-                    <Line type="monotone" dataKey="total" stroke="#1f4f46" name="Tổng lượt sử dụng" strokeWidth={3} />
+                    <Line type="monotone" dataKey="total" stroke="#635bff" name="Tổng lượt sử dụng" strokeWidth={3} />
                   )}
                 </LineChart>
               </ResponsiveContainer>
@@ -411,7 +411,7 @@ export default function ServiceReport({ flash }) {
 
           {/* Top Services Summary */}
           {topServices.length > 0 && topServices.some(s => s.revenue > 0) && (
-            <Card className="p-6 bg-gradient-to-r from-[#1f4f46] to-[#0d9488] text-white">
+            <Card className="p-6 bg-gradient-to-r from-[#635bff] to-[#06b6d4] text-white">
               <h4 className="font-bold mb-4">🏆 Dịch vụ hàng đầu</h4>
               <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
                 {topServices.map((service, index) => (

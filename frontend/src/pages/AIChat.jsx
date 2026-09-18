@@ -160,7 +160,7 @@ export default function AIChat() {
 
         <div className="flex items-center gap-3">
 
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef5f2] text-[#1f4f46]">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f0efff] text-[#635bff]">
             <Bot size={23} />
           </div>
 
@@ -213,7 +213,7 @@ export default function AIChat() {
           {loading && (
             <div className="flex items-start gap-3">
 
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1f4f46] text-white">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#635bff] text-white">
                 <Bot size={18} />
               </div>
 
@@ -258,7 +258,7 @@ export default function AIChat() {
                 onClick={() =>
                   sendMessage(suggestion)
                 }
-                className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-[#1f4f46]/40 hover:bg-[#eef5f2] hover:text-[#1f4f46] disabled:opacity-50"
+                className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-[#635bff]/40 hover:bg-[#f0efff] hover:text-[#635bff] disabled:opacity-50"
               >
                 {suggestion}
               </button>
@@ -278,7 +278,7 @@ export default function AIChat() {
           className="mx-auto max-w-4xl"
         >
 
-          <div className="flex items-end gap-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-[#1f4f46]/50">
+          <div className="flex items-end gap-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-[#635bff]/50">
 
             <textarea
               rows={1}
@@ -299,7 +299,7 @@ export default function AIChat() {
                 loading ||
                 !input.trim()
               }
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1f4f46] text-white transition hover:bg-[#173f38] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#635bff] text-white transition hover:bg-[#4f46e5] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {loading ? (
                 <Loader2
@@ -343,7 +343,7 @@ function ChatMessage({
     >
 
       {!isUser && (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1f4f46] text-white">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#635bff] text-white">
           <Bot size={18} />
         </div>
       )}
@@ -360,7 +360,7 @@ function ChatMessage({
         <div
           className={
             isUser
-              ? 'whitespace-pre-wrap rounded-2xl rounded-tr-md bg-[#1f4f46] px-4 py-3 text-sm leading-6 text-white'
+              ? 'whitespace-pre-wrap rounded-2xl rounded-tr-md bg-[#635bff] px-4 py-3 text-sm leading-6 text-white'
               : 'whitespace-pre-wrap rounded-2xl rounded-tl-md border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700 shadow-sm'
           }
         >

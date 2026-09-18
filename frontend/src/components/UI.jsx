@@ -29,7 +29,7 @@ export function Button({
   };
 
   const styles = {
-    primary: "bg-[#1f4f46] text-white hover:bg-[#173f38] shadow-sm",
+    primary: "bg-[#635bff] text-white hover:bg-[#4f46e5] shadow-sm",
     secondary: "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
     ghost: "text-slate-600 hover:bg-slate-100",
     success: "bg-emerald-600 text-white hover:bg-emerald-700",
@@ -59,7 +59,7 @@ export const Input = memo(({
     <div className="w-full">
       <div className={`flex items-center gap-2 rounded-xl border ${
         error ? 'border-rose-300 focus-within:border-rose-500' : 'border-slate-200'
-      } bg-white px-3 py-2.5 shadow-sm focus-within:border-[#1f4f46] ${className}`}>
+      } bg-white px-3 py-2.5 shadow-sm focus-within:border-[#635bff] ${className}`}>
         {Icon && <Icon size={16} className={error ? 'text-rose-400' : 'text-slate-400'} />}
         <input className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400" {...props} />
         {right}
@@ -82,7 +82,7 @@ export const SelectInput = memo(({ className = "", error, errorMessage, ...props
       <select
         className={`w-full rounded-xl border ${
           error ? 'border-rose-300 focus-within:border-rose-500' : 'border-slate-200'
-        } bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm outline-none focus:border-[#1f4f46] ${className}`}
+        } bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm outline-none focus:border-[#635bff] ${className}`}
         {...props}
       />
       {error && errorMessage && (
@@ -167,7 +167,7 @@ export function StatCard({ icon: Icon, label, value, hint, trend }) {
             </div>
             <p className="mt-2 text-xs leading-5 text-slate-500">{hint}</p>
           </div>
-          <div className="rounded-xl bg-[#eef5f2] p-3 text-[#1f4f46]">
+          <div className="rounded-xl bg-[#f0efff] p-3 text-[#635bff]">
             {Icon && <Icon size={20} />}
           </div>
         </div>

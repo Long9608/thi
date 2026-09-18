@@ -145,7 +145,7 @@ export default function AISearch() {
       >
         <div className="flex flex-col gap-3 md:flex-row">
 
-          <div className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 focus-within:border-[#1f4f46]">
+          <div className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 focus-within:border-[#635bff]">
 
             <Search
               size={18}
@@ -167,7 +167,7 @@ export default function AISearch() {
           <button
             type="submit"
             disabled={loading || !keyword.trim()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1f4f46] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#173f38] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#635bff] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#4f46e5] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <>
@@ -274,13 +274,13 @@ export default function AISearch() {
                 return (
                   <div
                     key={`${item.type}-${item.id}-${index}`}
-                    className="rounded-2xl border border-slate-200 p-5 transition hover:border-[#1f4f46]/40 hover:shadow-sm"
+                    className="rounded-2xl border border-slate-200 p-5 transition hover:border-[#635bff]/40 hover:shadow-sm"
                   >
 
                     {/* Card header */}
                     <div className="flex items-start gap-3">
 
-                      <div className="rounded-xl bg-[#eef5f2] p-3 text-[#1f4f46]">
+                      <div className="rounded-xl bg-[#f0efff] p-3 text-[#635bff]">
                         <Icon size={20} />
                       </div>
 

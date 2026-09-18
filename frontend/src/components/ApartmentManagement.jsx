@@ -391,7 +391,7 @@ export default function ApartmentManagement({ flash }) {
             <h3 className="text-base font-bold text-slate-950">Quản lý căn hộ</h3>
             <p className="text-sm text-slate-500">
               Quản lý danh sách căn hộ, trạng thái và thông tin liên quan.
-              <span className="ml-2 text-[#1f4f46] font-semibold">
+              <span className="ml-2 text-[#635bff] font-semibold">
                 {stats.occupied + stats.rented} đã thuê / {stats.total} tổng
               </span>
             </p>
@@ -407,7 +407,7 @@ export default function ApartmentManagement({ flash }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
             >
               <option value="">Tất cả trạng thái</option>
               {statuses.map(s => (
@@ -430,7 +430,7 @@ export default function ApartmentManagement({ flash }) {
           onClick={() => setActiveTab('list')}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition ${
             activeTab === 'list'
-              ? 'border-[#1f4f46] text-[#1f4f46]'
+              ? 'border-[#635bff] text-[#635bff]'
               : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
           }`}
         >
@@ -440,7 +440,7 @@ export default function ApartmentManagement({ flash }) {
           onClick={() => setActiveTab('status')}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition ${
             activeTab === 'status'
-              ? 'border-[#1f4f46] text-[#1f4f46]'
+              ? 'border-[#635bff] text-[#635bff]'
               : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
           }`}
         >
@@ -450,7 +450,7 @@ export default function ApartmentManagement({ flash }) {
           onClick={() => setActiveTab('history')}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition ${
             activeTab === 'history'
-              ? 'border-[#1f4f46] text-[#1f4f46]'
+              ? 'border-[#635bff] text-[#635bff]'
               : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
           }`}
         >
@@ -472,7 +472,7 @@ export default function ApartmentManagement({ flash }) {
         <>
           {loading ? (
             <Card className="p-8 text-center">
-              <RefreshCw size={32} className="animate-spin text-[#1f4f46] mx-auto" />
+              <RefreshCw size={32} className="animate-spin text-[#635bff] mx-auto" />
               <p className="mt-3 font-bold text-slate-900">Đang tải danh sách căn hộ...</p>
             </Card>
           ) : apartments.length === 0 ? (
@@ -489,11 +489,11 @@ export default function ApartmentManagement({ flash }) {
               {apartments.map((apartment) => {
                 const statusName = apartment.Status || 'Chưa xác định';
                 return (
-                  <Card key={apartment.ApartmentID || apartment.id} className="group hover:border-[#1f4f46]/30 transition-all">
+                  <Card key={apartment.ApartmentID || apartment.id} className="group hover:border-[#635bff]/30 transition-all">
                     <div className="p-5">
                       <div className="flex items-start justify-between">
                         <div>
-                          <h3 className="text-2xl font-black text-slate-950 group-hover:text-[#1f4f46]">
+                          <h3 className="text-2xl font-black text-slate-950 group-hover:text-[#635bff]">
                             {apartment.ApartmentCode}
                           </h3>
                           <p className="text-sm text-slate-500">
@@ -515,7 +515,7 @@ export default function ApartmentManagement({ flash }) {
                         {apartment.CurrentRent && (
                           <div className="col-span-2">
                             <p className="text-slate-500">Giá thuê hiện tại</p>
-                            <p className="font-bold text-[#1f4f46]">{money(apartment.CurrentRent)}/tháng</p>
+                            <p className="font-bold text-[#635bff]">{money(apartment.CurrentRent)}/tháng</p>
                           </div>
                         )}
                         {apartment.CurrentResidents && (
@@ -553,7 +553,7 @@ export default function ApartmentManagement({ flash }) {
                   onClick={() => setPage(i + 1)}
                   className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
                     page === i + 1
-                      ? 'bg-[#1f4f46] text-white'
+                      ? 'bg-[#635bff] text-white'
                       : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
@@ -585,7 +585,7 @@ export default function ApartmentManagement({ flash }) {
                       {stats.total > 0 ? Math.round((item.count / stats.total) * 100) : 0}%
                     </p>
                   </div>
-                  <div className="rounded-xl bg-[#eef5f2] p-3 text-[#1f4f46]">
+                  <div className="rounded-xl bg-[#f0efff] p-3 text-[#635bff]">
                     <CheckCircle2 size={24} />
                   </div>
                 </div>
@@ -599,7 +599,7 @@ export default function ApartmentManagement({ flash }) {
       {activeTab === 'history' && (
         <Card className="p-5">
           <div className="flex items-center gap-3 mb-4">
-            <Clock size={20} className="text-[#1f4f46]" />
+            <Clock size={20} className="text-[#635bff]" />
             <h3 className="text-base font-bold text-slate-950">Lịch sử thuê</h3>
           </div>
           {apartments.length === 0 ? (
@@ -625,7 +625,7 @@ export default function ApartmentManagement({ flash }) {
                     <tr key={apartment.ApartmentID} className="hover:bg-slate-50/80">
                       <td className="px-5 py-4 font-bold text-slate-950">{apartment.ApartmentCode}</td>
                       <td className="px-5 py-4 text-slate-600">{apartment.CurrentResidents || 'Chưa có'}</td>
-                      <td className="px-5 py-4 font-semibold text-[#1f4f46]">
+                      <td className="px-5 py-4 font-semibold text-[#635bff]">
                         {apartment.CurrentRent ? money(apartment.CurrentRent) : 'Chưa có'}
                       </td>
                       <td className="px-5 py-4 text-slate-600">
@@ -773,7 +773,7 @@ export default function ApartmentManagement({ flash }) {
                         {(billingInfo.registeredServices || []).map((service) => (
                           <div key={service.RegistrationID} className="flex items-center justify-between text-sm">
                             <span className="text-slate-700">{service.ServiceName} x {service.Quantity || 1}</span>
-                            <span className="font-bold text-[#1f4f46]">{money(Number(service.Price || 0) * Number(service.Quantity || 1))}</span>
+                            <span className="font-bold text-[#635bff]">{money(Number(service.Price || 0) * Number(service.Quantity || 1))}</span>
                           </div>
                         ))}
                       </div>
@@ -817,7 +817,7 @@ export default function ApartmentManagement({ flash }) {
                         <tfoot className="bg-slate-50">
                           <tr>
                             <td colSpan="2" className="px-4 py-3 text-right font-bold text-slate-950">Tổng cộng</td>
-                            <td className="px-4 py-3 text-right text-lg font-black text-[#1f4f46]">
+                            <td className="px-4 py-3 text-right text-lg font-black text-[#635bff]">
                               {money(billingInfo.invoice.TotalAmount || 0)}
                             </td>
                           </tr>
@@ -884,7 +884,7 @@ export default function ApartmentManagement({ flash }) {
                 <select
                   value={form.areaId}
                   onChange={(e) => setForm({...form, areaId: e.target.value})}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 >
                   <option value="">Chọn khu vực</option>
                   {areas.map(a => (
@@ -899,7 +899,7 @@ export default function ApartmentManagement({ flash }) {
                   onChange={(e) => {
                     setForm({...form, buildingId: e.target.value, floorId: ''});
                   }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 >
                   <option value="">Chọn tòa nhà</option>
                   {buildings.map(b => (
@@ -915,7 +915,7 @@ export default function ApartmentManagement({ flash }) {
                 <select
                   value={form.floorId}
                   onChange={(e) => setForm({...form, floorId: e.target.value})}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 >
                   <option value="">Chọn tầng</option>
                   {floors.map(f => (
@@ -940,7 +940,7 @@ export default function ApartmentManagement({ flash }) {
               <select
                 value={form.statusId}
                 onChange={(e) => setForm({...form, statusId: parseInt(e.target.value)})}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1f4f46]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
               >
                 {statuses.map(s => (
                   <option key={s.StatusID} value={s.StatusID}>{s.StatusName}</option>
