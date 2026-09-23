@@ -43,14 +43,8 @@ export const navigationGroups = [
         label: 'Bảng tổng quan',
         description: 'Tình hình vận hành hôm nay',
         icon: Gauge,
-        permission: 'DASHBOARD_VIEW',
-      },
-      {
-        id: 'quick-report',
-        label: 'Báo cáo nhanh',
-        description: 'Chỉ số tổng hợp từ hệ thống',
-        icon: Activity,
-        permission: 'REPORT_VIEW',
+        permissions: ['DASHBOARD_VIEW', 'RESIDENT_VIEW_OWN'],
+        audience: ['staff', 'resident'],
       },
     ],
   },
@@ -58,95 +52,94 @@ export const navigationGroups = [
     id: 'condo',
     label: 'Quản lý chung cư',
     items: [
-      { id: 'residents', label: 'Cư dân', icon: Users, permission: 'RESIDENT_VIEW' },
-      { id: 'buildings', label: 'Căn hộ & tòa nhà', icon: Building2, permission: 'APARTMENT_VIEW' },
-      { id: 'contract-list', label: 'Hợp đồng thuê', icon: FileText, permission: 'CONTRACT_VIEW' },
-      { id: 'fees', label: 'Hóa đơn & thu phí', icon: ReceiptText, permission: 'INVOICE_VIEW' },
+      { id: 'residents', label: 'Cư dân', icon: Users, permissions: ['RESIDENT_VIEW_ALL', 'RESIDENT_VIEW_OWN'], audience: ['staff', 'resident'] },
+      { id: 'buildings', label: 'Căn hộ & tòa nhà', icon: Building2, permissions: ['APARTMENT_VIEW_ALL', 'APARTMENT_VIEW_OWN'], audience: ['staff', 'resident'] },
+      { id: 'contract-list', label: 'Hợp đồng thuê', icon: FileText, permissions: ['CONTRACT_VIEW_ALL', 'CONTRACT_VIEW_OWN'], audience: ['staff', 'resident'] },
+      { id: 'fees', label: 'Hóa đơn & thu phí', icon: ReceiptText, permissions: ['INVOICE_VIEW_ALL', 'INVOICE_VIEW_OWN'], audience: ['staff', 'resident'] },
     ],
   },
   {
     id: 'parking',
     label: 'Bãi xe',
     items: [
-      { id: 'vehicles', label: 'Xe cư dân', icon: Car, permission: 'PARKING_VIEW' },
-      { id: 'parking-cards', label: 'Thẻ xe', icon: CreditCard, permission: 'PARKING_VIEW' },
-      { id: 'parking-slots', label: 'Vị trí đỗ xe', icon: ParkingSquare, permission: 'PARKING_VIEW' },
-      { id: 'parking-history', label: 'Lịch sử ra vào', icon: History, permission: 'PARKING_HISTORY' },
+      { id: 'vehicles', label: 'Xe cư dân', icon: Car, permissions: ['VEHICLE_VIEW_ALL', 'VEHICLE_VIEW_OWN'], audience: ['staff', 'resident'] },
+      { id: 'parking-cards', label: 'Thẻ xe', icon: CreditCard, permissions: ['PARKING_VIEW_ALL', 'PARKING_VIEW_OWN'], audience: ['staff', 'resident'] },
+      { id: 'parking-slots', label: 'Vị trí đỗ xe', icon: ParkingSquare, permissions: ['PARKING_VIEW_ALL'], audience: ['staff'] },
+      { id: 'parking-history', label: 'Lịch sử ra vào', icon: History, permissions: ['PARKING_VIEW_ALL', 'PARKING_VIEW_OWN'], audience: ['staff', 'resident'] },
     ],
   },
   {
     id: 'amenities',
     label: 'Tiện ích & dịch vụ',
     items: [
-      { id: 'gym', label: 'Phòng Gym', icon: Dumbbell, permission: 'SERVICE_VIEW' },
-      { id: 'pool', label: 'Hồ bơi', icon: Waves, permission: 'SERVICE_VIEW' },
-      { id: 'wifi', label: 'Dịch vụ Wi-Fi', icon: Wifi, permission: 'SERVICE_VIEW' },
+      { id: 'gym', label: 'Phòng Gym', icon: Dumbbell, permissions: ['SERVICE_VIEW', 'SERVICE_VIEW_ALL', 'SERVICE_VIEW_OWN'], audience: ['staff', 'resident'] },
+      { id: 'pool', label: 'Hồ bơi', icon: Waves, permissions: ['SERVICE_VIEW', 'SERVICE_VIEW_ALL', 'SERVICE_VIEW_OWN'], audience: ['staff', 'resident'] },
+      { id: 'wifi', label: 'Dịch vụ Wi-Fi', icon: Wifi, permissions: ['SERVICE_VIEW', 'SERVICE_VIEW_ALL', 'SERVICE_VIEW_OWN'], audience: ['staff', 'resident'] },
     ],
   },
   {
     id: 'operations',
     label: 'Vận hành',
     items: [
-      { id: 'tickets', label: 'Yêu cầu hỗ trợ', icon: Wrench, permission: 'TICKET_VIEW' },
-      { id: 'maintenance', label: 'Xử lý bảo trì', icon: ListChecks, permission: 'MAINTENANCE_UPDATE' },
-      { id: 'feedbacks', label: 'Phản ánh cư dân', icon: MessageSquareText, permission: 'TICKET_VIEW' },
-      { id: 'maintenance-schedule', label: 'Lịch bảo trì', icon: CalendarClock, permission: 'MAINTENANCE_UPDATE' },
-      { id: 'equipment', label: 'Thiết bị', icon: ClipboardList, permission: 'DEVICE_MANAGE' },
+      { id: 'tickets', label: 'Yêu cầu hỗ trợ', icon: Wrench, permissions: ['TICKET_VIEW_ALL', 'TICKET_VIEW_OWN'], audience: ['staff', 'resident'] },
+      { id: 'maintenance', label: 'Xử lý bảo trì', icon: ListChecks, permissions: ['MAINTENANCE_UPDATE'], audience: ['staff'] },
+      { id: 'feedbacks', label: 'Phản ánh cư dân', icon: MessageSquareText, permissions: ['FEEDBACK_VIEW_ALL', 'FEEDBACK_VIEW_OWN'], audience: ['staff', 'resident'] },
+      { id: 'maintenance-schedule', label: 'Lịch bảo trì', icon: CalendarClock, permissions: ['MAINTENANCE_UPDATE'], audience: ['staff'] },
+      { id: 'equipment', label: 'Thiết bị', icon: ClipboardList, permissions: ['DEVICE_MANAGE'], audience: ['staff'] },
     ],
   },
   {
     id: 'communications',
     label: 'Thông báo',
     items: [
-      { id: 'notifications', label: 'Danh sách thông báo', icon: Bell, permission: 'NOTIFICATION_VIEW' },
-      { id: 'send-notification', label: 'Gửi thông báo', icon: Send, permission: 'NOTIFICATION_SEND' },
-      { id: 'schedule-notification', label: 'Lịch gửi', icon: FileClock, permission: 'NOTIFICATION_SEND' },
+      { id: 'notifications', label: 'Thông báo', icon: Bell, permissions: ['NOTIFICATION_VIEW_ALL', 'NOTIFICATION_VIEW_OWN'], audience: ['staff', 'resident'] },
+      { id: 'send-notification', label: 'Gửi thông báo', icon: Send, permissions: ['NOTIFICATION_SEND'], audience: ['staff'] },
+      { id: 'schedule-notification', label: 'Lịch gửi', icon: FileClock, permissions: ['NOTIFICATION_SEND'], audience: ['staff'] },
     ],
   },
   {
     id: 'reports',
     label: 'Báo cáo',
     items: [
-      { id: 'revenue-report', label: 'Doanh thu', icon: ChartNoAxesCombined, permission: 'REPORT_VIEW' },
-      { id: 'debt-report', label: 'Công nợ', icon: CircleDollarSign, permission: 'DEBT_VIEW' },
-      { id: 'apartment-report', label: 'Căn hộ', icon: House, permission: 'REPORT_VIEW' },
-      { id: 'service-report', label: 'Dịch vụ', icon: BarChart3, permission: 'REPORT_VIEW' },
+      { id: 'revenue-report', label: 'Doanh thu', icon: ChartNoAxesCombined, permissions: ['REPORT_VIEW'], audience: ['staff'] },
+      { id: 'debt-report', label: 'Công nợ', icon: CircleDollarSign, permissions: ['DEBT_VIEW'], audience: ['staff'] },
+      { id: 'apartment-report', label: 'Căn hộ', icon: House, permissions: ['REPORT_VIEW'], audience: ['staff'] },
+      { id: 'service-report', label: 'Dịch vụ', icon: BarChart3, permissions: ['REPORT_VIEW'], audience: ['staff'] },
     ],
   },
   {
     id: 'administration',
     label: 'Quản trị hệ thống',
     items: [
-      { id: 'employees', label: 'Nhân viên', icon: UserRound, permission: 'EMPLOYEE_VIEW' },
-      { id: 'permissions', label: 'Phân quyền', icon: ShieldCheck, permission: 'PERMISSION_MANAGE' },
-      { id: 'roles', label: 'Vai trò', icon: KeyRound, permission: 'ROLE_MANAGE' },
-      { id: 'system-logs', label: 'Nhật ký hệ thống', icon: ClipboardList, permission: 'SYSTEM_SETTING' },
+      { id: 'employees', label: 'Người dùng', icon: UserRound, permissions: ['EMPLOYEE_VIEW'], audience: ['staff'] },
+      { id: 'permissions', label: 'Phân quyền', icon: ShieldCheck, permissions: ['PERMISSION_MANAGE'], audience: ['staff'] },
+      { id: 'roles', label: 'Vai trò', icon: KeyRound, permissions: ['ROLE_MANAGE'], audience: ['staff'] },
+      { id: 'system-logs', label: 'Nhật ký hệ thống', icon: ClipboardList, permissions: ['SYSTEM_SETTING'], audience: ['staff'] },
     ],
   },
-  {
+  { 
     id: 'ai',
     label: 'AI Assistant',
     items: [
-      { id: 'ai-chat', label: 'Chat AI', icon: Bot, permission: 'AI_CHAT' },
-      { id: 'ai-stats', label: 'Thống kê AI', icon: Sparkles, permission: 'AI_STATISTIC' },
-      { id: 'ai-predict', label: 'Dự đoán hợp đồng', icon: ChartNoAxesCombined, permission: 'AI_PREDICT' },
-      { id: 'ai-search', label: 'Tìm kiếm AI', icon: Search, permission: 'AI_SEARCH' },
+      { id: 'ai-chat', label: 'Chat AI', icon: Bot, permissions: ['AI_CHAT'], audience: ['staff'] },
+      { id: 'ai-stats', label: 'Thống kê AI', icon: Sparkles, permissions: ['AI_STATISTIC'], audience: ['staff'] },
+      { id: 'ai-predict', label: 'Dự đoán hợp đồng', icon: ChartNoAxesCombined, permissions: ['AI_PREDICT'], audience: ['staff'] },
+      { id: 'ai-search', label: 'Tìm kiếm AI', icon: Search, permissions: ['AI_SEARCH'], audience: ['staff'] },
     ],
   },
   {
     id: 'account',
     label: 'Tài khoản',
     items: [
-      { id: 'profile', label: 'Hồ sơ cá nhân', icon: UserRound, permission: 'PROFILE_UPDATE' },
-      { id: 'change-password', label: 'Đổi mật khẩu', icon: KeyRound, permission: 'PASSWORD_CHANGE' },
-      { id: 'system-info', label: 'Thông tin hệ thống', icon: Settings, permission: 'SYSTEM_SETTING' },
+      { id: 'profile', label: 'Hồ sơ cá nhân', icon: UserRound, permissions: ['PROFILE_UPDATE'], audience: ['staff', 'resident'] },
+      { id: 'change-password', label: 'Đổi mật khẩu', icon: KeyRound, permissions: ['PASSWORD_CHANGE'], audience: ['staff', 'resident'] },
+      { id: 'system-info', label: 'Thông tin hệ thống', icon: Settings, permissions: ['SYSTEM_SETTING'], audience: ['staff'] },
     ],
   },
 ];
 
 export const pageMeta = {
   dashboard: ['Bảng tổng quan', 'Theo dõi tình hình vận hành chung cư trong ngày.'],
-  'quick-report': ['Báo cáo nhanh', 'Số liệu tổng hợp lấy trực tiếp từ hệ thống.'],
   residents: ['Quản lý cư dân', 'Hồ sơ cư dân, liên hệ và trạng thái cư trú.'],
   buildings: ['Căn hộ & tòa nhà', 'Sơ đồ phòng, hợp đồng và trạng thái sử dụng.'],
   'contract-list': ['Hợp đồng thuê', 'Theo dõi hợp đồng và thời hạn thuê.'],
@@ -170,7 +163,7 @@ export const pageMeta = {
   'debt-report': ['Báo cáo công nợ', 'Theo dõi các khoản chưa thanh toán.'],
   'apartment-report': ['Báo cáo căn hộ', 'Thống kê tình trạng khai thác căn hộ.'],
   'service-report': ['Báo cáo dịch vụ', 'Theo dõi đăng ký và mức sử dụng dịch vụ.'],
-  employees: ['Nhân viên', 'Tài khoản và hồ sơ nhân sự vận hành.'],
+  employees: ['Người dùng', 'Tài khoản và hồ sơ người dùng hệ thống.'],
   permissions: ['Phân quyền', 'Gán quyền theo vai trò và chức năng.'],
   roles: ['Vai trò', 'Quản lý nhóm quyền trong hệ thống.'],
   'system-logs': ['Nhật ký hệ thống', 'Theo dõi thao tác và thay đổi dữ liệu.'],
@@ -183,12 +176,18 @@ export const pageMeta = {
   'system-info': ['Thông tin hệ thống', 'Phiên bản và trạng thái dịch vụ.'],
 };
 
-export function firstAccessiblePage(canAccess) {
+export function firstAccessiblePage(canAccess, audience = 'staff') {
   for (const group of navigationGroups) {
-    const page = group.items.find((item) => canAccess(item.permission));
+    const page = group.items.find((item) => itemIsAccessible(item, canAccess, audience));
     if (page) return page.id;
   }
   return null;
+}
+
+export function itemIsAccessible(item, canPermission, audience) {
+  const allowedAudience = !item.audience || item.audience.includes(audience);
+  const permissions = item.permissions || (item.permission ? [item.permission] : []);
+  return allowedAudience && permissions.some(canPermission);
 }
 
 export function findNavigationItem(pageId) {

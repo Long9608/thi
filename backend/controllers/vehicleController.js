@@ -1,5 +1,6 @@
 // backend/controllers/vehicleController.js
 const { getPool, sql } = require('../config/db');
+const { getAccessScope, getCurrentResidentId } = require('../utils/accessScope');
 
 class BusinessError extends Error {
   constructor(message, statusCode = 400) {
@@ -76,6 +77,21 @@ exports.getAllVehicles = async (req, res) => {
     const { safePage, safeLimit, offset } = normalizePagination(page, limit);
 
     const pool = await getPool();
+    const accessScope = getAccessScope(req, {
+      viewAll: 'VEHICLE_VIEW_ALL',
+      viewOwn: 'VEHICLE_VIEW_OWN',
+      legacy: ['VEHICLE_VIEW', 'PARKING_VIEW']
+    });
+    if (accessScope === 'none') {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền xem phương tiện' });
+    }
+    if (accessScope === 'own') {
+      const currentResidentId = await getCurrentResidentId(pool, req.userId);
+      if (!currentResidentId) {
+        return res.status(403).json({ success: false, message: 'Không tìm thấy cư dân hiện tại' });
+      }
+      filters.residentId = currentResidentId;
+    }
     const parkingSubscriptionExists = await pool.request().query(`
       SELECT CASE WHEN OBJECT_ID('dbo.ParkingSubscription', 'U') IS NULL THEN 0 ELSE 1 END AS HasParkingSubscription;
     `);
@@ -207,6 +223,14 @@ exports.getVehicleById = async (req, res) => {
     const vehicleId = validatePositiveInt(id, 'vehicleId');
 
     const pool = await getPool();
+    const accessScope = getAccessScope(req, {
+      viewAll: 'VEHICLE_VIEW_ALL',
+      viewOwn: 'VEHICLE_VIEW_OWN',
+      legacy: ['VEHICLE_VIEW', 'PARKING_VIEW']
+    });
+    if (accessScope === 'none') {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền xem phương tiện' });
+    }
     const parkingSubscriptionExists = await pool.request().query(`
       SELECT CASE WHEN OBJECT_ID('dbo.ParkingSubscription', 'U') IS NULL THEN 0 ELSE 1 END AS HasParkingSubscription;
     `);
@@ -245,8 +269,13 @@ exports.getVehicleById = async (req, res) => {
         LEFT JOIN dbo.ParkingCard pc ON sub.CardID = pc.CardID AND pc.Status = 1
         LEFT JOIN dbo.ParkingSlot ps ON pc.SlotID = ps.SlotID
     ` : '';
+    const currentResidentId = accessScope === 'own' ? await getCurrentResidentId(pool, req.userId) : null;
+    if (accessScope === 'own' && !currentResidentId) {
+      return res.status(403).json({ success: false, message: 'Không tìm thấy cư dân hiện tại' });
+    }
     const result = await pool.request()
       .input('VehicleID', sql.Int, vehicleId)
+      .input('CurrentResidentID', sql.Int, currentResidentId || 0)
       .query(`
         SELECT
           v.VehicleID,
@@ -264,7 +293,7 @@ exports.getVehicleById = async (req, res) => {
           r.Address AS OwnerAddress,
           c.ContractID,
           c.ContractNumber,
-          a.ApartmentCode,
+          c.ApartmentCode,
           ${parkingSelect}
         FROM dbo.Vehicle v
         INNER JOIN dbo.VehicleType vt ON v.VehicleTypeID = vt.VehicleTypeID
@@ -290,6 +319,7 @@ exports.getVehicleById = async (req, res) => {
         ) c
         ${parkingJoins}
         WHERE v.VehicleID = @VehicleID
+          ${accessScope === 'own' ? 'AND v.ResidentID = @CurrentResidentID' : ''}
       `);
 
     if (!result.recordset[0]) {
@@ -312,9 +342,15 @@ exports.getVehicleById = async (req, res) => {
 // =============================================
 exports.createVehicle = async (req, res) => {
   try {
-    const { residentId, plateNumber, vehicleTypeId, brand, color } = req.body;
+    const { residentId: requestedResidentId, plateNumber, vehicleTypeId, brand, color } = req.body;
 
-    const resId = validatePositiveInt(residentId, 'residentId');
+    const pool = await getPool();
+    const accessScope = getAccessScope(req, { viewAll: 'VEHICLE_VIEW_ALL', viewOwn: 'VEHICLE_VIEW_OWN' });
+    if (accessScope === 'none') throw new BusinessError('Bạn không có quyền truy cập phương tiện', 403);
+    const resId = accessScope === 'own'
+      ? await getCurrentResidentId(pool, req.userId)
+      : validatePositiveInt(requestedResidentId, 'residentId');
+    if (!resId) throw new BusinessError('Resident not found for this user', 403);
     const vtId = validatePositiveInt(vehicleTypeId, 'vehicleTypeId');
     if (!plateNumber || plateNumber.trim() === '') {
       throw new BusinessError('Plate number is required', 400);
@@ -323,8 +359,6 @@ exports.createVehicle = async (req, res) => {
     if (plate.length < 5 || plate.length > 20) {
       throw new BusinessError('Plate number must be between 5 and 20 characters', 400);
     }
-
-    const pool = await getPool();
 
     const residentCheck = await pool.request()
       .input('ResidentID', sql.Int, resId)
@@ -385,12 +419,17 @@ exports.updateVehicle = async (req, res) => {
 
     const pool = await getPool();
 
+    const accessScope = getAccessScope(req, { viewAll: 'VEHICLE_VIEW_ALL', viewOwn: 'VEHICLE_VIEW_OWN' });
+    if (accessScope === 'none') throw new BusinessError('Bạn không có quyền truy cập phương tiện', 403);
+    const currentResidentId = accessScope === 'own' ? await getCurrentResidentId(pool, req.userId) : null;
     const vehicleCheck = await pool.request()
       .input('VehicleID', sql.Int, vehicleId)
+      .input('CurrentResidentID', sql.Int, currentResidentId || 0)
       .query(`
         SELECT VehicleID, VehicleTypeID, Status
         FROM dbo.Vehicle
         WHERE VehicleID = @VehicleID
+          ${accessScope === 'own' ? 'AND ResidentID = @CurrentResidentID' : ''}
       `);
     if (!vehicleCheck.recordset[0]) {
       throw new BusinessError('Vehicle not found', 404);
@@ -536,9 +575,18 @@ exports.deleteVehicle = async (req, res) => {
 
     const pool = await getPool();
 
+    const accessScope = getAccessScope(req, { viewAll: 'VEHICLE_VIEW_ALL', viewOwn: 'VEHICLE_VIEW_OWN' });
+    if (accessScope === 'none') throw new BusinessError('Bạn không có quyền truy cập phương tiện', 403);
+    const currentResidentId = accessScope === 'own' ? await getCurrentResidentId(pool, req.userId) : null;
     const vehicleCheck = await pool.request()
       .input('VehicleID', sql.Int, vehicleId)
-      .query('SELECT VehicleID, Status FROM dbo.Vehicle WHERE VehicleID = @VehicleID');
+      .input('CurrentResidentID', sql.Int, currentResidentId || 0)
+      .query(`
+        SELECT VehicleID, Status
+        FROM dbo.Vehicle
+        WHERE VehicleID = @VehicleID
+          ${accessScope === 'own' ? 'AND ResidentID = @CurrentResidentID' : ''}
+      `);
     if (!vehicleCheck.recordset[0]) {
       throw new BusinessError('Vehicle not found', 404);
     }

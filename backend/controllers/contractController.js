@@ -1,4 +1,5 @@
 ﻿const { getPool, sql } = require('../config/db');
+const { getAccessScope, getCurrentResidentId, contractOwnershipSql, apartmentOwnershipSql } = require('../utils/accessScope');
 
 exports.getAllContracts = async (req, res) => {
     try {
@@ -14,6 +15,15 @@ exports.getAllContracts = async (req, res) => {
 
         const pool = await getPool();
         const offset = (page - 1) * limit;
+        const accessScope = getAccessScope(req, {
+            viewAll: 'CONTRACT_VIEW_ALL',
+            viewOwn: 'CONTRACT_VIEW_OWN',
+            legacy: ['CONTRACT_VIEW']
+        });
+
+        if (accessScope === 'none') {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền xem hợp đồng' });
+        }
 
         let query = `
             SELECT 
@@ -34,7 +44,7 @@ exports.getAllContracts = async (req, res) => {
                 a.Area,
                 b.BuildingName,
                 r.FullName AS OwnerName,
-                r.Phone AS OwnerPhone,
+                ${accessScope === 'own' ? 'NULL' : 'r.Phone'} AS OwnerPhone,
                 cs.StatusName AS ContractStatus,
                 c.StatusID,
                 DATEDIFF(DAY, GETDATE(), c.EndDate) AS DaysRemaining
@@ -53,6 +63,24 @@ exports.getAllContracts = async (req, res) => {
             FROM Contract c
             WHERE 1=1
         `;
+
+        if (accessScope === 'own') {
+            const currentResidentId = await getCurrentResidentId(pool, req.userId);
+            if (!currentResidentId) {
+                return res.status(403).json({ success: false, message: 'Không tìm thấy cư dân hiện tại' });
+            }
+            const residentCondition = `(
+                c.OwnerID = @CurrentResidentID OR EXISTS (
+                    SELECT 1 FROM ContractResident cr
+                    WHERE cr.ContractID = c.ContractID
+                      AND cr.ResidentID = @CurrentResidentID
+                      AND (cr.MoveInDate IS NULL OR cr.MoveInDate <= CAST(GETDATE() AS date)) AND (cr.MoveOutDate IS NULL OR cr.MoveOutDate >= CAST(GETDATE() AS date))
+                )
+            )`;
+            query += ` AND ${residentCondition}`;
+            countQuery += ` AND ${residentCondition}`;
+            request.input('CurrentResidentID', sql.Int, currentResidentId);
+        }
 
         if (statusId) {
             query += ` AND c.StatusID = @StatusID`;
@@ -122,9 +150,36 @@ exports.getContractById = async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await getPool();
+        const accessScope = getAccessScope(req, {
+            viewAll: 'CONTRACT_VIEW_ALL',
+            viewOwn: 'CONTRACT_VIEW_OWN',
+            legacy: ['CONTRACT_VIEW']
+        });
+
+        if (accessScope === 'none') {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền xem hợp đồng' });
+        }
+
+        let residentFilter = '';
+        if (accessScope === 'own') {
+            const currentResidentId = await getCurrentResidentId(pool, req.userId);
+            if (!currentResidentId) {
+                return res.status(403).json({ success: false, message: 'Không tìm thấy cư dân hiện tại' });
+            }
+            residentFilter = `
+                AND (
+                    c.OwnerID = @CurrentResidentID OR EXISTS (
+                        SELECT 1 FROM ContractResident cr
+                        WHERE cr.ContractID = c.ContractID
+                          AND cr.ResidentID = @CurrentResidentID
+                          AND (cr.MoveInDate IS NULL OR cr.MoveInDate <= CAST(GETDATE() AS date)) AND (cr.MoveOutDate IS NULL OR cr.MoveOutDate >= CAST(GETDATE() AS date))
+                    )
+                )`;
+        }
 
         const result = await pool.request()
             .input('ContractID', sql.Int, id)
+            .input('CurrentResidentID', sql.Int, accessScope === 'own' ? (await getCurrentResidentId(pool, req.userId)) : null)
             .query(`
                 SELECT 
                     c.*,
@@ -135,9 +190,9 @@ exports.getContractById = async (req, res) => {
                     b.BuildingID,
                     ar.AreaName,
                     r.FullName AS OwnerName,
-                    r.Phone AS OwnerPhone,
-                    r.Email AS OwnerEmail,
-                    r.Address AS OwnerAddress,
+                    ${accessScope === 'own' ? 'NULL' : 'r.Phone'} AS OwnerPhone,
+                    ${accessScope === 'own' ? 'NULL' : 'r.Email'} AS OwnerEmail,
+                    ${accessScope === 'own' ? 'NULL' : 'r.Address'} AS OwnerAddress,
                     cs.StatusName AS ContractStatus,
                     (
                         SELECT 
@@ -151,6 +206,7 @@ exports.getContractById = async (req, res) => {
                         FROM ContractResident cr
                         INNER JOIN Resident res ON cr.ResidentID = res.ResidentID
                         WHERE cr.ContractID = c.ContractID
+                        ${accessScope === 'own' ? 'AND cr.ResidentID = @CurrentResidentID' : ''}
                         FOR JSON PATH
                     ) AS Residents,
                     (
@@ -193,6 +249,7 @@ exports.getContractById = async (req, res) => {
                 INNER JOIN Resident r ON c.OwnerID = r.ResidentID
                 INNER JOIN ContractStatus cs ON c.StatusID = cs.StatusID
                 WHERE c.ContractID = @ContractID
+                  ${residentFilter}
             `);
 
         if (!result.recordset[0]) {

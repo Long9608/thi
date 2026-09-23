@@ -1,3 +1,4 @@
+import { PermissionGate } from '../permissions';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -439,7 +440,10 @@ export default function ApartmentBuildingWorkspace({ flash }) {
       .sort((a, b) => Number(b.FloorNumber) - Number(a.FloorNumber));
 
     if (!search.trim() && !statusFilter && !selectedFloorId) return rows;
-    return rows.filter((floor) => String(floor.FloorID) === String(selectedFloorId) || floor.rooms.length > 0);
+    if (selectedFloorId) {
+      return rows.filter((floor) => String(floor.FloorID) === String(selectedFloorId));
+    }
+    return rows.filter((floor) => floor.rooms.length > 0);
   }, [floors, search, selectedBuilding, selectedBuildingApartments, selectedBuildingId, selectedFloorId, statusFilter]);
 
   const totals = useMemo(() => {
@@ -875,12 +879,12 @@ export default function ApartmentBuildingWorkspace({ flash }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button className="border border-white/20 bg-white/10 text-white hover:bg-white/20" onClick={openBuildingCreate}>
+            <PermissionGate permission="APARTMENT_CREATE"><Button className="border border-white/20 bg-white/10 text-white hover:bg-white/20" onClick={openBuildingCreate}>
               <Plus size={16} /> Thêm tòa nhà
-            </Button>
-            <Button className="border border-white/20 bg-white/10 text-white hover:bg-white/20" onClick={openApartmentCreate} disabled={!selectedBuildingId}>
+            </Button></PermissionGate>
+            <PermissionGate permission="APARTMENT_CREATE"><Button className="border border-white/20 bg-white/10 text-white hover:bg-white/20" onClick={openApartmentCreate} disabled={!selectedBuildingId}>
               <Plus size={16} /> Thêm căn hộ
-            </Button>
+            </Button></PermissionGate>
             <Button className="border border-white/20 bg-white/10 text-white hover:bg-white/20" onClick={loadData} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
@@ -926,7 +930,7 @@ export default function ApartmentBuildingWorkspace({ flash }) {
                       <div className="flex items-center gap-2"><span className={`rounded-lg p-2 ${selected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}><Building2 size={18} /></span><span className="text-lg font-black text-slate-950">{building.BuildingName}</span></div>
                       <p className="mt-2 flex items-center gap-1 text-xs text-slate-500"><MapPin size={13} /> {building.AreaName || 'Chưa có khu vực'}</p>
                     </div>
-                    <div className="flex items-center gap-1"><button type="button" aria-label={`Sửa ${building.BuildingName}`} onClick={(event) => { event.stopPropagation(); openBuildingEdit(building); }} className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-slate-700"><Pencil size={15} /></button><button type="button" aria-label={`Xóa ${building.BuildingName}`} onClick={(event) => { event.stopPropagation(); deleteBuilding(building); }} className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-rose-600"><Trash2 size={15} /></button></div>
+                    <div className="flex items-center gap-1"><PermissionGate permission="APARTMENT_UPDATE"><button type="button" aria-label={`Sửa ${building.BuildingName}`} onClick={(event) => { event.stopPropagation(); openBuildingEdit(building); }} className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-slate-700"><Pencil size={15} /></button></PermissionGate><PermissionGate permission="APARTMENT_DELETE"><button type="button" aria-label={`Xóa ${building.BuildingName}`} onClick={(event) => { event.stopPropagation(); deleteBuilding(building); }} className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-rose-600"><Trash2 size={15} /></button></PermissionGate></div>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2 text-xs"><Badge tone="slate">{building.NumberOfFloors || 0} tầng</Badge><Badge tone="blue">{stats.total} căn</Badge><Badge tone="green">{stats.occupied} đang ở</Badge><Badge tone="amber">{stats.maintenance} bảo trì</Badge></div>
                 </div>
@@ -966,7 +970,7 @@ export default function ApartmentBuildingWorkspace({ flash }) {
                           <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold opacity-75">Xem chi tiết <ChevronRight size={12} /></span>
                         </button>
                       ) : (
-                        <div key={`empty-${floor.FloorID}-${index}`} className="min-h-[118px] rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-slate-400"><div className="flex items-start justify-between"><span className="text-sm font-bold">T{floor.FloorNumber}-P{index + 1}</span><Home size={16} /></div><p className="mt-3 text-xs">Chưa tạo căn hộ</p><button type="button" onClick={openApartmentCreate} className="mt-2 text-[11px] font-bold text-[#1f4f46] hover:underline">+ Thêm căn</button></div>
+                        <div key={`empty-${floor.FloorID}-${index}`} className="min-h-[118px] rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-slate-400"><div className="flex items-start justify-between"><span className="text-sm font-bold">T{floor.FloorNumber}-P{index + 1}</span><Home size={16} /></div><p className="mt-3 text-xs">Chưa tạo căn hộ</p><PermissionGate permission="APARTMENT_CREATE"><button type="button" onClick={openApartmentCreate} className="mt-2 text-[11px] font-bold text-[#1f4f46] hover:underline">+ Thêm căn</button></PermissionGate></div>
                       );
                     })}
                   </div>
@@ -983,12 +987,12 @@ export default function ApartmentBuildingWorkspace({ flash }) {
           <div className="flex flex-col justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center"><div><h3 className="text-2xl font-black text-slate-950">{selectedApartment.ApartmentCode}</h3><p className="mt-1 text-sm text-slate-500">{selectedApartment.BuildingName} · Tầng {selectedApartment.FloorNumber} · {selectedApartment.Area || 0} m²</p></div><Badge tone={statusMeta(selectedApartment).tone}>{statusMeta(selectedApartment).label}</Badge></div>
           <div className="grid gap-4 md:grid-cols-3"><Card className="p-4"><p className="flex items-center gap-2 text-sm font-bold text-slate-800"><Home size={16} className="text-[#1f4f46]" /> Thông tin căn hộ</p><div className="mt-3 space-y-2 text-sm"><p><span className="text-slate-500">Tòa nhà:</span> {selectedApartment.BuildingName || '—'}</p><p><span className="text-slate-500">Tầng:</span> {selectedApartment.FloorNumber || '—'}</p><p><span className="text-slate-500">Diện tích:</span> <strong>{Number(selectedApartment.Area || 0).toLocaleString('vi-VN')} m²</strong></p><p><span className="text-slate-500">Mã căn:</span> {selectedApartment.ApartmentCode}</p></div></Card><Card className="p-4"><p className="flex items-center gap-2 text-sm font-bold text-slate-800"><FileText size={16} className="text-[#1f4f46]" /> Hợp đồng hiện tại</p>{selectedApartment.CurrentContract ? <div className="mt-3 space-y-2 text-sm"><p><span className="text-slate-500">Số hợp đồng:</span> {selectedApartment.CurrentContract.ContractNumber}</p><p><span className="text-slate-500">Chủ hộ:</span> {selectedApartment.CurrentContract.OwnerName || 'Chưa có'}</p><p><span className="text-slate-500">Giá thuê:</span> {formatMoney(selectedApartment.CurrentContract.Rent)}</p><p><span className="text-slate-500">Thời hạn:</span> {selectedApartment.CurrentContract.StartDate ? `${new Date(selectedApartment.CurrentContract.StartDate).toLocaleDateString('vi-VN')} → ${new Date(selectedApartment.CurrentContract.EndDate).toLocaleDateString('vi-VN')}` : 'Chưa có'}</p></div> : <p className="mt-3 text-sm text-slate-500">Căn hộ chưa có hợp đồng hiệu lực.</p>}</Card><Card className="p-4"><p className="flex items-center gap-2 text-sm font-bold text-slate-800"><Users size={16} className="text-[#1f4f46]" /> Cư dân hiện tại</p>{selectedApartment.CurrentResidents?.length ? <div className="mt-3 space-y-2">{selectedApartment.CurrentResidents.map((resident) => <div key={resident.ResidentID} className="flex items-center gap-2 rounded-xl bg-slate-50 p-2 text-sm"><span className="rounded-lg bg-white p-2 text-slate-500"><UserRound size={14} /></span><div><p className="font-semibold text-slate-900">{resident.FullName}</p><p className="text-xs text-slate-500">{resident.Phone || 'Chưa có số điện thoại'}{resident.Relationship ? ` · ${resident.Relationship}` : ''}</p></div></div>)}</div> : <p className="mt-3 text-sm text-slate-500">Chưa có cư dân trong căn hộ.</p>}</Card></div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {statusMeta(selectedApartment).key === 'vacant' && <Button onClick={openContractCreate}><FileText size={15} /> Tạo hợp đồng</Button>}
+            {statusMeta(selectedApartment).key === 'vacant' && <PermissionGate permission="CONTRACT_CREATE"><Button onClick={openContractCreate}><FileText size={15} /> Tạo hợp đồng</Button></PermissionGate>}
             {statusMeta(selectedApartment).key === 'maintenance' && <span className="mr-auto rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">Phòng đang bảo trì — không thể tạo hợp đồng</span>}
             {selectedApartment.CurrentContract && <Button variant="secondary" onClick={openContractView}><FileText size={15} /> Xem hợp đồng</Button>}
             {selectedApartment.CurrentContract && <Button variant="secondary" onClick={openEquipmentView}><PackageCheck size={15} /> Xem thiết bị</Button>}
-            <Button variant="secondary" onClick={() => openApartmentEdit(selectedApartment)}><Pencil size={15} /> Cập nhật phòng</Button>
-            <Button variant="danger" onClick={() => deleteApartment(selectedApartment)}><Trash2 size={15} /> Xóa căn hộ</Button>
+            <PermissionGate permission="APARTMENT_UPDATE"><Button variant="secondary" onClick={() => openApartmentEdit(selectedApartment)}><Pencil size={15} /> Cập nhật phòng</Button></PermissionGate>
+            <PermissionGate permission="APARTMENT_DELETE"><Button variant="danger" onClick={() => deleteApartment(selectedApartment)}><Trash2 size={15} /> Xóa căn hộ</Button></PermissionGate>
             <Button onClick={() => setSelectedApartment(null)}>Đóng</Button>
           </div>
         </div>}
@@ -1004,8 +1008,8 @@ export default function ApartmentBuildingWorkspace({ flash }) {
         footer={selectedContract && <>
           <span className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold ${Number(selectedContract.StatusID) === 4 ? 'bg-slate-100 text-slate-600' : 'bg-emerald-600 text-white'}`}><CircleCheck size={16} /> {Number(selectedContract.StatusID) === 4 ? 'Hợp đồng đã thanh lý' : 'Hợp đồng đang có hiệu lực'}</span>
           <div className="ml-auto flex flex-wrap gap-2">
-            {Number(selectedContract.StatusID) !== 4 && <Button variant="secondary" onClick={renewSelectedContract} disabled={saving}><RotateCcw size={16} /> Gia hạn +12 Tháng</Button>}
-            {Number(selectedContract.StatusID) !== 4 && <Button variant="danger" onClick={terminateSelectedContract} disabled={saving}><FileText size={16} /> {saving ? 'Đang xử lý...' : 'Thanh lý HĐ'}</Button>}
+            {Number(selectedContract.StatusID) !== 4 && <PermissionGate permission="CONTRACT_RENEW"><Button variant="secondary" onClick={renewSelectedContract} disabled={saving}><RotateCcw size={16} /> Gia hạn +12 Tháng</Button></PermissionGate>}
+            {Number(selectedContract.StatusID) !== 4 && <PermissionGate permission="CONTRACT_LIQUIDATE"><Button variant="danger" onClick={terminateSelectedContract} disabled={saving}><FileText size={16} /> {saving ? 'Đang xử lý...' : 'Thanh lý HĐ'}</Button></PermissionGate>}
             <Button variant="secondary" onClick={() => { setContractViewModalOpen(false); setSelectedContract(null); }}>Đóng</Button>
           </div>
         </>}

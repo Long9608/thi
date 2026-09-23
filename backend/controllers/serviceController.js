@@ -1,3 +1,4 @@
+const { resolveScope, contractOwnershipSql } = require('../utils/accessScope');
 ﻿const { getPool, sql } = require('../config/db');
 
 exports.getAllServices = async (req, res) => {
@@ -10,6 +11,7 @@ exports.getAllServices = async (req, res) => {
         } = req.query;
 
         const pool = await getPool();
+        const { scope, residentId } = await resolveScope(req, pool, 'SERVICE');
         const offset = (page - 1) * limit;
 
         let query = `
@@ -23,19 +25,22 @@ exports.getAllServices = async (req, res) => {
                 sc.CategoryID,
                 (
                     SELECT COUNT(*) 
-                    FROM ServiceRegistration 
-                    WHERE ServiceID = s.ServiceID AND Status = 1
+                    FROM ServiceRegistration sr JOIN Contract c ON c.ContractID=sr.ContractID
+                    WHERE sr.ServiceID = s.ServiceID AND sr.Status = 1
+                    ${scope === 'own' ? `AND ${contractOwnershipSql()}` : ''}
                 ) AS ActiveRegistrations
             FROM Service s
             INNER JOIN ServiceCategory sc ON s.CategoryID = sc.CategoryID
             WHERE 1=1
+            ${scope === 'own' ? `AND EXISTS (SELECT 1 FROM ServiceRegistration sr JOIN Contract c ON c.ContractID=sr.ContractID WHERE sr.ServiceID=s.ServiceID AND ${contractOwnershipSql()})` : ''}
         `;
 
-        const request = pool.request();
+        const request = pool.request().input('CurrentResidentID', sql.Int, residentId);
         let countQuery = `
             SELECT COUNT(*) as total 
             FROM Service s
             WHERE 1=1
+            ${scope === 'own' ? `AND EXISTS (SELECT 1 FROM ServiceRegistration sr JOIN Contract c ON c.ContractID=sr.ContractID WHERE sr.ServiceID=s.ServiceID AND ${contractOwnershipSql()})` : ''}
         `;
 
         if (categoryId) {
@@ -88,8 +93,10 @@ exports.getServiceById = async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await getPool();
+        const { scope, residentId } = await resolveScope(req, pool, 'SERVICE');
 
         const result = await pool.request()
+            .input('CurrentResidentID', sql.Int, residentId)
             .input('ServiceID', sql.Int, id)
             .query(`
                 SELECT 
@@ -99,6 +106,7 @@ exports.getServiceById = async (req, res) => {
                 FROM Service s
                 INNER JOIN ServiceCategory sc ON s.CategoryID = sc.CategoryID
                 WHERE s.ServiceID = @ServiceID
+                ${scope === 'own' ? `AND EXISTS (SELECT 1 FROM ServiceRegistration sr JOIN Contract c ON c.ContractID=sr.ContractID WHERE sr.ServiceID=s.ServiceID AND ${contractOwnershipSql()})` : ''}
             `);
 
         if (!result.recordset[0]) {
@@ -338,145 +346,21 @@ exports.getServiceCategories = async (req, res) => {
     }
 };
 
-exports.registerService = async (req, res) => {
-    try {
-        const { 
-            contractId,
-            serviceId,
-            quantity,
-            endDate
-        } = req.body;
-
-        if (!contractId || !serviceId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Contract ID and Service ID are required'
-            });
-        }
-
-        const pool = await getPool();
-        const activeContract = await pool.request()
-            .input('ContractID', sql.Int, contractId)
-            .query(`
-                SELECT TOP 1 c.ContractID
-                FROM Contract c
-                WHERE c.ContractID = @ContractID
-                  AND c.StatusID IN (2, 5)
-                  AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
-                  AND EXISTS (
-                      SELECT 1
-                      FROM ContractResident cr
-                      WHERE cr.ContractID = c.ContractID
-                        AND cr.MoveOutDate IS NULL
-                  )
-            `);
-
-        if (!activeContract.recordset[0]) {
-            return res.status(400).json({
-                success: false,
-                message: 'Chỉ được đăng ký dịch vụ cho căn hộ đang ở và hợp đồng còn hiệu lực'
-            });
-        }
-
-        // Check if already registered
-        const checkResult = await pool.request()
-            .input('ContractID', sql.Int, contractId)
-            .input('ServiceID', sql.Int, serviceId)
-            .query(`
-                SELECT RegistrationID 
-                FROM ServiceRegistration 
-                WHERE ContractID = @ContractID 
-                    AND ServiceID = @ServiceID 
-                    AND Status = 1
-            `);
-
-        if (checkResult.recordset[0]) {
-            return res.status(400).json({
-                success: false,
-                message: 'Service already registered for this contract'
-            });
-        }
-
-        const result = await pool.request()
-            .input('ContractID', sql.Int, contractId)
-            .input('ServiceID', sql.Int, serviceId)
-            .input('Quantity', sql.Int, quantity || 1)
-            .input('EndDate', sql.Date, endDate || null)
-            .query(`
-                INSERT INTO ServiceRegistration (
-                    ContractID, ServiceID, RegisterDate, EndDate, Quantity, Status
-                )
-                OUTPUT INSERTED.RegistrationID
-                VALUES (
-                    @ContractID, @ServiceID, GETDATE(), @EndDate, @Quantity, 1
-                )
-            `);
-
-        const registrationId = result.recordset[0].RegistrationID;
-
-        res.status(201).json({
-            success: true,
-            message: 'Service registered successfully',
-            data: { registrationId }
-        });
-
-    } catch (error) {
-        console.error('Register service error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to register service',
-            error: error.message
-        });
-    }
-};
-
-exports.unregisterService = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const pool = await getPool();
-
-        const result = await pool.request()
-            .input('RegistrationID', sql.Int, id)
-            .query(`
-                UPDATE ServiceRegistration 
-                SET Status = 0, EndDate = GETDATE()
-                WHERE RegistrationID = @RegistrationID
-            `);
-
-        if (result.rowsAffected[0] === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Service registration not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            message: 'Service unregistered successfully'
-        });
-
-    } catch (error) {
-        console.error('Unregister service error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to unregister service',
-            error: error.message
-        });
-    }
-};
-
 exports.getGymMembers = async (req, res) => {
     try {
         const { search = '', page = 1, limit = 999 } = req.query;
         const pool = await getPool();
+        const { scope, residentId } = await resolveScope(req, pool, 'SERVICE');
         const offset = (Math.max(parseInt(page) || 1, 1) - 1) * Math.min(Math.max(parseInt(limit) || 999, 1), 999);
         const pageSize = Math.min(Math.max(parseInt(limit) || 999, 1), 999);
         const request = pool.request()
+            .input('CurrentResidentID', sql.Int, residentId)
             .input('Search', sql.NVarChar, `%${search}%`)
             .input('Offset', sql.Int, offset)
             .input('Limit', sql.Int, pageSize);
         const where = `
             WHERE LOWER(s.ServiceName) LIKE '%gym%'
+              ${scope === 'own' ? `AND ${contractOwnershipSql()}` : ''}
               AND (@Search = '%%' OR r.FullName LIKE @Search OR r.Phone LIKE @Search OR r.Email LIKE @Search)
         `;
         const countResult = await request.query(`
@@ -490,7 +374,7 @@ exports.getGymMembers = async (req, res) => {
         const result = await request.query(`
             SELECT sr.RegistrationID, sr.ContractID, sr.RegisterDate AS StartDate, sr.EndDate,
                    sr.Quantity AS TotalCheckIns, sr.Status AS RegistrationStatus,
-                   r.ResidentID, r.FullName, r.Phone, r.Email, a.ApartmentCode,
+                   r.ResidentID, r.FullName, ${scope === 'own' ? 'NULL' : 'r.Phone'} AS Phone, ${scope === 'own' ? 'NULL' : 'r.Email'} AS Email, a.ApartmentCode,
                    CAST(0 AS INT) AS CheckIns
             FROM ServiceRegistration sr
             JOIN Service s ON s.ServiceID = sr.ServiceID
@@ -554,11 +438,13 @@ async function getSpecialServiceMembers(req, res, servicePattern) {
         const { search = '', page = 1, limit = 999 } = req.query;
         const pageSize = Math.min(Math.max(parseInt(limit) || 999, 1), 999);
         const offset = (Math.max(parseInt(page) || 1, 1) - 1) * pageSize;
-        const request = (await getPool()).request().input('Search', sql.NVarChar, `%${search}%`).input('Offset', sql.Int, offset).input('Limit', sql.Int, pageSize);
-        const where = `WHERE LOWER(s.ServiceName) LIKE @ServicePattern AND (@Search = '%%' OR r.FullName LIKE @Search OR r.Phone LIKE @Search OR r.Email LIKE @Search)`;
+        const pool = await getPool();
+        const { scope, residentId } = await resolveScope(req, pool, 'SERVICE');
+        const request = pool.request().input('CurrentResidentID', sql.Int, residentId).input('Search', sql.NVarChar, `%${search}%`).input('Offset', sql.Int, offset).input('Limit', sql.Int, pageSize);
+        const where = `WHERE LOWER(s.ServiceName) LIKE @ServicePattern ${scope === 'own' ? `AND ${contractOwnershipSql()}` : ''} AND (@Search = '%%' OR r.FullName LIKE @Search OR r.Phone LIKE @Search OR r.Email LIKE @Search)`;
         request.input('ServicePattern', sql.NVarChar, servicePattern);
         const count = await request.query(`SELECT COUNT(*) AS total FROM ServiceRegistration sr JOIN Service s ON s.ServiceID = sr.ServiceID JOIN Contract c ON c.ContractID = sr.ContractID JOIN Resident r ON r.ResidentID = c.OwnerID ${where}`);
-        const result = await request.query(`SELECT sr.RegistrationID, sr.RegisterDate AS StartDate, sr.EndDate, sr.Quantity AS TotalVisits, sr.Status AS RegistrationStatus, r.FullName, r.Phone, r.Email, a.ApartmentCode, CAST(0 AS INT) AS Visits FROM ServiceRegistration sr JOIN Service s ON s.ServiceID = sr.ServiceID JOIN Contract c ON c.ContractID = sr.ContractID JOIN Resident r ON r.ResidentID = c.OwnerID LEFT JOIN Apartment a ON a.ApartmentID = c.ApartmentID ${where} ORDER BY sr.RegisterDate DESC, sr.RegistrationID DESC OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY`);
+        const result = await request.query(`SELECT sr.RegistrationID, sr.RegisterDate AS StartDate, sr.EndDate, sr.Quantity AS TotalVisits, sr.Status AS RegistrationStatus, r.FullName, ${scope === 'own' ? 'NULL' : 'r.Phone'} AS Phone, ${scope === 'own' ? 'NULL' : 'r.Email'} AS Email, a.ApartmentCode, CAST(0 AS INT) AS Visits FROM ServiceRegistration sr JOIN Service s ON s.ServiceID = sr.ServiceID JOIN Contract c ON c.ContractID = sr.ContractID JOIN Resident r ON r.ResidentID = c.OwnerID LEFT JOIN Apartment a ON a.ApartmentID = c.ApartmentID ${where} ORDER BY sr.RegisterDate DESC, sr.RegistrationID DESC OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY`);
         res.json({ success: true, data: result.recordset, pagination: { total: count.recordset[0].total, page: parseInt(page), limit: pageSize } });
     } catch (error) { console.error('Get special-service members error:', error); res.status(500).json({ success: false, message: 'Failed to fetch service members' }); }
 }

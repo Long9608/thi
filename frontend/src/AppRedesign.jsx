@@ -1,3 +1,4 @@
+import MyApartments from './components/MyApartments';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -46,7 +47,6 @@ import ParkingHistory from './pages/ParkingHistory';
 import ParkingSlotManagement from './pages/ParkingSlotManagement';
 import PoolManagement from './pages/PoolManagement';
 import Profile from './pages/Profile';
-import QuickReport from './pages/QuickReport';
 import RevenueReport from './pages/RevenueReport';
 import ScheduleNotification from './pages/ScheduleNotification';
 import SendNotification from './pages/SendNotification';
@@ -57,12 +57,14 @@ import VehicleManagement from './pages/VehicleManagement';
 import WifiManagement from './pages/WifiManagement';
 
 import CondoShell from './redesign/CondoShell';
-import DashboardOverview from './redesign/DashboardOverview';
+import RoleDashboard from './redesign/RoleDashboard';
 import SystemLogPanel from './redesign/SystemLogPanel';
 import {
   findNavigationItem,
   firstAccessiblePage,
+  itemIsAccessible,
 } from './redesign/navigation';
+import { usePermissions } from './permissions';
 
 function normalizeUser(raw = {}, permissions = []) {
   const roleCodes = Array.isArray(raw.roleCodes)
@@ -78,8 +80,9 @@ function normalizeUser(raw = {}, permissions = []) {
 
   return {
     ...raw,
-    name: raw.employee?.fullName
-      || raw.resident?.fullName
+    userId: raw.userId ?? raw.id ?? raw.UserID,
+    name: raw.resident?.fullName
+      || raw.employee?.fullName
       || raw.name
       || raw.username
       || 'Người dùng',
@@ -262,12 +265,18 @@ function LoginPage({ onSuccess }) {
   );
 }
 
-function PageContent({ activePage, canAccess, flash, onNavigate, user }) {
+function PageContent({
+  activePage,
+  canAccess,
+  canAny,
+  flash,
+  onNavigate,
+  user
+}) {
   switch (activePage) {
-    case 'dashboard': return <DashboardOverview canAccess={canAccess} flash={flash} onNavigate={onNavigate} user={user} />;
-    case 'quick-report': return <QuickReport flash={flash} />;
+    case 'dashboard': return <RoleDashboard canAccess={canAccess} canAny={canAny} onNavigate={onNavigate} user={user} />;
     case 'residents': return <ResidentManagement flash={flash} />;
-    case 'buildings': return <ApartmentBuildingWorkspace flash={flash} />;
+    case 'buildings': return canAccess('APARTMENT_VIEW_ALL') && !(user?.roleCodes || []).includes('RESIDENT') ? <ApartmentBuildingWorkspace flash={flash} /> : <MyApartments onNavigate={onNavigate} />;
     case 'contract-list': return <ContractList flash={flash} />;
     case 'fees': return <Fees flash={flash} />;
     case 'vehicles': return <VehicleManagement flash={flash} />;
@@ -278,7 +287,7 @@ function PageContent({ activePage, canAccess, flash, onNavigate, user }) {
     case 'pool': return <PoolManagement flash={flash} />;
     case 'wifi': return <WifiManagement flash={flash} />;
     case 'tickets': return <TicketManagement flash={flash} />;
-    case 'maintenance': return <MaintenanceManagement flash={flash} />;
+    case 'maintenance': return <TicketManagement flash={flash} />;
     case 'feedbacks': return <FeedbackManagement flash={flash} />;
     case 'maintenance-schedule': return <MaintenanceSchedule flash={flash} />;
     case 'equipment': return <EquipmentManagement flash={flash} />;
@@ -319,15 +328,11 @@ export default function AppRedesign() {
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [toast, setToast] = useState('');
 
-  const permissions = useMemo(() => user?.permissions || [], [user]);
-  const isAdmin = useMemo(() => user?.roleCodes?.includes('ADMIN'), [user]);
-
-  const canAccess = useCallback((permission) => {
-    if (!user) return false;
-    if (isAdmin) return true;
-    if (!permission) return false;
-    return permissions.includes(permission);
-  }, [isAdmin, permissions, user]);
+  const { can, canAny } = usePermissions(user);
+  const audience = useMemo(() => {
+    return (user?.roleCodes || []).some(role => String(role).toUpperCase() === 'RESIDENT') ? 'resident' : 'staff';
+  }, [user]);
+  const canAccess = useCallback((permission) => can(permission), [can]);
 
   const flash = useCallback((message) => {
     if (!message) return;
@@ -380,13 +385,13 @@ export default function AppRedesign() {
     }
 
     const currentItem = findNavigationItem(activePage);
-    if (!currentItem || !canAccess(currentItem.permission)) {
-      setActivePage(firstAccessiblePage(canAccess));
+    if (!currentItem || !itemIsAccessible(currentItem, canAccess, audience)) {
+      setActivePage(firstAccessiblePage(canAccess, audience));
     }
-  }, [activePage, canAccess, user]);
+  }, [activePage, audience, canAccess, user]);
 
   const loadNotificationCount = useCallback(async () => {
-    if (!canAccess('NOTIFICATION_VIEW')) {
+    if (!canAny(['NOTIFICATION_VIEW_ALL', 'NOTIFICATION_VIEW_OWN'])) {
       setNotificationCount(0);
       return;
     }
@@ -400,17 +405,19 @@ export default function AppRedesign() {
 
   useEffect(() => {
     if (user) loadNotificationCount();
+    const timer = window.setInterval(() => { if (user) loadNotificationCount(); }, 20000);
+    return () => window.clearInterval(timer);
   }, [loadNotificationCount, user]);
 
   const navigate = useCallback((pageId) => {
     const item = findNavigationItem(pageId);
-    if (!item || !canAccess(item.permission)) {
+    if (!item || !itemIsAccessible(item, canAccess, audience)) {
       flash('Bạn không có quyền truy cập chức năng này.');
       return;
     }
     setActivePage(pageId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [canAccess, flash]);
+  }, [canAccess, flash, audience]);
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
@@ -445,6 +452,7 @@ export default function AppRedesign() {
       <CondoShell
         activePage={activePage}
         canAccess={canAccess}
+        audience={audience}
         notificationCount={notificationCount}
         onLogout={logout}
         onNavigate={navigate}
@@ -455,6 +463,7 @@ export default function AppRedesign() {
           <PageContent
             activePage={activePage}
             canAccess={canAccess}
+            canAny={canAny}
             flash={flash}
             onNavigate={navigate}
             user={user}

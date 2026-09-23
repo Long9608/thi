@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   Info, Server, Database, Clock,
   RefreshCw, Activity, BarChart3,
-  PieChart, Bell
+  PieChart, Bell, Building2, Users, FileText, CreditCard, Wrench, AlertCircle, Car, CheckCircle2, Shield
 } from 'lucide-react';
 import { Card, Button, Badge, StatCard } from '../components/UI';
 import { formatDate } from '../utils/formatters';
@@ -14,6 +14,7 @@ export default function SystemInfo({ flash }) {
   const [loading, setLoading] = useState(true);
   const [systemInfo, setSystemInfo] = useState(null);
   const [stats, setStats] = useState(null);
+  const [error,setError] = useState('');
 
   useEffect(() => {
     fetchSystemInfo();
@@ -22,9 +23,17 @@ export default function SystemInfo({ flash }) {
   const fetchSystemInfo = async () => {
     try {
       setLoading(true);
+      setError('');
 
       const response = await userAPI.getSystemInfo();
-      const data = response?.data || response;
+      const raw = response?.data || {};
+      const data = { ...raw.stats, systemName:raw.system?.name, version:raw.system?.version,build:raw.system?.build,
+        environment:raw.system?.environment,nodeVersion:raw.system?.nodeVersion,expressVersion:raw.system?.expressVersion,
+        operatingSystem:raw.system?.operatingSystem,serverUptime:`${Math.floor((raw.system?.uptime || 0)/60)} phút`,
+        databaseVersion:raw.database?.version,databaseName:raw.database?.name,databaseSize:raw.database?.size,tableCount:raw.database?.tables,recordCount:raw.database?.records,
+        apartmentsCount:raw.features?.apartments,residentsCount:raw.features?.residents,contractsCount:raw.features?.contracts,invoicesCount:raw.features?.invoices,
+        servicesCount:raw.features?.services,ticketsCount:raw.features?.tickets,vehiclesCount:raw.features?.vehicles,notificationsCount:raw.features?.notifications,
+        databaseStatus:raw.status?.database,apiStatus:raw.status?.api,storageStatus:raw.status?.storage,cacheStatus:raw.status?.cache };
 
       setSystemInfo({
         name: data.systemName || 'Hệ thống quản lý',
@@ -71,11 +80,12 @@ export default function SystemInfo({ flash }) {
         totalModules: data.totalModules || 0,
         activeModules: data.activeModules || 0,
         totalPermissions: data.totalPermissions || 0,
-        apiCalls: data.apiCalls || 0,
-        errors: data.errors || 0,
+        apiCalls: data.apiCalls ?? 'Chưa đo',
+        errors: data.errors ?? 'Chưa đo',
         responseTime: data.responseTime || 'N/A'
       });
     } catch (error) {
+      setError(error.message || 'Không thể tải thông tin hệ thống');
       console.error('Error fetching system info:', error);
       if (flash) flash('❌ Không thể tải thông tin hệ thống');
     } finally {
@@ -107,6 +117,7 @@ export default function SystemInfo({ flash }) {
     );
   }
 
+  if(error) return <Card className="space-y-3 p-6"><p role="alert" className="text-red-600">{error}</p><Button onClick={fetchSystemInfo}>Thử lại</Button></Card>;
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -304,7 +315,7 @@ export default function SystemInfo({ flash }) {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">Trạng thái</span>
-              <Badge tone="green">Bình thường</Badge>
+              <Badge tone="slate">Chưa có lịch hệ thống</Badge>
             </div>
           </div>
         </Card>
@@ -317,7 +328,7 @@ export default function SystemInfo({ flash }) {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-slate-600">SSL/TLS</span>
-              <Badge tone="green">Đã bật</Badge>
+              <Badge tone={window.location.protocol==='https:'?'green':'amber'}>{window.location.protocol==='https:'?'HTTPS':'HTTP nội bộ'}</Badge>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">Xác thực</span>
@@ -329,7 +340,7 @@ export default function SystemInfo({ flash }) {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">Audit Log</span>
-              <Badge tone="green">Đã bật</Badge>
+              <Badge tone="slate">Theo dữ liệu nhật ký</Badge>
             </div>
           </div>
         </Card>

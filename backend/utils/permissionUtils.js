@@ -59,7 +59,7 @@ const derivePermissions = (permissions = []) => {
 
   normalized.forEach((code) => {
     if (MENU_TO_PERMISSION_MAP[code]) {
-      MENU_TO_PERMISSION_MAP[code].forEach((mapped) => derived.add(mapped));
+      MENU_TO_PERMISSION_MAP[code].filter(mapped => mapped.endsWith('_VIEW')).forEach(mapped => derived.add(mapped));
     }
 
     if (code.endsWith('_VIEW')) {

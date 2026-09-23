@@ -1,3 +1,4 @@
+import { PermissionGate } from '../permissions';
 // src/pages/VehicleManagement.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -141,7 +142,8 @@ vehicles.forEach(v => {
 
   const fetchResidents = useCallback(async () => {
     try {
-      const res = await residentAPI.getAll('', 1, 999);
+      const permissions=JSON.parse(localStorage.getItem('user') || '{}').permissions || [];
+      const res = permissions.some(p=>['RESIDENT_VIEW_ALL','RESIDENT_VIEW_OWN'].includes(p)) ? await residentAPI.getAll('', 1, 999) : await vehicleAPI.getEligibleResidents();
       const data = res?.data || res || [];
       setResidents(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -161,7 +163,7 @@ vehicles.forEach(v => {
 
   useEffect(() => {
     fetchVehicles();
-    fetchResidents();
+    if ((JSON.parse(localStorage.getItem('user') || '{}').permissions || []).some(p => ['RESIDENT_VIEW_ALL','RESIDENT_VIEW_OWN','VEHICLE_CREATE'].includes(p))) fetchResidents();
     fetchVehicleTypes();
   }, [fetchVehicles, fetchResidents, fetchVehicleTypes]);
 
@@ -404,9 +406,9 @@ const getCardStatusBadge = (vehicle) => {
               <option value="1">Hoạt động</option>
               <option value="0">Không hoạt động</option>
             </select>
-            <Button onClick={openCreateModal}>
+            <PermissionGate permission="VEHICLE_CREATE"><Button onClick={openCreateModal}>
               <Plus size={16} /> Đăng ký xe
-            </Button>
+            </Button></PermissionGate>
             <Button variant="secondary" onClick={fetchVehicles} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
@@ -428,9 +430,9 @@ const getCardStatusBadge = (vehicle) => {
           <Car size={48} className="text-slate-300 mx-auto" />
           <h3 className="mt-3 text-xl font-bold text-slate-900">Chưa có xe</h3>
           <p className="text-sm text-slate-500">Nhấn "Đăng ký xe" để thêm mới</p>
-          <Button className="mt-4" onClick={openCreateModal}>
+          <PermissionGate permission="VEHICLE_CREATE"><Button className="mt-4" onClick={openCreateModal}>
             <Plus size={16} /> Đăng ký xe
-          </Button>
+          </Button></PermissionGate>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -488,20 +490,20 @@ const getCardStatusBadge = (vehicle) => {
                     <Button variant="secondary" className="flex-1" onClick={() => openViewModal(vehicle)}>
                       <Eye size={14} /> Xem
                     </Button>
-                    <Button variant="secondary" className="flex-1" onClick={() => openEditModal(vehicle)}>
+                    <PermissionGate permission="VEHICLE_UPDATE"><Button variant="secondary" className="flex-1" onClick={() => openEditModal(vehicle)}>
                       <Edit size={14} /> Sửa
-                    </Button>
-                    <Button 
+                    </Button></PermissionGate>
+                    <PermissionGate permission="VEHICLE_UPDATE"><Button 
   variant={isBitOn(vehicle.Status) ? 'warning' : 'success'} 
   className="flex-1" 
   onClick={() => handleToggleStatus(vehicle)}
 >
   {isBitOn(vehicle.Status) ? <Lock size={14} /> : <Key size={14} />}
   {isBitOn(vehicle.Status) ? 'Vô hiệu' : 'Kích hoạt'}
-</Button>
-                    <Button variant="danger" className="flex-1" onClick={() => handleDelete(vehicle.VehicleID)}>
+</Button></PermissionGate>
+                    <PermissionGate permission="VEHICLE_DELETE"><Button variant="danger" className="flex-1" onClick={() => handleDelete(vehicle.VehicleID)}>
                       <Trash2 size={14} />
-                    </Button>
+                    </Button></PermissionGate>
                   </div>
                 </div>
               </Card>
@@ -585,13 +587,13 @@ const getCardStatusBadge = (vehicle) => {
 
             <div className="flex justify-end gap-2">
               {isBitOn(selectedVehicle.Status) ? (
-                <Button variant="warning" onClick={() => handleToggleStatus(selectedVehicle)}>
+                <PermissionGate permission="VEHICLE_UPDATE"><Button variant="warning" onClick={() => handleToggleStatus(selectedVehicle)}>
                   <Lock size={16} /> Vô hiệu hóa
-                </Button>
+                </Button></PermissionGate>
               ) : (
-                <Button variant="success" onClick={() => handleToggleStatus(selectedVehicle)}>
+                <PermissionGate permission="VEHICLE_UPDATE"><Button variant="success" onClick={() => handleToggleStatus(selectedVehicle)}>
                   <Key size={16} /> Kích hoạt
-                </Button>
+                </Button></PermissionGate>
               )}
               <Button variant="secondary" onClick={() => setModalOpen(false)}>Đóng</Button>
             </div>

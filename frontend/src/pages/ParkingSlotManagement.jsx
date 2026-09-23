@@ -1,3 +1,4 @@
+import { PermissionGate } from '../permissions';
 // src/pages/ParkingSlotManagement.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -64,7 +65,7 @@ const [form, setForm] = useState({
 
   const fetchAreas = useCallback(async () => {
     try {
-      const res = await apartmentAPI.getAreas();
+      const res = await vehicleAPI.getParkingAreas();
       const data = res?.data || res || [];
       setAreas(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -299,9 +300,9 @@ const getStatusBadge = (slot) => {
               <option value="0">Còn trống</option>
               <option value="1">Đã có xe</option>
             </select>
-            <Button onClick={openCreateModal}>
+            <PermissionGate permission="PARKING_SLOT_MANAGE"><Button onClick={openCreateModal}>
               <Plus size={16} /> Thêm vị trí
-            </Button>
+            </Button></PermissionGate>
             <Button variant="secondary" onClick={fetchSlots} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
@@ -329,9 +330,9 @@ const getStatusBadge = (slot) => {
           <Home size={48} className="text-slate-300 mx-auto" />
           <h3 className="mt-3 text-xl font-bold text-slate-900">Chưa có vị trí đỗ</h3>
           <p className="text-sm text-slate-500">Nhấn "Thêm vị trí" để tạo mới</p>
-          <Button className="mt-4" onClick={openCreateModal}>
+          <PermissionGate permission="PARKING_SLOT_MANAGE"><Button className="mt-4" onClick={openCreateModal}>
             <Plus size={16} /> Thêm vị trí
-          </Button>
+          </Button></PermissionGate>
         </Card>
       ) : (
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
@@ -429,7 +430,7 @@ const getStatusBadge = (slot) => {
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => {
+              <PermissionGate permission="PARKING_SLOT_MANAGE"><Button variant="secondary" onClick={() => {
                 setModalMode('edit');
                 setForm({
                   areaId: selectedSlot.AreaID || '',
@@ -440,13 +441,13 @@ const getStatusBadge = (slot) => {
                 setSelectedSlot(selectedSlot);
               }}>
                 <Edit size={16} /> Sửa
-              </Button>
-              <Button variant="danger" onClick={() => {
+              </Button></PermissionGate>
+              <PermissionGate permission="PARKING_SLOT_MANAGE"><Button variant="danger" onClick={() => {
                 setModalOpen(false);
                 handleDeleteSlot(selectedSlot.SlotID);
               }}>
                 <Trash2 size={16} /> Xóa
-              </Button>
+              </Button></PermissionGate>
               <Button variant="secondary" onClick={() => setModalOpen(false)}>Đóng</Button>
             </div>
           </div>

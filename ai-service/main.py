@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Depends
+from auth import require_permissions
 from pydantic import BaseModel
 from app.services.chat_service import chat_with_ai
 from app.services.search_service import search_all
@@ -49,39 +50,39 @@ def health():
     }
 
 
-@app.get("/health/database")
+@app.get("/health/database", dependencies=[Depends(require_permissions('SYSTEM_SETTING'))])
 def health_database():
     return test_connection()
 
-@app.get("/ai/statistics/overview")
+@app.get("/ai/statistics/overview", dependencies=[Depends(require_permissions('AI_STATISTIC', 'RESIDENT_VIEW_ALL', 'APARTMENT_VIEW_ALL', 'CONTRACT_VIEW_ALL', 'VEHICLE_VIEW_ALL', 'INVOICE_VIEW_ALL'))])
 def ai_statistics_overview():
     return get_overview_statistics()
 
 
-@app.get("/ai/statistics/billing-trend")
+@app.get("/ai/statistics/billing-trend", dependencies=[Depends(require_permissions('AI_STATISTIC', 'INVOICE_VIEW_ALL'))])
 def ai_statistics_billing_trend():
     return get_monthly_billing_trend()
 
-@app.get("/ai/statistics/insight")
+@app.get("/ai/statistics/insight", dependencies=[Depends(require_permissions('AI_STATISTIC', 'INVOICE_VIEW_ALL'))])
 def ai_statistics_insight():
     return get_billing_insight()
 
-@app.get("/ai/statistics/dashboard")
+@app.get("/ai/statistics/dashboard", dependencies=[Depends(require_permissions('AI_STATISTIC', 'RESIDENT_VIEW_ALL', 'APARTMENT_VIEW_ALL', 'CONTRACT_VIEW_ALL', 'VEHICLE_VIEW_ALL', 'INVOICE_VIEW_ALL'))])
 def ai_statistics_dashboard():
     return get_statistics_dashboard()
 
-@app.get("/ai/search")
+@app.get("/ai/search", dependencies=[Depends(require_permissions('AI_SEARCH', 'RESIDENT_VIEW_ALL', 'APARTMENT_VIEW_ALL', 'CONTRACT_VIEW_ALL', 'VEHICLE_VIEW_ALL', 'INVOICE_VIEW_ALL'))])
 def ai_search(q: str = Query(..., min_length=1)):
     return search_all(q)
 
-@app.post("/ai/chat")
+@app.post("/ai/chat", dependencies=[Depends(require_permissions('AI_CHAT', 'RESIDENT_VIEW_ALL', 'APARTMENT_VIEW_ALL', 'CONTRACT_VIEW_ALL', 'VEHICLE_VIEW_ALL', 'INVOICE_VIEW_ALL'))])
 def ai_chat(request: ChatRequest):
     return chat_with_ai(request.message)
 
-@app.get("/ai/prediction/readiness")
+@app.get("/ai/prediction/readiness", dependencies=[Depends(require_permissions('AI_PREDICT', 'CONTRACT_VIEW_ALL'))])
 def ai_prediction_readiness():
     return get_prediction_readiness()
 
-@app.get("/ai/prediction/dashboard")
+@app.get("/ai/prediction/dashboard", dependencies=[Depends(require_permissions('AI_PREDICT', 'CONTRACT_VIEW_ALL', 'INVOICE_VIEW_ALL', 'RESIDENT_VIEW_ALL'))])
 def ai_prediction_dashboard():
     return get_prediction_dashboard()

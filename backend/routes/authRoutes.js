@@ -8,7 +8,7 @@ const express = require('express');
 const router = express.Router();
 const { getPool, sql } = require('../config/db');
 const jwt = require('jsonwebtoken');
-const { authMiddleware } = require('../middlewares/auth');
+const { authMiddleware, checkPermission } = require('../middlewares/auth');
 const { derivePermissions } = require('../utils/permissionUtils');
 
 // ============================================
@@ -45,7 +45,7 @@ router.post('/login', async (req, res) => {
                     STRING_AGG(r.RoleName, ',') AS RoleNames
                 FROM Users u
                 LEFT JOIN UserRole ur ON u.UserID = ur.UserID
-                LEFT JOIN Role r ON ur.RoleID = r.RoleID
+                LEFT JOIN Role r ON ur.RoleID = r.RoleID AND r.Status=1
                 WHERE u.Username = @Username OR u.Email = @Username
                 GROUP BY u.UserID, u.Username, u.PasswordHash, u.Email, u.Phone, u.Status, u.LastLogin, u.CreatedAt
             `);
@@ -72,7 +72,7 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        if (user.Status === 0) {
+        if (!user.Status) {
             return res.status(403).json({
                 success: false,
                 message: 'Account is disabled'
@@ -102,9 +102,12 @@ router.post('/login', async (req, res) => {
             .input('UserID', sql.Int, user.UserID)
             .query('UPDATE Users SET LastLogin = GETDATE() WHERE UserID = @UserID');
 
-        const JWT_SECRET = process.env.JWT_SECRET || "ApartmentManagementSecret123456789";
+        const JWT_SECRET = process.env.JWT_SECRET;
+        if (!JWT_SECRET) {
+            return res.status(500).json({ success: false, message: 'Server authentication is not configured' });
+        }
         const token = jwt.sign(
-            { 
+            {
                 userId: user.UserID,
                 username: user.Username,
                 roles: user.RoleCodes ? user.RoleCodes.split(',') : []
@@ -142,10 +145,11 @@ router.post('/login', async (req, res) => {
                     m.SortOrder
                 FROM Users u
                 JOIN UserRole ur ON u.UserID = ur.UserID
+                JOIN Role activeRole ON activeRole.RoleID=ur.RoleID AND activeRole.Status=1
                 JOIN RolePermission rp ON ur.RoleID = rp.RoleID
                 JOIN Permission p ON rp.PermissionID = p.PermissionID
                 JOIN Module m ON p.ModuleID = m.ModuleID
-                WHERE u.UserID = @UserID AND rp.IsGranted = 1
+                WHERE u.UserID = @UserID AND rp.IsGranted = 1 AND m.Status=1
                 ORDER BY m.SortOrder, p.PermissionCode
             `);
 
@@ -225,7 +229,7 @@ router.get('/me', authMiddleware, async (req, res) => {
                     res.Gender AS ResidentGender
                 FROM Users u
                 LEFT JOIN UserRole ur ON u.UserID = ur.UserID
-                LEFT JOIN Role r ON ur.RoleID = r.RoleID
+                LEFT JOIN Role r ON ur.RoleID = r.RoleID AND r.Status=1
                 LEFT JOIN Employee e ON u.UserID = e.UserID
                 LEFT JOIN Resident res ON u.UserID = res.UserID
                 WHERE u.UserID = @UserID
@@ -254,10 +258,11 @@ router.get('/me', authMiddleware, async (req, res) => {
                     m.SortOrder
                 FROM Users u
                 JOIN UserRole ur ON u.UserID = ur.UserID
+                JOIN Role activeRole ON activeRole.RoleID=ur.RoleID AND activeRole.Status=1
                 JOIN RolePermission rp ON ur.RoleID = rp.RoleID
                 JOIN Permission p ON rp.PermissionID = p.PermissionID
                 JOIN Module m ON p.ModuleID = m.ModuleID
-                WHERE u.UserID = @UserID AND rp.IsGranted = 1
+                WHERE u.UserID = @UserID AND rp.IsGranted = 1 AND m.Status=1
                 ORDER BY m.SortOrder, p.PermissionCode
             `);
 
@@ -326,10 +331,11 @@ router.get('/permissions', authMiddleware, async (req, res) => {
                     m.SortOrder
                 FROM Users u
                 JOIN UserRole ur ON u.UserID = ur.UserID
+                JOIN Role activeRole ON activeRole.RoleID=ur.RoleID AND activeRole.Status=1
                 JOIN RolePermission rp ON ur.RoleID = rp.RoleID
                 JOIN Permission p ON rp.PermissionID = p.PermissionID
                 JOIN Module m ON p.ModuleID = m.ModuleID
-                WHERE u.UserID = @UserID AND rp.IsGranted = 1
+                WHERE u.UserID = @UserID AND rp.IsGranted = 1 AND m.Status=1
                 ORDER BY m.SortOrder, p.PermissionCode
             `);
         
@@ -358,7 +364,7 @@ router.get('/permissions', authMiddleware, async (req, res) => {
 // ============================================
 // ĐỔI MẬT KHẨU
 // ============================================
-router.post('/change-password', authMiddleware, async (req, res) => {
+router.post('/change-password', authMiddleware, checkPermission('PASSWORD_CHANGE'), async (req, res) => {
     try {
         const { oldPassword, newPassword } = req.body;
         
@@ -395,7 +401,7 @@ router.post('/change-password', authMiddleware, async (req, res) => {
         );
 
         if (!passwordCheck.valid) {
-            return res.status(401).json({
+            return res.status(400).json({
                 success: false,
                 message: 'Current password is incorrect'
             });
@@ -436,7 +442,7 @@ router.post('/change-password', authMiddleware, async (req, res) => {
 // ============================================
 // CẬP NHẬT HỒ SƠ (PROFILE)
 // ============================================
-router.put('/profile', authMiddleware, async (req, res) => {
+router.put('/profile', authMiddleware, checkPermission('PROFILE_UPDATE'), async (req, res) => {
     try {
         const { fullName, email, phone, address, birthDate, gender } = req.body;
         const userId = req.userId;

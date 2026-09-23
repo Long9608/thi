@@ -14,8 +14,13 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
-        const JWT_SECRET = process.env.JWT_SECRET || "ApartmentManagementSecret123456789";
-        const decoded = jwt.verify(token, JWT_SECRET);
+        const JWT_SECRET = process.env.JWT_SECRET;
+        if (!JWT_SECRET) {
+            console.error('JWT_SECRET is not configured');
+            return res.status(500).json({ success: false, code: 'SERVER_MISCONFIGURED', message: 'Server authentication is not configured' });
+        }
+        const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+        if (!Number.isInteger(decoded.userId) || decoded.userId <= 0) throw new Error('Invalid subject');
         
         const pool = await getPool();
         
@@ -35,7 +40,7 @@ const authMiddleware = async (req, res, next) => {
                     STRING_AGG(r.RoleName, ',') AS RoleNames
                 FROM Users u
                 LEFT JOIN UserRole ur ON u.UserID = ur.UserID
-                LEFT JOIN Role r ON ur.RoleID = r.RoleID
+                LEFT JOIN Role r ON ur.RoleID = r.RoleID AND r.Status = 1
                 WHERE u.UserID = @UserID AND u.Status = 1
                 GROUP BY u.UserID, u.Username, u.PasswordHash, u.Email, u.Phone, 
                          u.Status, u.LastLogin, u.CreatedAt
@@ -57,10 +62,11 @@ const authMiddleware = async (req, res, next) => {
                     m.SortOrder
                 FROM Users u
                 JOIN UserRole ur ON u.UserID = ur.UserID
+                JOIN Role activeRole ON activeRole.RoleID = ur.RoleID AND activeRole.Status = 1
                 JOIN RolePermission rp ON ur.RoleID = rp.RoleID
                 JOIN Permission p ON rp.PermissionID = p.PermissionID
                 JOIN Module m ON p.ModuleID = m.ModuleID
-                WHERE u.UserID = @UserID AND rp.IsGranted = 1
+                WHERE u.UserID = @UserID AND rp.IsGranted = 1 AND m.Status = 1
                 ORDER BY m.SortOrder, p.PermissionCode
             `);
 
@@ -79,7 +85,7 @@ const authMiddleware = async (req, res, next) => {
             Permissions: permissions,
             ModuleCodes: moduleCodes
         };
-        req.userId = decoded.userId;
+        req.userId = user.UserID;
         
         next();
     } catch (error) {

@@ -1,3 +1,5 @@
+import { createPermissionChecker } from '../permissions';
+import CreateFeedback from '../components/CreateFeedback';
 // src/pages/FeedbackManagement.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -12,6 +14,8 @@ import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, formatDateTime, getInitials, timeAgo } from '../utils/formatters';
 
 export default function FeedbackManagement({ flash }) {
+  const { can, canAny, roleCodes } = createPermissionChecker(JSON.parse(localStorage.getItem('user') || '{}'));
+  const canReply = !roleCodes.includes('RESIDENT') && can('FEEDBACK_VIEW_ALL') && canAny(['FEEDBACK_REPLY','TICKET_UPDATE','MAINTENANCE_UPDATE']);
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -87,9 +91,9 @@ export default function FeedbackManagement({ flash }) {
     if (search) {
       const q = search.toLowerCase();
       filtered = filtered.filter(f =>
-        f.residentName.toLowerCase().includes(q) ||
-        f.title.toLowerCase().includes(q) ||
-        f.content.toLowerCase().includes(q)
+        (f.residentName || '').toLowerCase().includes(q) ||
+        (f.title || '').toLowerCase().includes(q) ||
+        (f.content || '').toLowerCase().includes(q)
       );
     }
 
@@ -173,9 +177,7 @@ export default function FeedbackManagement({ flash }) {
               <option value="2">2 sao</option>
               <option value="1">1 sao</option>
             </select>
-            <Button variant="secondary">
-              <Download size={16} /> Xuất Excel
-            </Button>
+            {roleCodes.includes('RESIDENT') && can('FEEDBACK_CREATE') && <CreateFeedback onCreated={fetchFeedbacks} />}
           </div>
         </div>
       </Card>
@@ -237,7 +239,7 @@ export default function FeedbackManagement({ flash }) {
                   <Button variant="secondary" className="flex-1" onClick={() => openViewModal(feedback)}>
                     <Eye size={14} /> Xem
                   </Button>
-                  {feedback.status === 'pending' && (
+                  {canReply && feedback.status === 'pending' && (
                     <Button className="flex-1" onClick={() => openReplyModal(feedback)}>
                       <Reply size={14} /> Phản hồi
                     </Button>
@@ -289,7 +291,7 @@ export default function FeedbackManagement({ flash }) {
             )}
 
             <div className="flex justify-end gap-2">
-              {selectedFeedback.status === 'pending' && (
+              {canReply && selectedFeedback.status === 'pending' && (
                 <Button onClick={() => {
                   setModalMode('reply');
                   setReplyForm({ reply: selectedFeedback.reply || '' });

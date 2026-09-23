@@ -2,6 +2,37 @@
 // backend/services/parkingService.js
 const { getPool, sql } = require('../config/db');
 
+async function assertVehicleOwnership(pool, vehicleId, userId) {
+  const result = await pool.request()
+    .input('VehicleID', sql.Int, vehicleId)
+    .input('UserID', sql.Int, userId)
+    .query(`
+      SELECT v.VehicleID
+      FROM dbo.Vehicle v
+      JOIN dbo.Resident r ON r.ResidentID = v.ResidentID
+      WHERE v.VehicleID = @VehicleID AND r.UserID = @UserID
+    `);
+  if (!result.recordset[0]) {
+    throw new BusinessError('Vehicle not found', 404);
+  }
+}
+
+async function assertCardOwnership(pool, cardId, userId) {
+  const result = await pool.request()
+    .input('CardID', sql.Int, cardId)
+    .input('UserID', sql.Int, userId)
+    .query(`
+      SELECT pc.CardID
+      FROM dbo.ParkingCard pc
+      JOIN dbo.Vehicle v ON v.VehicleID = pc.VehicleID
+      JOIN dbo.Resident r ON r.ResidentID = v.ResidentID
+      WHERE pc.CardID = @CardID AND r.UserID = @UserID
+    `);
+  if (!result.recordset[0]) {
+    throw new BusinessError('Parking card not found', 404);
+  }
+}
+
 // =============================================
 //  Helper: lỗi nghiệp vụ kèm statusCode
 // =============================================
@@ -225,6 +256,7 @@ exports.createOrActivateCardAndSubscription = async (vehicleId, payload, userId)
   }
 
   const pool = await getPool();
+  if (userId) await assertVehicleOwnership(pool, vId, userId);
   const transaction = new sql.Transaction(pool);
   await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
@@ -513,6 +545,7 @@ exports.updateCardAndSubscription = async (cardId, payload, userId) => {
   }
 
   const pool = await getPool();
+  if (userId) await assertCardOwnership(pool, cId, userId);
   const transaction = new sql.Transaction(pool);
   await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
@@ -701,6 +734,7 @@ exports.endCardAndSubscription = async (cardId, userId) => {
   const cId = validatePositiveInt(cardId, 'cardId');
 
   const pool = await getPool();
+  if (userId) await assertCardOwnership(pool, cId, userId);
   const transaction = new sql.Transaction(pool);
   await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
@@ -781,7 +815,7 @@ exports.endCardAndSubscription = async (cardId, userId) => {
 //  5. Lấy danh sách vị trí đỗ
 // =============================================
 exports.getParkingSlots = async (filters = {}) => {
-  const { areaId, vehicleTypeId, isOccupied } = filters;
+  const { areaId, vehicleTypeId, isOccupied, residentId } = filters;
   const pool = await getPool();
   let query = `
     SELECT
@@ -812,6 +846,11 @@ exports.getParkingSlots = async (filters = {}) => {
     const id = validatePositiveInt(vehicleTypeId, 'vehicleTypeId');
     query += ' AND ps.VehicleTypeID = @VehicleTypeID';
     request.input('VehicleTypeID', sql.Int, id);
+  }
+  if (residentId) {
+    const id = validatePositiveInt(residentId, 'residentId');
+    query += ' AND v.ResidentID = @ResidentID';
+    request.input('ResidentID', sql.Int, id);
   }
   const occVal = validateBitParam(isOccupied, 'isOccupied');
   if (occVal !== undefined) {
@@ -1128,7 +1167,7 @@ exports.recordAccessEvent = async (payload, userId) => {
 //  10. Lấy lịch sử ra/vào
 // =============================================
 exports.getParkingHistory = async (filters = {}) => {
-  const { search, dateFrom, dateTo, eventType, page, limit } = filters;
+  const { search, dateFrom, dateTo, eventType, residentId, page, limit } = filters;
   const { safePage, safeLimit, offset } = normalizePagination(page, limit);
 
   let evtType = null;
@@ -1161,6 +1200,11 @@ exports.getParkingHistory = async (filters = {}) => {
     if (evtType) {
       where += ' AND al.EventType = @EventType';
       req.input('EventType', sql.VarChar, evtType);
+    }
+    if (residentId) {
+      const id = validatePositiveInt(residentId, 'residentId');
+      where += ' AND v.ResidentID = @ResidentID';
+      req.input('ResidentID', sql.Int, id);
     }
     return where;
   };

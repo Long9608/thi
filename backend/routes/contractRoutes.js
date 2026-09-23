@@ -1,3 +1,4 @@
+const { requireScope, requireResourceScope } = require('../utils/accessScope');
 const express = require('express');
 const router = express.Router();
 const contractController = require('../controllers/contractController');
@@ -36,14 +37,14 @@ const upload = multer({
     }
 });
 
-router.get('/', authMiddleware, contractController.getAllContracts);
-router.get('/statuses', authMiddleware, contractController.getContractStatuses);
-router.get('/:id', authMiddleware, contractController.getContractById);
+router.get('/', authMiddleware, requireScope('CONTRACT'), contractController.getAllContracts);
+router.get('/statuses', authMiddleware, requireScope('CONTRACT'), contractController.getContractStatuses);
+router.get('/:id', authMiddleware, requireScope('CONTRACT'), contractController.getContractById);
 
 // Dùng checkPermission
-router.post('/', authMiddleware, checkPermission('CONTRACT_CREATE'), contractController.createContract);
-router.post('/:id/signed-image', authMiddleware, checkPermission('CONTRACT_UPDATE'), upload.single('image'), contractController.uploadSignedContractImage);
-router.put('/:id', authMiddleware, checkPermission('CONTRACT_UPDATE'), contractController.updateContract);
-router.delete('/:id', authMiddleware, checkPermission('CONTRACT_DELETE'), contractController.deleteContract);
+router.post('/', authMiddleware, requireScope('CONTRACT', { allOnly: true }), checkPermission('CONTRACT_CREATE'), contractController.createContract);
+router.post('/:id/signed-image', authMiddleware, requireScope('CONTRACT', { allOnly: true }), checkPermission('CONTRACT_UPDATE'), upload.single('image'), contractController.uploadSignedContractImage);
+router.put('/:id', authMiddleware, requireScope('CONTRACT', { allOnly: true }), checkPermission('CONTRACT_UPDATE'), contractController.updateContract);
+router.delete('/:id', authMiddleware, requireScope('CONTRACT', { allOnly: true }), checkPermission('CONTRACT_DELETE'), contractController.deleteContract);
 
 module.exports = router;

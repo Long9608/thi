@@ -1,4 +1,5 @@
 const { getPool, sql } = require('../config/db');
+const { getAccessScope, getCurrentResidentId, contractOwnershipSql, apartmentOwnershipSql } = require('../utils/accessScope');
 const {
     generateMonthlyInvoice,
     getMonthlyInvoicePreview,
@@ -34,7 +35,7 @@ function normalizeInvoice(row) {
     };
     invoice.PaidAmount = toNumber(invoice.PaidAmount);
     invoice.RemainingAmount = Math.max(0, roundMoney(toNumber(invoice.TotalAmount) - invoice.PaidAmount));
-    invoice.IsPaid = invoice.PaidAmount >= toNumber(invoice.TotalAmount);
+    invoice.IsPaid = invoice.StatusID !== 4 && invoice.WorkflowStatus !== WORKFLOW_DRAFT && invoice.PaidAmount >= toNumber(invoice.TotalAmount);
     invoice.WorkflowStatus = invoice.IsPaid ? WORKFLOW_PAID : (invoice.WorkflowStatus || WORKFLOW_WAITING_PAYMENT);
     invoice.WorkflowStatusName = {
         [WORKFLOW_DRAFT]: 'Nháp',
@@ -43,7 +44,35 @@ function normalizeInvoice(row) {
     }[invoice.WorkflowStatus] || invoice.InvoiceStatus;
     invoice.DisplayStatusID = invoice.IsPaid ? PAID_INVOICE_STATUS_ID : invoice.StatusID;
     invoice.DisplayInvoiceStatus = invoice.WorkflowStatusName;
+    if (invoice.StatusID === 4) invoice.DisplayInvoiceStatus = invoice.WorkflowStatusName = 'Đã hủy';
     return invoice;
+}
+
+async function requireApartmentScope(req, pool, apartmentId) {
+    const accessScope = getAccessScope(req, {
+        viewAll: 'INVOICE_VIEW_ALL',
+        viewOwn: 'INVOICE_VIEW_OWN'
+    });
+    if (accessScope === 'none') {
+        return { error: { status: 403, message: 'Bạn không có quyền xem hóa đơn' } };
+    }
+    if (accessScope === 'all') return { accessScope };
+
+    const residentId = await getCurrentResidentId(pool, req.userId);
+    if (!residentId) {
+        return { error: { status: 403, message: 'Không tìm thấy cư dân hiện tại' } };
+    }
+    const ownership = await pool.request()
+        .input('ApartmentID', sql.Int, apartmentId)
+        .input('CurrentResidentID', sql.Int, residentId)
+        .query(`
+            SELECT TOP 1 1 AS HasAccess
+            FROM Apartment a WHERE a.ApartmentID=@ApartmentID
+              AND ${apartmentOwnershipSql('a.ApartmentID')}
+        `);
+    return ownership.recordset[0] ? { accessScope, residentId } : {
+        error: { status: 404, message: 'Apartment invoice not found' }
+    };
 }
 
 exports.getAllInvoices = async (req, res) => {
@@ -59,6 +88,14 @@ exports.getAllInvoices = async (req, res) => {
         } = req.query;
 
         const pool = await getPool();
+        const accessScope = getAccessScope(req, {
+            viewAll: 'INVOICE_VIEW_ALL',
+            viewOwn: 'INVOICE_VIEW_OWN',
+            legacy: ['INVOICE_VIEW']
+        });
+        if (accessScope === 'none') {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền xem hóa đơn' });
+        }
         const safePage = Math.max(parseInt(page, 10) || 1, 1);
         const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 999);
         const offset = (safePage - 1) * safeLimit;
@@ -70,6 +107,15 @@ exports.getAllInvoices = async (req, res) => {
             request.input(name, type, value);
             countRequest.input(name, type, value);
         };
+
+        if (accessScope === 'own') {
+            const currentResidentId = await getCurrentResidentId(pool, req.userId);
+            if (!currentResidentId) {
+                return res.status(403).json({ success: false, message: 'Không tìm thấy cư dân hiện tại' });
+            }
+            where += ' AND (c.OwnerID = @CurrentResidentID OR EXISTS (SELECT 1 FROM ContractResident cr WHERE cr.ContractID = c.ContractID AND cr.ResidentID = @CurrentResidentID AND (cr.MoveInDate IS NULL OR cr.MoveInDate <= CAST(GETDATE() AS date)) AND (cr.MoveOutDate IS NULL OR cr.MoveOutDate >= CAST(GETDATE() AS date))))';
+            addInput('CurrentResidentID', sql.Int, currentResidentId);
+        }
 
         if (statusId) {
             where += ' AND i.StatusID = @StatusID';
@@ -104,6 +150,7 @@ exports.getAllInvoices = async (req, res) => {
         const result = await request.query(`
             SELECT
                 i.InvoiceID,
+                (SELECT s.SubmittedAt FROM InvoicePaymentSubmission s WHERE s.InvoiceID=i.InvoiceID AND s.ConfirmedAt IS NULL) AS PaymentSubmittedAt,
                 i.ContractID,
                 i.InvoiceMonth,
                 i.InvoiceYear,
@@ -173,8 +220,28 @@ exports.getAllInvoices = async (req, res) => {
 
 exports.getInvoiceById = async (req, res) => {
     try {
-        const result = await (await getPool()).request()
+        const pool = await getPool();
+        const accessScope = getAccessScope(req, {
+            viewAll: 'INVOICE_VIEW_ALL',
+            viewOwn: 'INVOICE_VIEW_OWN',
+            legacy: ['INVOICE_VIEW']
+        });
+        if (accessScope === 'none') {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền xem hóa đơn' });
+        }
+
+        let residentFilter = '';
+        if (accessScope === 'own') {
+            const currentResidentId = await getCurrentResidentId(pool, req.userId);
+            if (!currentResidentId) {
+                return res.status(403).json({ success: false, message: 'Không tìm thấy cư dân hiện tại' });
+            }
+            residentFilter = ` AND (c.OwnerID = @CurrentResidentID OR EXISTS (SELECT 1 FROM ContractResident cr WHERE cr.ContractID = c.ContractID AND cr.ResidentID = @CurrentResidentID AND (cr.MoveInDate IS NULL OR cr.MoveInDate <= CAST(GETDATE() AS date)) AND (cr.MoveOutDate IS NULL OR cr.MoveOutDate >= CAST(GETDATE() AS date))))`;
+        }
+
+        const result = await pool.request()
             .input('InvoiceID', sql.Int, req.params.id)
+            .input('CurrentResidentID', sql.Int, accessScope === 'own' ? await getCurrentResidentId(pool, req.userId) : 0)
             .query(`
                 SELECT
                     i.*,
@@ -216,6 +283,7 @@ exports.getInvoiceById = async (req, res) => {
                     WHERE InvoiceID = i.InvoiceID AND StatusID = ${SUCCESS_PAYMENT_STATUS_ID}
                 ) pay
                 WHERE i.InvoiceID = @InvoiceID
+                  ${residentFilter}
             `);
 
         if (!result.recordset[0]) {
@@ -240,10 +308,13 @@ exports.getApartmentCurrentInvoice = async (req, res) => {
         const year = parseInt(req.query.year, 10) || now.getFullYear();
         const apartmentId = parseInt(req.params.apartmentId, 10);
         const pool = await getPool();
+        const scope = await requireApartmentScope(req, pool, apartmentId);
+        if (scope.error) return res.status(scope.error.status).json({ success: false, message: scope.error.message });
 
-        await ensureDraftInvoiceForApartment(pool, { apartmentId, invoiceMonth: month, invoiceYear: year });
+        if (scope.accessScope === 'all') await ensureDraftInvoiceForApartment(pool, { apartmentId, invoiceMonth: month, invoiceYear: year });
 
         const invoiceResult = await pool.request()
+            .input('CurrentResidentID', sql.Int, scope.residentId || null)
             .input('ApartmentID', sql.Int, apartmentId)
             .input('InvoiceMonth', sql.Int, month)
             .input('InvoiceYear', sql.Int, year)
@@ -292,6 +363,7 @@ exports.getApartmentCurrentInvoice = async (req, res) => {
                     WHERE InvoiceID = i.InvoiceID AND StatusID = ${SUCCESS_PAYMENT_STATUS_ID}
                 ) pay
                 WHERE c.ApartmentID = @ApartmentID
+                  ${scope.accessScope === 'own' ? `AND ${contractOwnershipSql()}` : ''}
                   AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
                   AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
                   AND EXISTS (
@@ -306,6 +378,7 @@ exports.getApartmentCurrentInvoice = async (req, res) => {
             `);
 
         const contractResult = await pool.request()
+            .input('CurrentResidentID', sql.Int, scope.residentId || null)
             .input('ApartmentID', sql.Int, apartmentId)
             .query(`
                 SELECT TOP 1 c.ContractID, c.ContractNumber, c.Rent, c.StartDate, c.EndDate,
@@ -313,6 +386,7 @@ exports.getApartmentCurrentInvoice = async (req, res) => {
                 FROM Contract c
                 JOIN Resident r ON r.ResidentID = c.OwnerID
                 WHERE c.ApartmentID = @ApartmentID
+                  ${scope.accessScope === 'own' ? `AND ${contractOwnershipSql()}` : ''}
                   AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
                   AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
                   AND EXISTS (
@@ -324,7 +398,7 @@ exports.getApartmentCurrentInvoice = async (req, res) => {
                 ORDER BY c.StartDate DESC, c.ContractID DESC
             `);
 
-        const preview = invoiceResult.recordset[0]
+        const preview = scope.accessScope === 'own' || invoiceResult.recordset[0]
             ? null
             : await getMonthlyInvoicePreview(pool, {
                 apartmentId,
@@ -388,12 +462,12 @@ exports.getApartmentCurrentInvoice = async (req, res) => {
     }
 };
 
-exports.payApartmentCurrentInvoice = async (req, res) => {
+exports.payApartmentCurrentInvoice = async (req, res, next) => {
     const now = new Date();
     const month = parseInt(req.body?.invoiceMonth || req.body?.month, 10) || now.getMonth() + 1;
     const year = parseInt(req.body?.invoiceYear || req.body?.year, 10) || now.getFullYear();
     const apartmentId = parseInt(req.params.apartmentId || req.body?.apartmentId, 10);
-    const methodId = parseInt(req.body?.methodId, 10) || 1;
+    const methodId = parseInt(req.body?.methodId, 10);
 
     if (!apartmentId) {
         return res.status(400).json({ success: false, message: 'Apartment ID is required' });
@@ -401,6 +475,8 @@ exports.payApartmentCurrentInvoice = async (req, res) => {
 
     try {
         const pool = await getPool();
+        const scope = await requireApartmentScope(req, pool, apartmentId);
+        if (scope.error) return res.status(scope.error.status).json({ success: false, message: scope.error.message });
         let invoiceId = null;
 
         const existing = await pool.request()
@@ -434,72 +510,9 @@ exports.payApartmentCurrentInvoice = async (req, res) => {
             });
         }
 
-        const transaction = new sql.Transaction(pool);
-        await transaction.begin();
-
-        try {
-            const invoiceCheck = await transaction.request()
-                .input('InvoiceID', sql.Int, invoiceId)
-                .query(`
-                    SELECT TotalAmount, WorkflowStatus
-                    FROM Invoice WITH (UPDLOCK, ROWLOCK)
-                    WHERE InvoiceID = @InvoiceID
-                `);
-
-            const invoice = invoiceCheck.recordset[0];
-            if (!invoice) {
-                await transaction.rollback();
-                return res.status(404).json({ success: false, message: 'Invoice not found' });
-            }
-            if (invoice.WorkflowStatus === WORKFLOW_DRAFT) {
-                await transaction.rollback();
-                return res.status(400).json({ success: false, message: 'Hóa đơn còn nháp, cần nhập điện/nước và chốt trước khi thanh toán' });
-            }
-
-            const paidResult = await transaction.request()
-                .input('InvoiceID', sql.Int, invoiceId)
-                .query(`
-                    SELECT ISNULL(SUM(Amount), 0) AS TotalPaid
-                    FROM Payment
-                    WHERE InvoiceID = @InvoiceID AND StatusID = ${SUCCESS_PAYMENT_STATUS_ID}
-                `);
-
-            const remainingAmount = roundMoney(toNumber(invoice.TotalAmount) - toNumber(paidResult.recordset[0]?.TotalPaid));
-            if (remainingAmount <= 0) {
-                await syncInvoiceStatus(transaction, invoiceId);
-                await transaction.commit();
-                return res.status(400).json({ success: false, message: 'Hoa don da thanh toan' });
-            }
-
-            const inserted = await transaction.request()
-                .input('InvoiceID', sql.Int, invoiceId)
-                .input('MethodID', sql.Int, methodId)
-                .input('Amount', sql.Decimal(18, 2), remainingAmount)
-                .input('TransactionCode', sql.VarChar(100), `AUTO-PAY-${Date.now()}`)
-                .input('StatusID', sql.Int, SUCCESS_PAYMENT_STATUS_ID)
-                .query(`
-                    INSERT INTO Payment (InvoiceID, MethodID, PaymentDate, Amount, TransactionCode, StatusID)
-                    OUTPUT INSERTED.PaymentID
-                    VALUES (@InvoiceID, @MethodID, GETDATE(), @Amount, @TransactionCode, @StatusID)
-                `);
-
-            const status = await syncInvoiceStatus(transaction, invoiceId);
-            await transaction.commit();
-
-            res.status(201).json({
-                success: true,
-                message: 'Apartment invoice paid successfully',
-                data: {
-                    invoiceId,
-                    paymentId: inserted.recordset[0].PaymentID,
-                    amount: remainingAmount,
-                    ...status
-                }
-            });
-        } catch (error) {
-            await transaction.rollback();
-            throw error;
-        }
+        req.params.id = invoiceId;
+        req.body.methodId = methodId;
+        return require('./paymentWorkflowController').confirmPayment(req,res,next);
     } catch (error) {
         console.error('Pay apartment current invoice error:', error);
         res.status(error.statusCode || 500).json({
@@ -516,6 +529,8 @@ exports.updateApartmentCurrentMeterReadings = async (req, res) => {
         const month = parseInt(req.body?.invoiceMonth || req.body?.month, 10) || now.getMonth() + 1;
         const year = parseInt(req.body?.invoiceYear || req.body?.year, 10) || now.getFullYear();
         const pool = await getPool();
+        const scope = await requireApartmentScope(req, pool, apartmentId);
+        if (scope.error) return res.status(scope.error.status).json({ success: false, message: scope.error.message });
 
         await ensureDraftInvoiceForApartment(pool, { apartmentId, invoiceMonth: month, invoiceYear: year });
         await updateManualMeterReadings(pool, {
@@ -549,6 +564,8 @@ exports.finalizeApartmentCurrentInvoice = async (req, res) => {
         const month = parseInt(req.body?.invoiceMonth || req.body?.month, 10) || now.getMonth() + 1;
         const year = parseInt(req.body?.invoiceYear || req.body?.year, 10) || now.getFullYear();
         const pool = await getPool();
+        const scope = await requireApartmentScope(req, pool, apartmentId);
+        if (scope.error) return res.status(scope.error.status).json({ success: false, message: scope.error.message });
 
         const draftId = await ensureDraftInvoiceForApartment(pool, { apartmentId, invoiceMonth: month, invoiceYear: year });
         if (!draftId) {
@@ -637,38 +654,21 @@ exports.generateInvoice = async (req, res) => {
 
 exports.generateMonthlyInvoice = (req, res) => exports.generateInvoice(req, res);
 
-exports.updateInvoiceStatus = async (req, res) => {
-    const requestedStatus = parseInt(req.body?.statusId, 10);
-    if (requestedStatus === PAID_INVOICE_STATUS_ID) {
-        return res.status(400).json({
-            success: false,
-            message: 'Hoa don chi duoc chuyen sang da thanh toan bang Payment thanh cong'
-        });
-    }
-
+exports.updateInvoiceStatus = async (req, res, next) => {
+    const {fail,positiveId,inTransaction}=require('../utils/workflowUtils');
     try {
-        if (!requestedStatus) {
-            return res.status(400).json({ success: false, message: 'Status ID is required' });
-        }
-
-        const result = await (await getPool()).request()
-            .input('InvoiceID', sql.Int, req.params.id)
-            .input('StatusID', sql.Int, requestedStatus)
-            .query('UPDATE Invoice SET StatusID = @StatusID WHERE InvoiceID = @InvoiceID');
-
-        if (result.rowsAffected[0] === 0) {
-            return res.status(404).json({ success: false, message: 'Invoice not found' });
-        }
-
-        res.json({ success: true, message: 'Invoice status updated successfully' });
-    } catch (error) {
-        console.error('Update invoice status error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update invoice status',
-            error: error.message
+        const id=positiveId(req.params.id),status=Number(req.body.statusId);
+        if(![1,3,4].includes(status))fail(400,'Use payment confirmation to mark an invoice paid');
+        await inTransaction(await getPool(),async tx=>{
+            const current=(await tx.request().input('ID',sql.Int,id).query('SELECT StatusID,WorkflowStatus FROM Invoice WITH(UPDLOCK,HOLDLOCK) WHERE InvoiceID=@ID')).recordset[0];
+            if(!current)fail(404,'Invoice not found');
+            const paid=(await tx.request().input('ID',sql.Int,id).query('SELECT 1 FROM Payment WHERE InvoiceID=@ID AND StatusID=2')).recordset.length;
+            if([2,4].includes(current.StatusID)||paid)fail(409,'Cannot change the status of a paid, partially paid or canceled invoice');
+            if(status===3&&current.WorkflowStatus==='DRAFT')fail(409,'Draft invoices cannot be overdue');
+            await tx.request().input('ID',sql.Int,id).input('Status',sql.Int,status).query('UPDATE Invoice SET StatusID=@Status WHERE InvoiceID=@ID');
         });
-    }
+        res.json({success:true,message:'Invoice status updated successfully'});
+    } catch(error){next(error);}
 };
 
 exports.processPayment = async (req, res) => {
@@ -700,7 +700,7 @@ exports.processPayment = async (req, res) => {
             await transaction.rollback();
             return res.status(404).json({ success: false, message: 'Invoice not found' });
         }
-        if (invoice.WorkflowStatus === WORKFLOW_DRAFT) {
+        if (invoice.StatusID === 4 || invoice.WorkflowStatus === WORKFLOW_DRAFT) {
             await transaction.rollback();
             return res.status(400).json({
                 success: false,

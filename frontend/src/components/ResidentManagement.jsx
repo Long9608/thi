@@ -10,6 +10,7 @@ import {
 import { residentAPI, apartmentAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard, EmptyState } from './UI';
 import { formatDate, formatBirthday, getInitials, money } from '../utils/formatters';
+import { PermissionGate } from '../permissions';
 
 export default function ResidentManagement({ flash }) {
   // State
@@ -314,9 +315,11 @@ export default function ResidentManagement({ flash }) {
               placeholder="MM-DD"
               className="w-32"
             />
-            <Button onClick={openCreateModal}>
-              <Plus size={16} /> Thêm cư dân
-            </Button>
+            <PermissionGate permission="RESIDENT_CREATE">
+              <Button onClick={openCreateModal}>
+                <Plus size={16} /> Thêm cư dân
+              </Button>
+            </PermissionGate>
             <Button variant="secondary" onClick={fetchResidents} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
@@ -343,9 +346,11 @@ export default function ResidentManagement({ flash }) {
           <Users size={48} className="text-slate-300 mx-auto" />
           <h3 className="mt-3 text-xl font-bold text-slate-900">Chưa có cư dân</h3>
           <p className="text-sm text-slate-500">Nhấn "Thêm cư dân" để tạo mới</p>
-          <Button className="mt-4" onClick={openCreateModal}>
-            <Plus size={16} /> Thêm cư dân
-          </Button>
+          <PermissionGate permission="RESIDENT_CREATE">
+            <Button className="mt-4" onClick={openCreateModal}>
+              <Plus size={16} /> Thêm cư dân
+            </Button>
+          </PermissionGate>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -400,16 +405,16 @@ export default function ResidentManagement({ flash }) {
                     <Button variant="secondary" className="flex-1" onClick={() => openViewModal(resident)}>
                       <Eye size={14} /> Xem
                     </Button>
-                    <Button variant="secondary" className="flex-1" onClick={() => openEditModal(resident)}>
-                      <Edit size={14} /> Sửa
-                    </Button>
-                    <Button
-                      variant="danger"
-                      className="flex-1"
-                      onClick={() => handleDelete(resident.ResidentID, resident.Status)}
-                    >
-                      <Trash2 size={14} /> {isResidentActive(resident.Status) ? 'Xóa' : 'Xóa vĩnh viễn'}
-                    </Button>
+                    <PermissionGate permission="RESIDENT_UPDATE">
+                      <Button variant="secondary" className="flex-1" onClick={() => openEditModal(resident)}>
+                        <Edit size={14} /> Sửa
+                      </Button>
+                    </PermissionGate>
+                    <PermissionGate permission="RESIDENT_DELETE">
+                      <Button variant="danger" className="flex-1" onClick={() => handleDelete(resident.ResidentID, resident.Status)}>
+                        <Trash2 size={14} /> {isResidentActive(resident.Status) ? 'Xóa' : 'Xóa vĩnh viễn'}
+                      </Button>
+                    </PermissionGate>
                   </div>
                 </div>
               </Card>

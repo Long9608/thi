@@ -1,3 +1,4 @@
+const { getAccessScope } = require('../utils/accessScope');
 const { getPool, sql } = require('../config/db');
 
 exports.getAllNotifications = async (req, res) => {
@@ -10,6 +11,7 @@ exports.getAllNotifications = async (req, res) => {
         } = req.query;
 
         const pool = await getPool();
+        const all = getAccessScope(req, { viewAll: 'NOTIFICATION_VIEW_ALL', viewOwn: 'NOTIFICATION_VIEW_OWN' }) === 'all';
         const offset = (page - 1) * limit;
 
         let query = `
@@ -32,24 +34,24 @@ exports.getAllNotifications = async (req, res) => {
                     WHERE nr2.NotificationID = n.NotificationID
                 ) AS RecipientsCount
             FROM Notification n
+            LEFT JOIN NotificationReceiver nr ON n.NotificationID = nr.NotificationID AND nr.UserID=@UserID
             LEFT JOIN Employee e ON n.SenderID = e.EmployeeID
-            LEFT JOIN NotificationReceiver nr ON n.NotificationID = nr.NotificationID 
-                AND nr.UserID = @UserID
-            WHERE 1=1
+            WHERE ${all ? '1=1' : 'nr.UserID = @UserID'}
         `;
 
         const request = pool.request();
         request.input('UserID', sql.Int, req.userId);
 
         let countQuery = `
-            SELECT COUNT(*) as total 
+            SELECT COUNT(*) as total
             FROM Notification n
-            WHERE 1=1
+            LEFT JOIN NotificationReceiver nr ON n.NotificationID = nr.NotificationID AND nr.UserID=@UserID
+            WHERE ${all ? '1=1' : 'nr.UserID = @UserID'}
         `;
 
         if (targetScope) {
-            query += ` AND n.TargetScope = @TargetScope OR n.TargetScope = 'ALL'`;
-            countQuery += ` AND n.TargetScope = @TargetScope OR n.TargetScope = 'ALL'`;
+            query += ` AND (n.TargetScope = @TargetScope OR n.TargetScope = 'ALL')`;
+            countQuery += ` AND (n.TargetScope = @TargetScope OR n.TargetScope = 'ALL')`;
             request.input('TargetScope', sql.VarChar, targetScope);
         }
 
@@ -97,6 +99,7 @@ exports.getNotificationById = async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await getPool();
+        const all = getAccessScope(req, { viewAll: 'NOTIFICATION_VIEW_ALL', viewOwn: 'NOTIFICATION_VIEW_OWN' }) === 'all';
 
         const result = await pool.request()
             .input('NotificationID', sql.Int, id)
@@ -109,9 +112,10 @@ exports.getNotificationById = async (req, res) => {
                     nr.ReadDate
                 FROM Notification n
                 LEFT JOIN Employee e ON n.SenderID = e.EmployeeID
-                LEFT JOIN NotificationReceiver nr ON n.NotificationID = nr.NotificationID 
+                LEFT JOIN NotificationReceiver nr ON n.NotificationID = nr.NotificationID
                     AND nr.UserID = @UserID
                 WHERE n.NotificationID = @NotificationID
+                  ${all ? '' : 'AND nr.UserID = @UserID'}
             `);
 
         if (!result.recordset[0]) {
@@ -150,100 +154,48 @@ exports.getNotificationById = async (req, res) => {
 };
 
 exports.createNotification = async (req, res) => {
+    const { title, content, targetScope = 'ALL', targetUserIds, targetBuildingIds } = req.body;
+    if (req.body.scheduledDate || req.body.scheduledAt) return res.status(409).json({ success: false, message: 'Chưa có cơ chế lưu lịch gửi. Thông báo chưa được gửi.' });
+    if (!title || !content || !['ALL', 'BUILDING', 'USER'].includes(targetScope)) return res.status(400).json({ success: false, message: 'Tiêu đề, nội dung hoặc đối tượng nhận không hợp lệ' });
+    const ids = targetScope === 'USER' ? targetUserIds : targetScope === 'BUILDING' ? targetBuildingIds : [];
+    if (!Array.isArray(ids) || (targetScope !== 'ALL' && !ids.length) || ids.some(id => !Number.isInteger(Number(id)) || Number(id) <= 0)) return res.status(400).json({ success: false, message: 'Danh sách người nhận không hợp lệ' });
+    let transaction;
     try {
-        const { 
-            title,
-            content,
-            targetScope,
-            targetUserIds,
-            targetBuildingIds
-        } = req.body;
-
-        if (!title || !content) {
-            return res.status(400).json({
-                success: false,
-                message: 'Title and content are required'
-            });
-        }
-
-        const pool = await getPool();
-
-        // Get sender info
-        const employeeResult = await pool.request()
-            .input('UserID', sql.Int, req.userId)
-            .query('SELECT EmployeeID FROM Employee WHERE UserID = @UserID');
-
-        const senderId = employeeResult.recordset[0]?.EmployeeID || null;
-
-        // Create notification
-        const result = await pool.request()
-            .input('SenderID', sql.Int, senderId)
-            .input('Title', sql.NVarChar, title)
-            .input('Content', sql.NVarChar, content)
-            .input('TargetScope', sql.VarChar, targetScope || 'ALL')
-            .query(`
-                INSERT INTO Notification (SenderID, Title, Content, CreatedDate, TargetScope)
-                OUTPUT INSERTED.NotificationID
-                VALUES (@SenderID, @Title, @Content, GETDATE(), @TargetScope)
-            `);
-
-        const notificationId = result.recordset[0].NotificationID;
-
-        // Determine recipients
-        let userList = [];
-
-        if (targetScope === 'ALL') {
-            // Send to all users
-            const usersResult = await pool.request()
-                .query('SELECT UserID FROM Users WHERE Status = 1');
-            userList = usersResult.recordset.map(u => u.UserID);
-        } else if (targetScope === 'BUILDING' && targetBuildingIds) {
-            // Send to residents in specific buildings
-            const buildingIds = targetBuildingIds.join(',');
-            const usersResult = await pool.request()
-                .query(`
-                    SELECT DISTINCT u.UserID 
-                    FROM Users u
-                    INNER JOIN Resident r ON u.UserID = r.UserID
-                    INNER JOIN ContractResident cr ON r.ResidentID = cr.ResidentID
-                    INNER JOIN Contract c ON cr.ContractID = c.ContractID
-                    INNER JOIN Apartment a ON c.ApartmentID = a.ApartmentID
-                    INNER JOIN Floor f ON a.FloorID = f.FloorID
-                    WHERE f.BuildingID IN (${buildingIds}) AND u.Status = 1
-                `);
-            userList = usersResult.recordset.map(u => u.UserID);
-        } else if (targetScope === 'USER' && targetUserIds) {
-            // Send to specific users
-            userList = targetUserIds;
-        }
-
-        // Add notification receivers
-        for (const userId of userList) {
-            await pool.request()
-                .input('NotificationID', sql.Int, notificationId)
-                .input('UserID', sql.Int, userId)
-                .query(`
-                    INSERT INTO NotificationReceiver (NotificationID, UserID, IsRead)
-                    VALUES (@NotificationID, @UserID, 0)
-                `);
-        }
-
-        res.status(201).json({
-            success: true,
-            message: 'Notification created successfully',
-            data: { 
-                notificationId,
-                recipientsCount: userList.length 
-            }
-        });
-
+        transaction = new sql.Transaction(await getPool());
+        await transaction.begin();
+        const request = transaction.request().input('Title', sql.NVarChar, title).input('Content', sql.NVarChar, content)
+            .input('TargetScope', sql.VarChar, targetScope).input('UserID', sql.Int, req.user.UserID)
+            .input('TargetIDs', sql.NVarChar(sql.MAX), JSON.stringify([...new Set(ids.map(Number))]));
+        const result = await request.query(`
+            DECLARE @NotificationID int;
+            INSERT INTO Notification (SenderID, Title, Content, CreatedDate, TargetScope)
+            VALUES ((SELECT TOP 1 EmployeeID FROM Employee WHERE UserID=@UserID AND Status=1), @Title, @Content, GETDATE(), @TargetScope);
+            SET @NotificationID = SCOPE_IDENTITY();
+            INSERT INTO NotificationReceiver (NotificationID, UserID, IsRead)
+            SELECT @NotificationID, u.UserID, 0 FROM Users u
+            WHERE u.Status=1 AND (
+                @TargetScope='ALL'
+                OR (@TargetScope='USER' AND u.UserID IN (SELECT CONVERT(int, value) FROM OPENJSON(@TargetIDs)))
+                OR (@TargetScope='BUILDING' AND EXISTS (
+                    SELECT 1 FROM Resident r
+                    JOIN Contract c ON c.OwnerID=r.ResidentID OR EXISTS (
+                        SELECT 1 FROM ContractResident cr WHERE cr.ContractID=c.ContractID AND cr.ResidentID=r.ResidentID
+                        AND (cr.MoveInDate IS NULL OR cr.MoveInDate<=CAST(GETDATE() AS date))
+                        AND (cr.MoveOutDate IS NULL OR cr.MoveOutDate>=CAST(GETDATE() AS date)))
+                    JOIN Apartment a ON a.ApartmentID=c.ApartmentID JOIN Floor f ON f.FloorID=a.FloorID
+                    WHERE r.UserID=u.UserID AND r.Status=1 AND c.StatusID IN (2,5)
+                      AND CAST(GETDATE() AS date) BETWEEN c.StartDate AND c.EndDate
+                      AND f.BuildingID IN (SELECT CONVERT(int, value) FROM OPENJSON(@TargetIDs))
+                ))
+            );
+            SELECT @NotificationID AS notificationId, COUNT(*) AS recipientsCount FROM NotificationReceiver WHERE NotificationID=@NotificationID;
+        `);
+        await transaction.commit();
+        res.status(201).json({ success: true, message: 'Notification created successfully', data: result.recordset[0] });
     } catch (error) {
+        if (transaction) { try { await transaction.rollback(); } catch {} }
         console.error('Create notification error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to create notification',
-            error: error.message
-        });
+        res.status(500).json({ success: false, message: 'Failed to create notification' });
     }
 };
 

@@ -1,3 +1,4 @@
+import { ProtectedImage, ProtectedFileLink } from '../components/ProtectedFile';
 // src/pages/ContractList.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -10,6 +11,7 @@ import {
 import { contractAPI, apartmentAPI, residentAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, money, getInitials } from '../utils/formatters';
+import { PermissionGate } from '../permissions';
 
 export default function ContractList({ flash }) {
   const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
@@ -233,9 +235,11 @@ export default function ContractList({ flash }) {
                   <Button variant="secondary" className="flex-1" onClick={() => openViewModal(contract)}>
                     <Eye size={14} /> Xem
                   </Button>
-                  <Button variant="danger" className="flex-1" onClick={() => handleDelete(contract.ContractID)}>
-                    <Trash2 size={14} />
-                  </Button>
+                  <PermissionGate permission="CONTRACT_DELETE">
+                    <Button variant="danger" className="flex-1" onClick={() => handleDelete(contract.ContractID)}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </PermissionGate>
                 </div>
               </div>
             </Card>
@@ -311,19 +315,19 @@ export default function ContractList({ flash }) {
               <div>
                 <p className="text-sm font-semibold text-slate-500">Ảnh hợp đồng đã ký</p>
                 <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <img
+                  <ProtectedImage
                     src={getFileUrl(selectedContract.SignedContractImage)}
                     alt="Ảnh hợp đồng đã ký"
                     className="max-h-96 w-full rounded-xl object-contain"
                   />
-                  <a
+                  <ProtectedFileLink
                     href={getFileUrl(selectedContract.SignedContractImage)}
                     target="_blank"
                     rel="noreferrer"
                     className="mt-3 inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     Mở ảnh gốc
-                  </a>
+                  </ProtectedFileLink>
                 </div>
               </div>
             )}

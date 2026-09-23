@@ -40,19 +40,12 @@ export default function Profile({ flash }) {
       setUser(userData);
       
       // Lấy thông tin employee
-      const empRes = await userAPI.getEmployees('', '', '', 1, 999);
-      const employees = empRes?.data || empRes || [];
-      const empData = Array.isArray(employees) 
-        ? employees.find(e => e.UserID === userData?.id || e.UserID === userData?.UserID)
-        : null;
+      const mapProfile = item => item ? { FullName:item.fullName,Phone:item.phone,Email:item.email,Address:item.address,BirthDate:item.birthDate,Gender:item.gender } : null;
+      const empData = userData.resident ? null : mapProfile(userData.employee);
       setEmployee(empData);
       
       // Lấy thông tin resident
-      const resRes = await residentAPI.getAll('', 1, 999);
-      const residents = resRes?.data || resRes || [];
-      const resData = Array.isArray(residents)
-        ? residents.find(r => r.UserID === userData?.id || r.UserID === userData?.UserID)
-        : null;
+      const resData = mapProfile(userData.resident);
       setResident(resData);
       
       // Set form data
@@ -62,7 +55,7 @@ export default function Profile({ flash }) {
         email: userData?.email || empData?.Email || resData?.Email || '',
         phone: userData?.phone || empData?.Phone || resData?.Phone || '',
         address: empData?.Address || resData?.Address || '',
-        birthDate: empData?.BirthDate || resData?.BirthDate || '',
+        birthDate: (empData?.BirthDate || resData?.BirthDate || '').slice(0,10),
         gender: empData?.Gender !== undefined ? empData.Gender : (resData?.Gender !== undefined ? resData.Gender : 1)
       });
       
@@ -84,32 +77,7 @@ export default function Profile({ flash }) {
       setSaving(true);
       
       // Cập nhật user
-      await authAPI.updateProfile?.({
-        email: form.email,
-        phone: form.phone
-      });
-      
-      // Cập nhật employee hoặc resident
-      if (employee) {
-        await userAPI.updateEmployee(employee.EmployeeID, {
-          fullName: form.fullName,
-          phone: form.phone,
-          email: form.email,
-          address: form.address,
-          birthDate: form.birthDate,
-          gender: form.gender
-        });
-      } else if (resident) {
-        await residentAPI.update(resident.ResidentID, {
-          fullName: form.fullName,
-          phone: form.phone,
-          email: form.email,
-          address: form.address,
-          birthDate: form.birthDate,
-          gender: form.gender
-        });
-      }
-      
+      await authAPI.updateProfile(form);
       if (flash) flash('✅ Cập nhật hồ sơ thành công!');
       setEditMode(false);
       fetchUserData();
@@ -178,9 +146,6 @@ export default function Profile({ flash }) {
               <div className="w-32 h-32 rounded-full bg-[#f0efff] flex items-center justify-center text-[#635bff] text-5xl font-bold">
                 {getInitials(form.fullName || user?.username || 'U')}
               </div>
-              <button className="absolute bottom-0 right-0 rounded-full bg-[#635bff] p-2 text-white hover:bg-[#4f46e5] transition">
-                <Camera size={18} />
-              </button>
             </div>
             <h3 className="mt-4 text-xl font-bold text-slate-950">{form.fullName || user?.username}</h3>
             <Badge tone="purple" className="mt-1">{getRoleDisplay()}</Badge>

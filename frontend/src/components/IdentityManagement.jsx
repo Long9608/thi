@@ -1,3 +1,4 @@
+import { ProtectedImage } from './ProtectedFile';
     // src/components/IdentityManagement.jsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -47,8 +48,8 @@ export default function IdentityManagement({ residentId, flash }) {
           issuePlace: data.IssuePlace || '',
           expiredDate: data.ExpiredDate || '',
         });
-        setPreviewFront(data.FrontImageUrl || null);
-        setPreviewBack(data.BackImageUrl || null);
+        setPreviewFront(data.FrontImageUrl || data.FrontImage || null);
+        setPreviewBack(data.BackImageUrl || data.BackImage || null);
       }
     } catch (error) {
       console.error('Error fetching identity:', error);
@@ -192,7 +193,7 @@ export default function IdentityManagement({ residentId, flash }) {
                       onChange={(e) => handleImageUpload(e, 'front')}
                     />
                     {previewFront ? (
-                      <img src={previewFront} alt="Mặt trước" className="mx-auto max-h-32 object-contain" />
+                      <ProtectedImage src={previewFront} alt="Mặt trước" className="mx-auto max-h-32 object-contain" />
                     ) : (
                       <>
                         <Camera size={24} className="mx-auto text-slate-400" />
@@ -210,7 +211,7 @@ export default function IdentityManagement({ residentId, flash }) {
                       onChange={(e) => handleImageUpload(e, 'back')}
                     />
                     {previewBack ? (
-                      <img src={previewBack} alt="Mặt sau" className="mx-auto max-h-32 object-contain" />
+                      <ProtectedImage src={previewBack} alt="Mặt sau" className="mx-auto max-h-32 object-contain" />
                     ) : (
                       <>
                         <Camera size={24} className="mx-auto text-slate-400" />
@@ -263,13 +264,13 @@ export default function IdentityManagement({ residentId, flash }) {
             <div className="grid grid-cols-2 gap-3">
               {identity?.FrontImageUrl && (
                 <div className="rounded-xl border border-slate-200 overflow-hidden">
-                  <img src={identity.FrontImageUrl} alt="Mặt trước" className="w-full object-cover" />
+                  <ProtectedImage src={(identity.FrontImageUrl || identity.FrontImage)} alt="Mặt trước" className="w-full object-cover" />
                   <p className="text-center text-xs text-slate-500 py-1">Mặt trước</p>
                 </div>
               )}
               {identity?.BackImageUrl && (
                 <div className="rounded-xl border border-slate-200 overflow-hidden">
-                  <img src={identity.BackImageUrl} alt="Mặt sau" className="w-full object-cover" />
+                  <ProtectedImage src={(identity.BackImageUrl || identity.BackImage)} alt="Mặt sau" className="w-full object-cover" />
                   <p className="text-center text-xs text-slate-500 py-1">Mặt sau</p>
                 </div>
               )}

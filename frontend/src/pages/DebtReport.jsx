@@ -7,7 +7,9 @@ import {
   Home, Clock, CheckCircle2, X,
   DollarSign, ArrowUp, ArrowDown
 } from 'lucide-react';
-import { Card, Button, Input, Badge, StatCard } from '../components/UI';
+import { Card, Button, Input, Badge, StatCard, Modal } from '../components/UI';
+import { debtExportRows,exportWorkbook } from '../utils/reportExport';
+import InvoicePayment from '../components/InvoicePayment';
 import { formatDate, money, formatNumber } from '../utils/formatters';
 import { invoiceAPI } from '../api';
 
@@ -19,32 +21,55 @@ export default function DebtReport({ flash }) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [statuses, setStatuses] = useState([]);
+  const [selected,setSelected] = useState(null);
+  const [error,setError] = useState('');
 
   // Fetch real data
   const fetchDebtData = useCallback(async () => {
     try {
       setLoading(true);
+      setError('');
       // Lấy hóa đơn chưa thanh toán và quá hạn
-      const res = await invoiceAPI.getAll(statusFilter, '', '', page, 999);
+      const data=[];let currentPage=1,lastPage=1;
+      do { const result=await invoiceAPI.getAll('', '', '', currentPage, 100);data.push(...(result.data || []));lastPage=result.pagination?.totalPages || 1;currentPage++; } while(currentPage<=lastPage);
+      const res={success:true,data,pagination:{totalPages:1}};
       console.log('📊 Debt report data:', res);
       
       if (res && res.data) {
         const data = Array.isArray(res.data) ? res.data : [];
         // Lọc hóa đơn chưa thanh toán hoặc quá hạn
-        const debtInvoices = data.filter(inv => inv.StatusID === 1 || inv.StatusID === 3);
+        const today=new Date();today.setHours(0,0,0,0);
+        const debtInvoices = data
+          .filter(inv =>
+            Number(
+              inv.RemainingAmount ??
+              (Number(inv.TotalAmount || 0) - Number(inv.PaidAmount || 0))
+            ) > 0 &&
+            Number(inv.StatusID) !== 4
+          )
+          .map(inv => ({
+            ...inv,
+            StatusID:
+              inv.DueDate && new Date(inv.DueDate) < today ? 3 : 1,
+            InvoiceStatus:
+              inv.DueDate && new Date(inv.DueDate) < today
+                ? 'Quá hạn'
+                : 'Chưa thanh toán'
+          }));
         setInvoices(debtInvoices);
         setTotalPages(res.pagination?.totalPages || 1);
       } else {
         setInvoices([]);
       }
     } catch (error) {
+      setError(error.message);
       console.error('Error fetching debt data:', error);
       if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tải dữ liệu công nợ'));
       setInvoices([]);
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, page, flash]);
+  }, [flash]);
 
   const fetchStatuses = useCallback(async () => {
     try {
@@ -63,6 +88,7 @@ export default function DebtReport({ flash }) {
 
   const filteredData = useMemo(() => {
     let filtered = invoices;
+    if(statusFilter) filtered=filtered.filter(d=>d.StatusID===Number(statusFilter));
     
     if (search) {
       const q = search.toLowerCase();
@@ -73,7 +99,7 @@ export default function DebtReport({ flash }) {
     }
 
     return filtered;
-  }, [invoices, search]);
+  }, [invoices, search, statusFilter]);
 
   const stats = useMemo(() => {
     const total = invoices.length;
@@ -131,12 +157,14 @@ export default function DebtReport({ flash }) {
             <Button variant="secondary" onClick={fetchDebtData} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
-            <Button onClick={() => flash('📊 Đang xuất báo cáo...')}>
+            <Button disabled={loading || !filteredData.length} onClick={() => {try{exportWorkbook(debtExportRows(filteredData),`cong-no-${new Date().toISOString().slice(0,10)}.xlsx`,'Công nợ');flash?.('Đã xuất báo cáo công nợ');}catch(e){setError(e.message);}}}>
               <Download size={16} /> Xuất báo cáo
             </Button>
           </div>
         </div>
       </Card>
+
+      {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-red-600">{error}</p>}
 
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard icon={AlertCircle} label="Tổng công nợ" value={money(stats.totalDebt).replace('₫', '')} hint="Tất cả" />
@@ -190,7 +218,7 @@ export default function DebtReport({ flash }) {
                       </td>
                       <td className="px-5 py-4">{getStatusBadge(debt.StatusID)}</td>
                       <td className="px-5 py-4">
-                        <Button variant="secondary" size="sm">Xem chi tiết</Button>
+                        <Button variant="secondary" size="sm" onClick={()=>setSelected(debt)}>Xem chi tiết</Button>
                       </td>
                     </tr>
                   );
@@ -200,6 +228,8 @@ export default function DebtReport({ flash }) {
           </div>
         </Card>
       )}
+      {!loading&&!filteredData.length&&<Card className="p-6 text-center">Chưa có dữ liệu công nợ phù hợp.</Card>}
+      <Modal open={Boolean(selected)} title="Chi tiết công nợ" onClose={()=>setSelected(null)}>{selected&&<div className="space-y-3"><p>Hóa đơn #{selected.InvoiceID} · Căn {selected.ApartmentCode} · {selected.OwnerName}</p><p>Kỳ {selected.InvoiceMonth}/{selected.InvoiceYear} · Hạn {formatDate(selected.DueDate)}</p><p>Tổng: {money(selected.TotalAmount)}</p><p>Đã thanh toán: {money(selected.PaidAmount)}</p><p>Còn nợ: {money(selected.RemainingAmount)}</p><InvoicePayment invoice={selected} onUpdated={async()=>{setSelected(null);await fetchDebtData();}}/><Button variant="secondary" onClick={()=>setSelected(null)}>Đóng</Button></div>}</Modal>
     </div>
   );
 }

@@ -35,17 +35,17 @@ export default function MaintenanceSchedule({ flash }) {
   const fetchSchedules = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await ticketAPI.getAll(statusFilter, 1, 999);
+      const res = await ticketAPI.getAll(statusFilter, page, 20);
       const data = res?.data || res || [];
       const normalized = Array.isArray(data) ? data.map(item => {
-        const mapped = STATUS_MAP[item.StatusName] || { status: 'pending', priority: 'Trung bình' };
+        const mapped = STATUS_MAP[item.Status] || { status: 'pending', priority: 'Trung bình' };
         return {
           id: item.RequestID,
           title: item.Title,
           description: item.Description,
           scheduledDate: item.RequestDate,
           endDate: item.RequestDate,
-          type: item.StatusName || 'Bảo trì',
+          type: item.Status || 'Bảo trì',
           status: mapped.status,
           assignedTo: item.AssignedEmployeeName || 'Chưa phân công',
           location: item.ApartmentCode || 'Không xác định',
@@ -61,7 +61,7 @@ export default function MaintenanceSchedule({ flash }) {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, flash]);
+  }, [statusFilter, page, flash]);
 
   const fetchStatuses = useCallback(async () => {
     try {

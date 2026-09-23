@@ -1,8 +1,10 @@
+const { requireScope, requireResourceScope } = require('../utils/accessScope');
 // backend/routes/residentRoutes.js
 const express = require('express');
 const router = express.Router();
 const residentController = require('../controllers/residentController');
-const { authMiddleware, checkPermission } = require('../middlewares/auth');
+const { authMiddleware, checkPermission, checkAnyPermission } = require('../middlewares/auth');
+const { requireResidentSelf } = require('../utils/accessScope');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -42,21 +44,23 @@ const upload = multer({
 // ============================================
 // RESIDENT CRUD
 // ============================================
-router.get('/', authMiddleware, checkPermission('RESIDENT_VIEW'), residentController.getResidents);
-router.get('/:id', authMiddleware, checkPermission('RESIDENT_VIEW'), residentController.getResidentById);
-router.post('/', authMiddleware, checkPermission('RESIDENT_CREATE'), residentController.createResident);
-router.put('/:id', authMiddleware, checkPermission('RESIDENT_UPDATE'), residentController.updateResident);
-router.delete('/:id', authMiddleware, checkPermission('RESIDENT_DELETE'), residentController.deleteResident);
-router.delete('/:id/permanent', authMiddleware, checkPermission('RESIDENT_DELETE'), residentController.permanentDeleteResident);
+router.get('/', authMiddleware, requireScope('RESIDENT'), checkAnyPermission('RESIDENT_VIEW_ALL', 'RESIDENT_VIEW_OWN'), residentController.getResidents);
+// Static routes must precede /:id so they are never parsed as an ID.
+router.get('/birthdays', authMiddleware, requireScope('RESIDENT'), checkPermission('RESIDENT_VIEW_ALL'), residentController.getResidentsByBirthday);
+router.get('/export', authMiddleware, requireScope('RESIDENT'), checkAnyPermission('RESIDENT_EXPORT', 'RESIDENT_VIEW_ALL'), residentController.exportResidents);
+
+router.post('/', authMiddleware, requireScope('RESIDENT', { allOnly: true }), checkPermission('RESIDENT_CREATE'), residentController.createResident);
 
 // ============================================
 // 🔥 CCCD / HỒ SƠ
 // ============================================
-router.get('/:id/identity', authMiddleware, checkPermission('RESIDENT_VIEW'), residentController.getResidentIdentity);
-router.put('/:id/identity', authMiddleware, checkPermission('RESIDENT_UPDATE'), residentController.updateResidentIdentity);
+router.get('/:id/identity', authMiddleware, requireScope('RESIDENT'), checkAnyPermission('RESIDENT_VIEW_ALL', 'RESIDENT_VIEW_OWN'), requireResidentSelf, residentController.getResidentIdentity);
+router.put('/:id/identity', authMiddleware, requireScope('RESIDENT', { allOnly: true }), checkPermission('RESIDENT_UPDATE'), requireResidentSelf, residentController.updateResidentIdentity);
 router.post('/:id/identity/upload', 
     authMiddleware, 
     checkPermission('RESIDENT_UPDATE'),
+    requireScope('RESIDENT', { allOnly: true }),
+    requireResidentSelf,
     upload.single('image'),
     residentController.uploadIdentityImage
 );
@@ -64,20 +68,19 @@ router.post('/:id/identity/upload',
 // ============================================
 // 🔥 THÀNH VIÊN HỘ GIA ĐÌNH
 // ============================================
-router.get('/:id/family-members', authMiddleware, checkPermission('RESIDENT_VIEW'), residentController.getFamilyMembersDetail);
-router.post('/:id/family', authMiddleware, checkPermission('RESIDENT_CREATE'), residentController.addFamilyMember);
-router.put('/:id/family/:memberId', authMiddleware, checkPermission('RESIDENT_UPDATE'), residentController.updateFamilyMember);
-router.delete('/:id/family/:memberId', authMiddleware, checkPermission('RESIDENT_DELETE'), residentController.removeFamilyMember);
+router.get('/:id/family', authMiddleware, requireScope('RESIDENT'), checkAnyPermission('RESIDENT_VIEW_ALL', 'RESIDENT_VIEW_OWN'), requireResidentSelf, residentController.getFamilyMembersDetail);
+router.post('/:id/family', authMiddleware, requireScope('RESIDENT', { allOnly: true }), checkPermission('RESIDENT_CREATE'), requireResidentSelf, residentController.addFamilyMember);
+router.put('/:id/family/:memberId', authMiddleware, requireScope('RESIDENT', { allOnly: true }), checkPermission('RESIDENT_UPDATE'), requireResidentSelf, residentController.updateFamilyMember);
+router.delete('/:id/family/:memberId', authMiddleware, requireScope('RESIDENT', { allOnly: true }), checkPermission('RESIDENT_DELETE'), requireResidentSelf, residentController.removeFamilyMember);
 
 // ============================================
 // 🔥 LỊCH SỬ CƯ TRÚ
 // ============================================
-router.get('/:id/residence-history', authMiddleware, checkPermission('RESIDENT_VIEW'), residentController.getResidenceHistoryDetail);
+router.get('/:id/residence-history', authMiddleware, requireScope('RESIDENT'), checkAnyPermission('RESIDENT_VIEW_ALL', 'RESIDENT_VIEW_OWN'), requireResidentSelf, residentController.getResidenceHistoryDetail);
 
-// ============================================
-// OTHER
-// ============================================
-router.get('/birthdays', authMiddleware, residentController.getResidentsByBirthday);
-router.get('/export', authMiddleware, checkPermission('RESIDENT_VIEW'), residentController.exportResidents);
+router.get('/:id', authMiddleware, requireScope('RESIDENT'), checkAnyPermission('RESIDENT_VIEW_ALL', 'RESIDENT_VIEW_OWN'), requireResidentSelf, residentController.getResidentById);
+router.put('/:id', authMiddleware, requireScope('RESIDENT', { allOnly: true }), checkPermission('RESIDENT_UPDATE'), requireResidentSelf, residentController.updateResident);
+router.delete('/:id', authMiddleware, requireScope('RESIDENT', { allOnly: true }), checkPermission('RESIDENT_DELETE'), requireResidentSelf, residentController.deleteResident);
+router.delete('/:id/permanent', authMiddleware, requireScope('RESIDENT', { allOnly: true }), checkPermission('RESIDENT_DELETE'), requireResidentSelf, residentController.permanentDeleteResident);
 
 module.exports = router;

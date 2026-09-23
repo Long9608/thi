@@ -1,3 +1,5 @@
+import { createPermissionChecker } from '../permissions';
+import ServiceMemberDetail from '../components/ServiceMemberDetail';
 // src/pages/PoolManagement.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -12,6 +14,9 @@ import { formatDate, getInitials } from '../utils/formatters';
 import { serviceAPI, contractAPI } from '../api';
 
 export default function PoolManagement({ flash }) {
+  const { can, canAny, roleCodes } = createPermissionChecker(JSON.parse(localStorage.getItem('user') || '{}'));
+  const canEdit = !roleCodes.includes('RESIDENT') && can('SERVICE_UPDATE');
+  const [viewMember, setViewMember] = useState(null);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -91,6 +96,7 @@ export default function PoolManagement({ flash }) {
 
   return (
     <div className="space-y-5">
+      <ServiceMemberDetail member={viewMember} onClose={() => setViewMember(null)} />
       <Card className="p-5">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div>
@@ -110,9 +116,9 @@ export default function PoolManagement({ flash }) {
               placeholder="Tìm thành viên..."
               className="w-48"
             />
-            <Button onClick={openCreateModal} disabled={loading}>
+            {canAny(['SERVICE_CREATE','SERVICE_REGISTRATION_CREATE']) && (<Button onClick={openCreateModal} disabled={loading}>
               <Plus size={16} /> Thêm thành viên
-            </Button>
+            </Button>)}
             <Button variant="secondary" onClick={fetchPoolMembers} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
@@ -174,8 +180,8 @@ export default function PoolManagement({ flash }) {
                 </div>
 
                 <div className="mt-4 flex gap-2">
-                  <Button variant="secondary" className="flex-1">Check-in</Button>
-                  <Button variant="secondary" onClick={() => { setSelectedMember(member); setModalMode('edit'); setForm({ ...member, startDate: member.startDate?.split('T')[0] || '', endDate: member.endDate?.split('T')[0] || '', totalVisits: member.totalVisits }); setModalOpen(true); }}><Edit size={14} /></Button>
+                  <Button variant="secondary" className="flex-1" onClick={() => setViewMember(member)}>Xem</Button>
+                  {canEdit && (<Button variant="secondary" onClick={() => { setSelectedMember(member); setModalMode('edit'); setForm({ ...member, startDate: member.startDate?.split('T')[0] || '', endDate: member.endDate?.split('T')[0] || '', totalVisits: member.totalVisits }); setModalOpen(true); }}><Edit size={14} /></Button>)} 
                 </div>
               </div>
             </Card>

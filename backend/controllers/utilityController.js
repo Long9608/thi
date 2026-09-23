@@ -1,3 +1,4 @@
+const { resolveScope, apartmentOwnershipSql } = require('../utils/accessScope');
 const { getPool, sql } = require('../config/db');
 const { ensureSmartMetersForActiveContracts } = require('../services/billingService');
 const { tickMeters } = require('../services/smartMeterSimulator');
@@ -76,6 +77,7 @@ exports.getMeterReadings = async (req, res) => {
         const offset = (safePage - 1) * safeLimit;
         const pool = await getPool();
 
+        const { scope, residentId } = await resolveScope(req, pool, 'INVOICE');
         let where = 'WHERE 1=1';
         const request = pool.request();
         const countRequest = pool.request();
@@ -84,6 +86,10 @@ exports.getMeterReadings = async (req, res) => {
             countRequest.input(name, type, value);
         };
 
+        if (scope === 'own') {
+            where += ` AND ${apartmentOwnershipSql('mr.ApartmentID')}`;
+            addInput('CurrentResidentID', sql.Int, residentId);
+        }
         if (apartmentId) {
             where += ' AND mr.ApartmentID = @ApartmentID';
             addInput('ApartmentID', sql.Int, parseInt(apartmentId, 10));
@@ -156,10 +162,15 @@ exports.getSmartMeters = async (req, res) => {
     try {
         const { apartmentId } = req.query;
         const pool = await getPool();
-        await ensureSmartMetersForActiveContracts(pool);
+        
 
         const request = pool.request();
+        const { scope, residentId } = await resolveScope(req, pool, 'INVOICE');
         let where = 'WHERE 1=1';
+        if (scope === 'own') {
+            where += ` AND ${apartmentOwnershipSql('sm.ApartmentID')}`;
+            request.input('CurrentResidentID', sql.Int, residentId);
+        }
         if (apartmentId) {
             where += ' AND sm.ApartmentID = @ApartmentID';
             request.input('ApartmentID', sql.Int, parseInt(apartmentId, 10));

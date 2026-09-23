@@ -1,3 +1,5 @@
+import { PermissionGate } from '../permissions';
+import InvoicePayment, { PaymentConfiguration } from '../components/InvoicePayment';
 // src/pages/Fees.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -136,9 +138,8 @@ export default function Fees({ flash }) {
   };
 
   const handlePrintInvoice = (invoice) => {
-    if (flash) {
-      flash(`🖨️ Đã in hóa đơn ${invoice?.ContractNumber || invoice?.InvoiceID || ''}`.trim());
-    }
+    openViewModal(invoice);
+    setTimeout(() => window.print(), 150);
   };
 
   const addInvoiceItem = () => {
@@ -232,6 +233,7 @@ export default function Fees({ flash }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <PermissionGate all={['SYSTEM_SETTING', 'INVOICE_VIEW_ALL']}><PaymentConfiguration /></PermissionGate>
             <Input
               icon={Search}
               value={search}
@@ -269,9 +271,9 @@ export default function Fees({ flash }) {
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
-            {/* <Button onClick={() => setGenerateModalOpen(true)}>
+            {/* <PermissionGate all={["INVOICE_CREATE", "INVOICE_VIEW_ALL"]}><Button onClick={() => setGenerateModalOpen(true)}>
               <Plus size={16} /> Tạo hóa đơn
-            </Button> */}
+            </Button></PermissionGate> */}
             <Button variant="secondary" onClick={fetchInvoices} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
@@ -299,9 +301,9 @@ export default function Fees({ flash }) {
           <FileText size={48} className="text-slate-300 mx-auto" />
           <h3 className="mt-3 text-xl font-bold text-slate-900">Chưa có hóa đơn</h3>
           {/* <p className="text-sm text-slate-500">Nhấn "Tạo hóa đơn" để tạo mới</p>
-          <Button className="mt-4" onClick={() => setGenerateModalOpen(true)}>
+          <PermissionGate all={["INVOICE_CREATE", "INVOICE_VIEW_ALL"]}><Button className="mt-4" onClick={() => setGenerateModalOpen(true)}>
             <Plus size={16} /> Tạo hóa đơn
-          </Button> */}
+          </Button></PermissionGate> */}
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -364,6 +366,7 @@ export default function Fees({ flash }) {
                   <Button variant="secondary" className="flex-1" onClick={() => handlePrintInvoice(invoice)}>
                     <Printer size={14} /> In
                   </Button>
+                  <InvoicePayment invoice={invoice} onUpdated={fetchInvoices} />
                 </div>
               </div>
             </Card>

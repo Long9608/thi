@@ -43,6 +43,7 @@ router.get('/permissions', authMiddleware, (req, res) => {
             userId: req.userId,
             username: req.user?.Username,
             roles: req.user?.RoleNames || [],
+            roleCodes: req.user?.RoleCodes || [],
             permissions: req.user?.Permissions || []
         }
     });

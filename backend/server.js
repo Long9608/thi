@@ -57,7 +57,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(morgan('dev'));
 
 // Serve static files (uploads)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+app.use('/uploads', require('./middlewares/auth').authMiddleware, require('./middlewares/uploadAccess'), express.static(path.join(__dirname, 'uploads'), {
     setHeaders: (res, filePath) => {
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -84,7 +84,7 @@ app.get('/health', (req, res) => {
 });
 
 // Test database connection
-app.get('/api/test-db', async (req, res) => {
+app.get('/api/test-db', require('./middlewares/auth').authMiddleware, require('./middlewares/auth').checkPermission('SYSTEM_SETTING'), async (req, res) => {
     try {
         const pool = await getPool();
         const result = await pool.request().query('SELECT GETDATE() as currentTime, @@VERSION as version');

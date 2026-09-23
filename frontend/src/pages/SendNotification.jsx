@@ -31,7 +31,7 @@ export default function SendNotification({ flash }) {
   // Fetch data
   const fetchResidents = useCallback(async () => {
     try {
-      const res = await residentAPI.getAll('', 1, 999);
+      const res = await residentAPI.getAll('', 1, 999, true);
       const data = res?.data || res || [];
       setResidents(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -71,8 +71,22 @@ export default function SendNotification({ flash }) {
         targetScope: form.targetScope
       };
 
-      if (form.targetScope === 'USER') {
-        data.targetUserIds = selectedRecipients.map(r => r.UserID || r.userId);
+            if (form.targetScope === 'USER') {
+        const ids = [
+          ...new Set(
+            selectedRecipients.map(r => Number(r.UserID ?? r.userId))
+          )
+        ];
+
+        if (
+          ids.length === 0 ||
+          ids.some(id => !Number.isInteger(id) || id <= 0)
+        ) {
+          flash?.('⚠️ Vui lòng chọn cư dân đã có tài khoản.');
+          return;
+        }
+
+        data.targetUserIds = ids;
       }
 
       if (form.targetScope === 'BUILDING') {

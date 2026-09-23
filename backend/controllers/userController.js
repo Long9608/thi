@@ -25,63 +25,70 @@ exports.getEmployees = async (req, res) => {
         const safeLimit = parseInt(limit) || 20;
 
         let query = `
-            SELECT 
+            SELECT
                 e.EmployeeID,
-                e.UserID,
-                e.FullName,
-                e.Gender,
-                e.BirthDate,
-                e.Phone,
-                e.Email,
-                e.Address,
-                e.CCCD,
+                r.ResidentID,
+                u.UserID,
+                COALESCE(r.FullName, e.FullName) AS FullName,
+                COALESCE(r.Gender, e.Gender) AS Gender,
+                COALESCE(r.BirthDate, e.BirthDate) AS BirthDate,
+                COALESCE(r.Phone, e.Phone) AS Phone,
+                COALESCE(r.Email, e.Email) AS Email,
+                COALESCE(r.Address, e.Address) AS Address,
+                COALESCE(ri.IdentityNumber, e.CCCD) AS CCCD,
                 e.HireDate,
-                e.Status,
+                u.Status AS Status,
                 u.Username,
                 u.Status AS UserStatus,
-                STRING_AGG(r.RoleName, ', ') AS RoleNames,
-                STRING_AGG(r.RoleCode, ', ') AS RoleCodes
-            FROM Employee e
-            LEFT JOIN Users u ON e.UserID = u.UserID
+                STRING_AGG(role.RoleName, ', ') AS RoleNames,
+                STRING_AGG(role.RoleCode, ', ') AS RoleCodes,
+                STRING_AGG(CONVERT(varchar(max), role.RoleID), ',') AS RoleIDs
+            FROM Users u
+            LEFT JOIN Employee e ON e.UserID = u.UserID
+            LEFT JOIN Resident r ON r.UserID = u.UserID
+            LEFT JOIN ResidentIdentity ri ON ri.ResidentID = r.ResidentID
             LEFT JOIN UserRole ur ON u.UserID = ur.UserID
-            LEFT JOIN Role r ON ur.RoleID = r.RoleID
-            WHERE 1=1
+            LEFT JOIN Role role ON ur.RoleID = role.RoleID
+            WHERE (e.EmployeeID IS NOT NULL OR r.ResidentID IS NOT NULL)
         `;
 
         const request = pool.request();
         let countQuery = `
-            SELECT COUNT(*) as total 
-            FROM Employee e
-            LEFT JOIN Users u ON e.UserID = u.UserID
-            WHERE 1=1
+            SELECT COUNT(DISTINCT u.UserID) as total
+            FROM Users u
+            LEFT JOIN Employee e ON e.UserID = u.UserID
+            LEFT JOIN Resident r ON r.UserID = u.UserID
+            LEFT JOIN UserRole ur ON u.UserID = ur.UserID
+            LEFT JOIN Role role ON ur.RoleID = role.RoleID
+            WHERE (e.EmployeeID IS NOT NULL OR r.ResidentID IS NOT NULL)
         `;
 
         if (search) {
             const searchPattern = `%${search}%`;
-            query += ` AND (e.FullName LIKE @Search OR e.Phone LIKE @Search OR e.Email LIKE @Search OR u.Username LIKE @Search)`;
-            countQuery += ` AND (e.FullName LIKE @Search OR e.Phone LIKE @Search OR e.Email LIKE @Search OR u.Username LIKE @Search)`;
+            query += ` AND (COALESCE(e.FullName, r.FullName) LIKE @Search OR COALESCE(e.Phone, r.Phone) LIKE @Search OR COALESCE(e.Email, r.Email) LIKE @Search OR u.Username LIKE @Search)`;
+            countQuery += ` AND (COALESCE(e.FullName, r.FullName) LIKE @Search OR COALESCE(e.Phone, r.Phone) LIKE @Search OR COALESCE(e.Email, r.Email) LIKE @Search OR u.Username LIKE @Search)`;
             request.input('Search', sql.NVarChar, searchPattern);
         }
 
         if (status !== undefined && status !== '') {
-            query += ` AND e.Status = @Status`;
-            countQuery += ` AND e.Status = @Status`;
+            query += ` AND CASE WHEN e.EmployeeID IS NULL THEN u.Status ELSE e.Status END = @Status`;
+            countQuery += ` AND CASE WHEN e.EmployeeID IS NULL THEN u.Status ELSE e.Status END = @Status`;
             request.input('Status', sql.Bit, parseInt(status));
         }
 
         if (roleId) {
-            query += ` AND r.RoleID = @RoleID`;
-            countQuery += ` AND r.RoleID = @RoleID`;
+            query += ` AND EXISTS (SELECT 1 FROM UserRole filterRole WHERE filterRole.UserID=u.UserID AND filterRole.RoleID=@RoleID)`;
+            countQuery += ` AND EXISTS (SELECT 1 FROM UserRole filterRole WHERE filterRole.UserID=u.UserID AND filterRole.RoleID=@RoleID)`;
             request.input('RoleID', sql.Int, parseInt(roleId));
         }
 
-        query += ` GROUP BY e.EmployeeID, e.UserID, e.FullName, e.Gender, e.BirthDate, e.Phone, e.Email, e.Address, e.CCCD, e.HireDate, e.Status, u.Username, u.Status`;
+        query += ` GROUP BY e.EmployeeID, r.ResidentID, u.UserID, e.FullName, r.FullName, e.Gender, r.Gender, e.BirthDate, r.BirthDate, e.Phone, r.Phone, e.Email, r.Email, e.Address, r.Address, e.CCCD, ri.IdentityNumber, e.HireDate, e.Status, u.Username, u.Status`;
 
         const countResult = await request.query(countQuery);
         const total = countResult.recordset[0]?.total || 0;
 
         query += `
-            ORDER BY e.EmployeeID DESC
+            ORDER BY u.UserID DESC
             OFFSET @Offset ROWS
             FETCH NEXT @Limit ROWS ONLY
         `;
@@ -154,7 +161,7 @@ exports.getEmployeeById = async (req, res) => {
             const permResult = await pool.request()
                 .input('UserID', sql.Int, employee.UserID)
                 .query(`
-                    SELECT DISTINCT p.PermissionCode, p.PermissionName, m.ModuleName
+                    SELECT DISTINCT p.PermissionCode, p.PermissionName, m.ModuleName, m.SortOrder
                     FROM Users u
                     JOIN UserRole ur ON u.UserID = ur.UserID
                     JOIN RolePermission rp ON ur.RoleID = rp.RoleID
@@ -195,7 +202,8 @@ exports.createEmployee = async (req, res) => {
             address,
             cccd,
             hireDate,
-            roleIds
+            roleIds,
+            residentId
         } = req.body;
 
         if (!username || !password || !fullName) {
@@ -205,7 +213,50 @@ exports.createEmployee = async (req, res) => {
             });
         }
 
+        if (req.body.roleIds !== undefined && !(req.user.Permissions || []).includes('ROLE_MANAGE')) {
+            return res.status(403).json({ success: false, message: 'Cần quyền ROLE_MANAGE để gán vai trò' });
+        }
+        if (req.body.password && (typeof req.body.password !== 'string' || req.body.password.length < 6)) {
+            return res.status(400).json({ success: false, message: 'Mật khẩu phải có ít nhất 6 ký tự' });
+        }
+        if (req.body.roleIds !== undefined && (!Array.isArray(req.body.roleIds) || req.body.roleIds.some(id => !Number.isInteger(Number(id)) || Number(id) <= 0))) {
+            return res.status(400).json({ success: false, message: 'Danh sách vai trò không hợp lệ' });
+        }
         const pool = await getPool();
+        const normalizedRoleIds = Array.isArray(roleIds)
+            ? [...new Set(roleIds.map(Number).filter(Number.isInteger))]
+            : [];
+        const normalizedResidentId = residentId ? Number(residentId) : null;
+
+        // Tài khoản cư dân phải liên kết với hồ sơ Resident có sẵn, không tạo
+        // thêm Employee. Nếu không liên kết, các màn lọc/gửi thông báo không
+        // thể nhận ra cư dân đã có tài khoản.
+        const residentRoleResult = await pool.request()
+            .query("SELECT RoleID FROM Role WHERE RoleCode = 'RESIDENT' AND Status = 1");
+        const residentRoleId = residentRoleResult.recordset[0]?.RoleID;
+        const isResidentAccount = residentRoleId != null
+            && normalizedRoleIds.includes(Number(residentRoleId));
+
+        if (isResidentAccount && normalizedRoleIds.length !== 1) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tài khoản cư dân chỉ được gán vai trò Cư dân'
+            });
+        }
+
+        if (isResidentAccount && (!Number.isInteger(normalizedResidentId) || normalizedResidentId <= 0)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng chọn cư dân chưa có tài khoản'
+            });
+        }
+
+        if (!isResidentAccount && normalizedResidentId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ tài khoản có vai trò Cư dân mới được liên kết với cư dân'
+            });
+        }
 
         // Check username exists
         const checkUser = await pool.request()
@@ -247,12 +298,29 @@ exports.createEmployee = async (req, res) => {
             }
         }
 
-        const hashedPassword = await hashPassword(
-            password
-        );
+        if (isResidentAccount) {
+            const residentResult = await pool.request()
+                .input('ResidentID', sql.Int, normalizedResidentId)
+                .query('SELECT ResidentID, UserID FROM Resident WHERE ResidentID = @ResidentID AND Status = 1');
 
-        // Tạo user
-        const userResult = await pool.request()
+            if (!residentResult.recordset[0]) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy cư dân đang hoạt động' });
+            }
+
+            if (residentResult.recordset[0].UserID) {
+                return res.status(400).json({ success: false, message: 'Cư dân này đã có tài khoản' });
+            }
+        }
+
+        const hashedPassword = await hashPassword(password);
+        const transaction = new sql.Transaction(pool);
+
+        try {
+            await transaction.begin();
+            const transactionRequest = () => new sql.Request(transaction);
+
+            // Tạo user
+            const userResult = await transactionRequest()
             .input('Username', sql.VarChar, username)
             .input(
                 'PasswordHash',
@@ -267,12 +335,11 @@ exports.createEmployee = async (req, res) => {
                 VALUES (@Username, @PasswordHash, @Email, @Phone, 1, GETDATE())
             `);
 
-        const userId = userResult.recordset[0].UserID;
+            const userId = userResult.recordset[0].UserID;
 
-        // Gán roles
-        if (roleIds && roleIds.length > 0) {
-            for (const roleId of roleIds) {
-                await pool.request()
+            // Gán roles
+            for (const roleId of normalizedRoleIds) {
+                await transactionRequest()
                     .input('UserID', sql.Int, userId)
                     .input('RoleID', sql.Int, roleId)
                     .input('AssignedBy', sql.Int, req.userId || null)
@@ -281,10 +348,26 @@ exports.createEmployee = async (req, res) => {
                         VALUES (@UserID, @RoleID, GETDATE(), @AssignedBy)
                     `);
             }
-        }
 
-        // Tạo employee
-        const result = await pool.request()
+            let employeeId = null;
+            if (isResidentAccount) {
+                // Điều kiện UserID IS NULL cũng bảo vệ trường hợp hai yêu cầu tạo
+                // tài khoản cùng chọn một cư dân tại gần như cùng thời điểm.
+                const linkResult = await transactionRequest()
+                    .input('ResidentID', sql.Int, normalizedResidentId)
+                    .input('UserID', sql.Int, userId)
+                    .query(`
+                        UPDATE Resident
+                        SET UserID = @UserID
+                        WHERE ResidentID = @ResidentID AND UserID IS NULL
+                    `);
+
+                if (linkResult.rowsAffected[0] !== 1) {
+                    throw new Error('Cư dân này đã có tài khoản');
+                }
+            } else {
+                // Chỉ tài khoản nhân viên mới có bản ghi Employee.
+                const result = await transactionRequest()
             .input('UserID', sql.Int, userId)
             .input('FullName', sql.NVarChar, fullName)
             .input('Gender', sql.Bit, gender !== undefined ? gender : null)
@@ -303,14 +386,26 @@ exports.createEmployee = async (req, res) => {
                     @UserID, @FullName, @Gender, @BirthDate, @Phone, @Email, @Address, @CCCD, @HireDate, 1
                 )
             `);
+                employeeId = result.recordset[0].EmployeeID;
+            }
 
-        const employeeId = result.recordset[0].EmployeeID;
+            await transaction.commit();
 
-        res.status(201).json({
-            success: true,
-            message: 'Employee created successfully',
-            data: { employeeId, userId }
-        });
+            res.status(201).json({
+                success: true,
+                message: isResidentAccount ? 'Resident account created successfully' : 'Employee created successfully',
+                data: { employeeId, userId, residentId: isResidentAccount ? normalizedResidentId : null }
+            });
+        } catch (error) {
+            try {
+                await transaction.rollback();
+            } catch (rollbackError) {
+                // Giao dịch có thể đã bị SQL Server tự hủy; chỉ log lỗi rollback
+                // để không che mất lỗi gốc.
+                console.error('Rollback create user error:', rollbackError);
+            }
+            throw error;
+        }
 
     } catch (error) {
         console.error('Create employee error:', error);
@@ -323,182 +418,79 @@ exports.createEmployee = async (req, res) => {
 };
 
 // Cập nhật nhân viên
-exports.updateEmployee = async (req, res) => {
+exports.updateEmployee = async (req, res, next) => {
     try {
-        const { id } = req.params;
-        const { 
-            fullName,
-            gender,
-            birthDate,
-            phone,
-            email,
-            address,
-            cccd,
-            status,
-            roleIds
-        } = req.body;
-
         const pool = await getPool();
-
-        const checkResult = await pool.request()
-            .input('EmployeeID', sql.Int, id)
-            .query('SELECT UserID FROM Employee WHERE EmployeeID = @EmployeeID');
-
-        if (!checkResult.recordset[0]) {
-            return res.status(404).json({
-                success: false,
-                message: 'Employee not found'
-            });
-        }
-
-        const userId = checkResult.recordset[0].UserID;
-
-        // Update employee
-        const updates = [];
-        const request = pool.request();
-        request.input('EmployeeID', sql.Int, id);
-
-        if (fullName) {
-            updates.push('FullName = @FullName');
-            request.input('FullName', sql.NVarChar, fullName);
-        }
-
-        if (gender !== undefined) {
-            updates.push('Gender = @Gender');
-            request.input('Gender', sql.Bit, gender);
-        }
-
-        if (birthDate) {
-            updates.push('BirthDate = @BirthDate');
-            request.input('BirthDate', sql.Date, birthDate);
-        }
-
-        if (phone) {
-            updates.push('Phone = @Phone');
-            request.input('Phone', sql.VarChar, phone);
-        }
-
-        if (email) {
-            updates.push('Email = @Email');
-            request.input('Email', sql.VarChar, email);
-        }
-
-        if (address) {
-            updates.push('Address = @Address');
-            request.input('Address', sql.NVarChar, address);
-        }
-
-        if (cccd) {
-            updates.push('CCCD = @CCCD');
-            request.input('CCCD', sql.VarChar, cccd);
-        }
-
-        if (status !== undefined) {
-            updates.push('Status = @Status');
-            request.input('Status', sql.Bit, status);
-        }
-
-        if (updates.length > 0) {
-            await request.query(`
-                UPDATE Employee 
-                SET ${updates.join(', ')}
-                WHERE EmployeeID = @EmployeeID
-            `);
-        }
-
-        // Update roles
-        if (roleIds && userId) {
-            await pool.request()
-                .input('UserID', sql.Int, userId)
-                .query('DELETE FROM UserRole WHERE UserID = @UserID');
-
-            for (const roleId of roleIds) {
-                await pool.request()
-                    .input('UserID', sql.Int, userId)
-                    .input('RoleID', sql.Int, roleId)
-                    .input('AssignedBy', sql.Int, req.userId || null)
-                    .query(`
-                        INSERT INTO UserRole (UserID, RoleID, AssignedDate, AssignedBy)
-                        VALUES (@UserID, @RoleID, GETDATE(), @AssignedBy)
-                    `);
-            }
-        }
-
-        // Update Users table if email or phone changed
-        if (email || phone) {
-            const userUpdates = [];
-            const userRequest = pool.request();
-            userRequest.input('UserID', sql.Int, userId);
-
-            if (email) {
-                userUpdates.push('Email = @Email');
-                userRequest.input('Email', sql.VarChar, email);
-            }
-            if (phone) {
-                userUpdates.push('Phone = @Phone');
-                userRequest.input('Phone', sql.VarChar, phone);
-            }
-
-            if (userUpdates.length > 0) {
-                await userRequest.query(`
-                    UPDATE Users 
-                    SET ${userUpdates.join(', ')}
-                    WHERE UserID = @UserID
-                `);
-            }
-        }
-
-        res.json({
-            success: true,
-            message: 'Employee updated successfully'
-        });
-
-    } catch (error) {
-        console.error('Update employee error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update employee',
-            error: error.message
-        });
-    }
+        const row = (await pool.request().input('ID', sql.Int, Number(req.params.id)).query('SELECT UserID FROM Employee WHERE EmployeeID=@ID')).recordset[0];
+        if (!row) return res.status(404).json({success:false,message:'Employee not found'});
+        req.params.id = row.UserID;
+        return require('./accountController').updateAccount(req,res,next);
+    } catch (error) { next(error); }
 };
 
-// Xóa nhân viên
 exports.deleteEmployee = async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await getPool();
 
         const checkResult = await pool.request()
-            .input('EmployeeID', sql.Int, id)
-            .query('SELECT UserID FROM Employee WHERE EmployeeID = @EmployeeID');
+            .input('UserID', sql.Int, id)
+            .query(`
+                SELECT u.UserID
+                FROM Users u
+                WHERE u.UserID = @UserID
+                  AND (
+                      EXISTS (SELECT 1 FROM Employee e WHERE e.UserID = u.UserID)
+                      OR EXISTS (SELECT 1 FROM Resident r WHERE r.UserID = u.UserID)
+                  )
+            `);
 
         if (!checkResult.recordset[0]) {
             return res.status(404).json({
                 success: false,
-                message: 'Employee not found'
+                message: 'Không tìm thấy tài khoản'
             });
         }
 
-        const userId = checkResult.recordset[0].UserID;
+        const userId = Number(checkResult.recordset[0].UserID);
+        if (Number(req.userId) === userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể xóa tài khoản đang đăng nhập'
+            });
+        }
 
-        await pool.request()
-            .input('EmployeeID', sql.Int, id)
-            .query('UPDATE Employee SET Status = 0 WHERE EmployeeID = @EmployeeID');
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            const transactionRequest = () => new sql.Request(transaction).input('UserID', sql.Int, userId);
 
-        if (userId) {
-            await pool.request()
-                .input('UserID', sql.Int, userId)
-                .query('UPDATE Users SET Status = 0 WHERE UserID = @UserID');
+            // Giữ dữ liệu nghiệp vụ, chỉ gỡ liên kết đến tài khoản bị xóa.
+            await transactionRequest().query('UPDATE MeterReading SET EmployeeID = NULL WHERE EmployeeID IN (SELECT EmployeeID FROM Employee WHERE UserID = @UserID)');
+            await transactionRequest().query('UPDATE Resident SET UserID = NULL WHERE UserID = @UserID');
+            await transactionRequest().query('UPDATE ParkingAccessLog SET RecordedByUserID = NULL WHERE RecordedByUserID = @UserID');
+            await transactionRequest().query('UPDATE ParkingSubscription SET CreatedByUserID = NULL WHERE CreatedByUserID = @UserID');
+            await transactionRequest().query('UPDATE UserRole SET AssignedBy = NULL WHERE AssignedBy = @UserID');
+            await transactionRequest().query('DELETE FROM Employee WHERE UserID = @UserID');
+            await transactionRequest().query('DELETE FROM Users WHERE UserID = @UserID');
+            await transaction.commit();
+        } catch (transactionError) {
+            try {
+                await transaction.rollback();
+            } catch (rollbackError) {
+                console.error('Rollback delete user error:', rollbackError);
+            }
+            throw transactionError;
         }
 
         res.json({
             success: true,
-            message: 'Employee deleted successfully'
+            message: 'Đã xóa vĩnh viễn tài khoản'
         });
 
     } catch (error) {
         console.error('Delete employee error:', error);
+        if (error.number === 547) return res.status(409).json({success:false,message:'Tài khoản còn liên quan đến thanh toán/yêu cầu/lịch sử nghiệp vụ. Hãy khóa tài khoản để giữ dữ liệu.'});
         res.status(500).json({
             success: false,
             message: 'Failed to delete employee',
@@ -522,13 +514,14 @@ exports.getRoles = async (req, res) => {
                 r.RoleName,
                 r.Description,
                 r.Status,
+                r.IsSystem,
                 r.CreatedAt,
                 COUNT(DISTINCT ur.UserID) AS UserCount,
-                COUNT(DISTINCT rp.PermissionID) AS PermissionCount
+                COUNT(DISTINCT CASE WHEN rp.IsGranted=1 THEN rp.PermissionID END) AS PermissionCount
             FROM Role r
             LEFT JOIN UserRole ur ON r.RoleID = ur.RoleID
             LEFT JOIN RolePermission rp ON r.RoleID = rp.RoleID
-            GROUP BY r.RoleID, r.RoleCode, r.RoleName, r.Description, r.Status, r.CreatedAt
+            GROUP BY r.RoleID, r.RoleCode, r.RoleName, r.Description, r.Status, r.IsSystem, r.CreatedAt
             ORDER BY r.RoleName
         `);
 
@@ -562,7 +555,7 @@ exports.getRoleById = async (req, res) => {
                 FROM Role r
                 LEFT JOIN UserRole ur ON r.RoleID = ur.RoleID
                 WHERE r.RoleID = @RoleID
-                GROUP BY r.RoleID, r.RoleCode, r.RoleName, r.Description, r.Status, r.CreatedAt
+                GROUP BY r.RoleID, r.RoleCode, r.RoleName, r.Description, r.Status, r.IsSystem, r.CreatedAt
             `);
 
         if (!result.recordset[0]) {
@@ -609,191 +602,6 @@ exports.getRoleById = async (req, res) => {
 };
 
 // Tạo role mới
-exports.createRole = async (req, res) => {
-    try {
-        const { roleCode, roleName, description, permissionIds } = req.body;
-
-        if (!roleCode || !roleName) {
-            return res.status(400).json({
-                success: false,
-                message: 'Role code and name are required'
-            });
-        }
-
-        const pool = await getPool();
-
-        const checkResult = await pool.request()
-            .input('RoleCode', sql.VarChar, roleCode)
-            .query('SELECT RoleID FROM Role WHERE RoleCode = @RoleCode');
-
-        if (checkResult.recordset[0]) {
-            return res.status(400).json({
-                success: false,
-                message: 'Role code already exists'
-            });
-        }
-
-        const result = await pool.request()
-            .input('RoleCode', sql.VarChar, roleCode)
-            .input('RoleName', sql.NVarChar, roleName)
-            .input('Description', sql.NVarChar, description || null)
-            .query(`
-                INSERT INTO Role (RoleCode, RoleName, Description, Status, CreatedAt)
-                OUTPUT INSERTED.RoleID
-                VALUES (@RoleCode, @RoleName, @Description, 1, GETDATE())
-            `);
-
-        const roleId = result.recordset[0].RoleID;
-
-        if (permissionIds && permissionIds.length > 0) {
-            for (const permissionId of permissionIds) {
-                await pool.request()
-                    .input('RoleID', sql.Int, roleId)
-                    .input('PermissionID', sql.Int, permissionId)
-                    .query(`
-                        INSERT INTO RolePermission (RoleID, PermissionID, IsGranted, CreatedAt)
-                        VALUES (@RoleID, @PermissionID, 1, GETDATE())
-                    `);
-            }
-        }
-
-        res.status(201).json({
-            success: true,
-            message: 'Role created successfully',
-            data: { roleId }
-        });
-
-    } catch (error) {
-        console.error('Create role error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to create role',
-            error: error.message
-        });
-    }
-};
-
-// Cập nhật role
-exports.updateRole = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { roleName, description, status, permissionIds } = req.body;
-
-        const pool = await getPool();
-
-        const updates = [];
-        const request = pool.request();
-        request.input('RoleID', sql.Int, id);
-
-        if (roleName) {
-            updates.push('RoleName = @RoleName');
-            request.input('RoleName', sql.NVarChar, roleName);
-        }
-
-        if (description !== undefined) {
-            updates.push('Description = @Description');
-            request.input('Description', sql.NVarChar, description);
-        }
-
-        if (status !== undefined) {
-            updates.push('Status = @Status');
-            request.input('Status', sql.Bit, status);
-        }
-
-        if (updates.length > 0) {
-            const result = await request.query(`
-                UPDATE Role 
-                SET ${updates.join(', ')}
-                WHERE RoleID = @RoleID
-            `);
-
-            if (result.rowsAffected[0] === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Role not found'
-                });
-            }
-        }
-
-        if (permissionIds) {
-            await pool.request()
-                .input('RoleID', sql.Int, id)
-                .query('DELETE FROM RolePermission WHERE RoleID = @RoleID');
-
-            for (const permissionId of permissionIds) {
-                await pool.request()
-                    .input('RoleID', sql.Int, id)
-                    .input('PermissionID', sql.Int, permissionId)
-                    .query(`
-                        INSERT INTO RolePermission (RoleID, PermissionID, IsGranted, CreatedAt)
-                        VALUES (@RoleID, @PermissionID, 1, GETDATE())
-                    `);
-            }
-        }
-
-        res.json({
-            success: true,
-            message: 'Role updated successfully'
-        });
-
-    } catch (error) {
-        console.error('Update role error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update role',
-            error: error.message
-        });
-    }
-};
-
-// Xóa role
-exports.deleteRole = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const pool = await getPool();
-
-        const userCheck = await pool.request()
-            .input('RoleID', sql.Int, id)
-            .query('SELECT COUNT(*) as count FROM UserRole WHERE RoleID = @RoleID');
-
-        if (userCheck.recordset[0].count > 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cannot delete role with assigned users'
-            });
-        }
-
-        const result = await pool.request()
-            .input('RoleID', sql.Int, id)
-            .query('DELETE FROM Role WHERE RoleID = @RoleID');
-
-        if (result.rowsAffected[0] === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Role not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            message: 'Role deleted successfully'
-        });
-
-    } catch (error) {
-        console.error('Delete role error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to delete role',
-            error: error.message
-        });
-    }
-};
-
-// ============================================
-// QUẢN LÝ PERMISSION ✅ SỬA
-// ============================================
-
-// Lấy danh sách permissions
 exports.getPermissions = async (req, res) => {
     try {
         const { moduleId } = req.query;
@@ -877,61 +685,6 @@ exports.getModules = async (req, res) => {
 };
 
 // Cập nhật permission cho role
-exports.updateRolePermissions = async (req, res) => {
-    try {
-        const { roleId } = req.params;
-        const { permissionIds } = req.body;
-
-        if (!permissionIds) {
-            return res.status(400).json({
-                success: false,
-                message: 'Permission IDs are required'
-            });
-        }
-
-        const pool = await getPool();
-
-        const roleCheck = await pool.request()
-            .input('RoleID', sql.Int, roleId)
-            .query('SELECT RoleID FROM Role WHERE RoleID = @RoleID');
-
-        if (!roleCheck.recordset[0]) {
-            return res.status(404).json({
-                success: false,
-                message: 'Role not found'
-            });
-        }
-
-        await pool.request()
-            .input('RoleID', sql.Int, roleId)
-            .query('DELETE FROM RolePermission WHERE RoleID = @RoleID');
-
-        for (const permissionId of permissionIds) {
-            await pool.request()
-                .input('RoleID', sql.Int, roleId)
-                .input('PermissionID', sql.Int, permissionId)
-                .query(`
-                    INSERT INTO RolePermission (RoleID, PermissionID, IsGranted, CreatedAt)
-                    VALUES (@RoleID, @PermissionID, 1, GETDATE())
-                `);
-        }
-
-        res.json({
-            success: true,
-            message: 'Permissions updated successfully'
-        });
-
-    } catch (error) {
-        console.error('Update role permissions error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update permissions',
-            error: error.message
-        });
-    }
-};
-
-// Lấy quyền của vai trò
 exports.getRolePermissions = async (req, res) => {
     try {
         const { roleId } = req.params;
@@ -1091,7 +844,10 @@ exports.getSystemInfo = async (req, res) => {
                 (SELECT COUNT(*) FROM Vehicle) AS totalVehicles,
                 (SELECT COUNT(*) FROM Notification) AS totalNotifications,
                 (SELECT COUNT(*) FROM Users WHERE Status = 1) AS activeUsers,
-                (SELECT COUNT(*) FROM Users) AS totalUsers
+                (SELECT COUNT(*) FROM Users) AS totalUsers,
+                (SELECT COUNT(*) FROM Module) AS totalModules,
+                (SELECT COUNT(*) FROM Module WHERE Status=1) AS activeModules,
+                (SELECT COUNT(*) FROM Permission) AS totalPermissions
         `);
 
         const stats = statsResult.recordset[0] || {};
@@ -1100,12 +856,11 @@ exports.getSystemInfo = async (req, res) => {
         const dbInfo = await pool.request().query(`
             SELECT 
                 DB_NAME() AS databaseName,
-                SUM(s.total_pages) * 8 / 1024 AS sizeMB
-            FROM sys.tables t
-            JOIN sys.partitions p ON t.object_id = p.object_id
-            JOIN sys.allocation_units a ON p.partition_id = a.container_id
-            JOIN sys.schemas s ON t.schema_id = s.schema_id
-            GROUP BY t.schema_id, s.name
+                SUM(CAST(size AS bigint)) * 8.0 / 1024 AS sizeMB,
+                (SELECT COUNT(*) FROM sys.tables WHERE is_ms_shipped=0) AS tableCount,
+                (SELECT SUM(rows) FROM sys.partitions WHERE index_id IN(0,1) AND OBJECTPROPERTY(object_id,'IsUserTable')=1) AS recordCount,
+                CAST(SERVERPROPERTY('ProductVersion') AS varchar(100)) AS databaseVersion
+            FROM sys.database_files
         `);
 
         const dbSize = dbInfo.recordset.reduce((sum, row) => sum + (row.sizeMB || 0), 0);
@@ -1115,16 +870,21 @@ exports.getSystemInfo = async (req, res) => {
             data: {
                 stats: stats,
                 system: {
-                    version: '2.0.0',
-                    build: '2026.07.26.001',
+                    name: 'ĐỨC VŨ TOWER',
+                    version: require('../package.json').version,
+                    build: process.env.BUILD_VERSION || null,
                     environment: process.env.NODE_ENV || 'development',
                     nodeVersion: process.version,
+                    expressVersion: require('express/package.json').version,
+                    operatingSystem: `${require('os').type()} ${require('os').release()}`,
                     uptime: Math.floor(process.uptime())
                 },
                 database: {
-                    name: 'ApartmentManagement',
+                    name: dbInfo.recordset[0]?.databaseName,
                     size: `${Math.round(dbSize)} MB`,
-                    tables: 28
+                    tables: dbInfo.recordset[0]?.tableCount || 0,
+                    records: dbInfo.recordset[0]?.recordCount || 0,
+                    version: dbInfo.recordset[0]?.databaseVersion
                 },
                 features: {
                     apartments: stats.totalApartments || 0,
@@ -1139,8 +899,8 @@ exports.getSystemInfo = async (req, res) => {
                 status: {
                     database: 'Connected',
                     api: 'Running',
-                    storage: 'Healthy',
-                    cache: 'Active'
+                    storage: 'Chưa giám sát',
+                    cache: 'Không sử dụng'
                 }
             }
         });

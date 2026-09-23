@@ -162,37 +162,8 @@ export default function ScheduleNotification({ flash }) {
       return;
     }
 
-    try {
-      setLoading(true);
-      const payload = {
-        title: form.title,
-        content: form.content,
-        targetScope: form.targetScope,
-        targetUserIds: form.targetScope === 'USER' ? form.targetUserIds || [] : undefined,
-        targetBuildingIds: form.targetScope === 'BUILDING' ? form.targetBuildingIds || [] : undefined
-      };
-      const res = await notificationAPI.create(payload);
-      const newSchedule = {
-        id: res?.data?.notificationId || Date.now(),
-        title: form.title,
-        content: form.content,
-        targetScope: form.targetScope,
-        scheduledDate: new Date().toISOString(),
-        endDate: form.endDate || form.scheduledDate,
-        timezone: form.timezone,
-        status: 'sent',
-        recipientsCount: res?.data?.recipientsCount || 0,
-        sentCount: res?.data?.recipientsCount || 0
-      };
-      setSchedules([newSchedule, ...schedules]);
-      setModalOpen(false);
-      flash('✅ Đã tạo lịch gửi thông báo!');
-    } catch (error) {
-      console.error('Create schedule error:', error);
-      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể tạo lịch gửi'));
-    } finally {
-      setLoading(false);
-    }
+    flash('Chưa có cơ chế lưu lịch gửi trên máy chủ. Thông báo chưa được gửi.');
+
   };
 
   return (

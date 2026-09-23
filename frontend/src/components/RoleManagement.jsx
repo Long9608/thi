@@ -126,7 +126,7 @@ export default function RoleManagement({ flash }) {
       roleCode: role.RoleCode || role.roleCode || '',
       roleName: role.RoleName || role.roleName || '',
       description: role.Description || role.description || '',
-      status: role.Status !== undefined ? role.Status : (role.status !== undefined ? role.status : 1)
+      status: Number(role.Status ?? role.status ?? 1)
     });
     setModalMode('edit');
     setModalOpen(true);
@@ -272,7 +272,13 @@ export default function RoleManagement({ flash }) {
                   <Button 
                     variant="danger" 
                     className="flex-1" 
-                    onClick={() => handleDelete(role.RoleID || role.id)}
+                    onClick={() => Number(role.UserCount)>0 ? setError(`Vai trò đang được sử dụng bởi ${role.UserCount} người dùng. Hãy chuyển vai trò của người dùng trước khi xóa.`) : handleDelete(role.RoleID || role.id)}
+                    disabled={
+  role.IsSystem ||
+  ['ADMIN', 'RESIDENT'].includes(role.RoleCode) ||
+  Number(role.UserCount || 0) > 0
+}
+                    title={role.IsSystem ? 'Không được xóa vai trò lõi hệ thống' : Number(role.UserCount)>0 ? `Vai trò đang được sử dụng bởi ${role.UserCount} người dùng. Hãy chuyển vai trò của người dùng trước khi xóa.` : 'Xóa vai trò'}
                   >
                     <Trash2 size={14} />
                   </Button>

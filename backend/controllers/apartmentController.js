@@ -1,5 +1,6 @@
 // backend/controllers/apartmentController.js
 const { getPool, sql } = require('../config/db');
+const { getAccessScope, getCurrentResidentId, apartmentOwnershipSql, contractOwnershipSql, resolveScope } = require('../utils/accessScope');
 
 const ACTIVE_CONTRACT_STATUS_SQL = '2, 5';
 
@@ -26,6 +27,13 @@ exports.getApartments = async (req, res) => {
         const offset = (safePage - 1) * safeLimit;
 
         const pool = await getPool();
+        const accessScope = getAccessScope(req, {
+            viewAll: 'APARTMENT_VIEW_ALL',
+            viewOwn: 'APARTMENT_VIEW_OWN'
+        });
+        if (accessScope === 'none') {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền xem căn hộ' });
+        }
 
         let query = `
             SELECT 
@@ -99,6 +107,17 @@ exports.getApartments = async (req, res) => {
         `;
 
         // 🔥 Thêm điều kiện tìm kiếm
+        if (accessScope === 'own') {
+            const currentResidentId = await getCurrentResidentId(pool, req.userId);
+            if (!currentResidentId) {
+                return res.status(403).json({ success: false, message: 'Không tìm thấy cư dân hiện tại' });
+            }
+            const residentApartmentCondition = apartmentOwnershipSql();
+            query += ` AND ${residentApartmentCondition}`;
+            countQuery += ` AND ${residentApartmentCondition}`;
+            request.input('CurrentResidentID', sql.Int, currentResidentId);
+        }
+
         if (search) {
             const searchPattern = `%${search}%`;
             query += ` AND (a.ApartmentCode LIKE @Search OR b.BuildingName LIKE @Search)`;
@@ -161,13 +180,56 @@ exports.getApartments = async (req, res) => {
 };
 
 // Lấy chi tiết căn hộ
+exports.getEquipment = async (req,res,next) => {
+    try {
+        const pool=await getPool();
+        const result=await pool.request().input('Search',sql.NVarChar(250),`%${String(req.query.search || '').slice(0,200)}%`)
+            .query(`SELECT ce.*,a.ApartmentCode,c.ContractNumber FROM ContractEquipment ce
+                JOIN Contract c ON c.ContractID=ce.ContractID JOIN Apartment a ON a.ApartmentID=c.ApartmentID
+                WHERE ${activeContractSqlForEquipment()}
+                AND (ce.EquipmentName LIKE @Search OR a.ApartmentCode LIKE @Search) ORDER BY a.ApartmentCode,ce.ContractEquipmentID`);
+        res.json({success:true,data:result.recordset});
+    } catch(error){next(error);}
+};
+function activeContractSqlForEquipment() { return 'c.StatusID IN (2,5) AND CAST(GETDATE() AS date) BETWEEN c.StartDate AND c.EndDate'; }
+exports.updateEquipment = async(req,res,next) => {
+    try {
+        const { positiveId,fail }=require('../utils/workflowUtils');
+        const id=positiveId(req.params.id),{status,conditionDescription}=req.body;
+        if(!['operational','maintenance','broken','retired'].includes(status)) fail(400,'Trạng thái thiết bị không hợp lệ');
+        const result=await (await getPool()).request().input('ID',sql.Int,id).input('Status',sql.NVarChar(50),status)
+            .input('Condition',sql.NVarChar(500),String(conditionDescription || '').slice(0,500))
+            .query('UPDATE ContractEquipment SET EquipmentStatus=@Status,ConditionDescription=@Condition WHERE ContractEquipmentID=@ID');
+        if(!result.rowsAffected[0]) fail(404,'Không tìm thấy thiết bị');
+        res.json({success:true,message:'Đã cập nhật thiết bị'});
+    }catch(error){next(error);}
+};
 exports.getApartmentById = async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await getPool();
+        const accessScope = getAccessScope(req, {
+            viewAll: 'APARTMENT_VIEW_ALL',
+            viewOwn: 'APARTMENT_VIEW_OWN',
+            legacy: ['APARTMENT_VIEW']
+        });
+        if (accessScope === 'none') {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền xem căn hộ' });
+        }
+
+        let residentRestriction = '';
+        let currentResidentId = null;
+        if (accessScope === 'own') {
+            currentResidentId = await getCurrentResidentId(pool, req.userId);
+            if (!currentResidentId) {
+                return res.status(403).json({ success: false, message: 'Không tìm thấy cư dân hiện tại' });
+            }
+            residentRestriction = ` AND ${apartmentOwnershipSql()}`;
+        }
 
         const result = await pool.request()
             .input('ApartmentID', sql.Int, id)
+            .input('CurrentResidentID', sql.Int, currentResidentId)
             .query(`
                 SELECT 
                     a.ApartmentID,
@@ -189,6 +251,7 @@ exports.getApartmentById = async (req, res) => {
                 JOIN Building b ON f.BuildingID = b.BuildingID
                 JOIN ApartmentArea ar ON b.AreaID = ar.AreaID
                 WHERE a.ApartmentID = @ApartmentID
+                  ${residentRestriction}
             `);
 
         if (!result.recordset[0]) {
@@ -203,6 +266,7 @@ exports.getApartmentById = async (req, res) => {
         // Lấy lịch sử giá
         const priceResult = await pool.request()
             .input('ApartmentID', sql.Int, id)
+            .input('CurrentResidentID', sql.Int, currentResidentId)
             .query(`
                 SELECT 
                     PriceHistoryID,
@@ -218,6 +282,7 @@ exports.getApartmentById = async (req, res) => {
         // Lấy hợp đồng hiện tại
         const contractResult = await pool.request()
             .input('ApartmentID', sql.Int, id)
+            .input('CurrentResidentID', sql.Int, currentResidentId)
             .query(`
                 SELECT 
                     c.ContractID,
@@ -230,21 +295,42 @@ exports.getApartmentById = async (req, res) => {
                     c.Deposit,
                     cs.StatusName as ContractStatus,
                     r.FullName as OwnerName,
-                    r.Phone as OwnerPhone,
-                    r.Email as OwnerEmail
+                    ${accessScope === 'own' ? 'NULL' : 'r.Phone'} as OwnerPhone,
+                    ${accessScope === 'own' ? 'NULL' : 'r.Email'} as OwnerEmail
                 FROM Contract c
                 JOIN ContractStatus cs ON c.StatusID = cs.StatusID
                 JOIN Resident r ON c.OwnerID = r.ResidentID
                 WHERE c.ApartmentID = @ApartmentID
+                    ${accessScope === 'own' ? `AND ${contractOwnershipSql('c')}` : ''}
                     AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
                     AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
                 ORDER BY c.SignDate DESC
             `);
         apartment.CurrentContract = contractResult.recordset[0] || null;
+                const contents = await pool.request()
+                        .input('ApartmentID', sql.Int, id)
+                        .input('ContractID', sql.Int, apartment.CurrentContract?.ContractID || null)
+                        .input('CurrentResidentID', sql.Int, currentResidentId)
+                        .query(`
+                        SELECT ce.ContractEquipmentID AS EquipmentID,ce.EquipmentName AS Name,ce.Category,ce.Brand,ce.Model,ce.Quantity,ce.Location,ce.Specifications,ce.ConditionDescription,ce.EquipmentStatus AS Status,ce.CreatedDate
+                        FROM ContractEquipment ce
+                        JOIN Contract c ON c.ContractID=ce.ContractID
+                        WHERE c.ApartmentID=@ApartmentID
+                            AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
+                            AND CAST(GETDATE() AS date) BETWEEN c.StartDate AND c.EndDate
+                            ${accessScope === 'own' ? `AND ${contractOwnershipSql('c')}` : ''}
+                        ORDER BY ce.ContractEquipmentID;
+                        SELECT sr.RegistrationID,s.ServiceName,sr.RegisterDate,sr.EndDate,sr.Quantity,sr.Status
+                        FROM ServiceRegistration sr JOIN Service s ON s.ServiceID=sr.ServiceID
+                        WHERE sr.ContractID=@ContractID ORDER BY sr.RegisterDate DESC;
+                `);
+        apartment.Equipment = contents.recordsets[0];
+        apartment.Services = contents.recordsets[1];
 
         // Lấy tất cả hợp đồng
         const allContracts = await pool.request()
             .input('ApartmentID', sql.Int, id)
+            .input('CurrentResidentID', sql.Int, currentResidentId)
             .query(`
                 SELECT 
                     c.ContractID,
@@ -260,6 +346,7 @@ exports.getApartmentById = async (req, res) => {
                 JOIN ContractStatus cs ON c.StatusID = cs.StatusID
                 JOIN Resident r ON c.OwnerID = r.ResidentID
                 WHERE c.ApartmentID = @ApartmentID
+                    ${accessScope === 'own' ? `AND ${contractOwnershipSql()}` : ''}
                 ORDER BY c.SignDate DESC
             `);
         apartment.AllContracts = allContracts.recordset;
@@ -267,29 +354,34 @@ exports.getApartmentById = async (req, res) => {
         // Lấy cư dân hiện tại
         const residentResult = await pool.request()
             .input('ApartmentID', sql.Int, id)
+            .input('CurrentResidentID', sql.Int, currentResidentId)
             .query(`
                 SELECT 
                     r.ResidentID,
                     r.FullName,
-                    r.Gender,
-                    r.BirthDate,
-                    r.Phone,
-                    r.Email,
+                    ${accessScope === 'own' ? 'NULL' : 'r.Gender'} AS Gender,
+                    ${accessScope === 'own' ? 'NULL' : 'r.BirthDate'} AS BirthDate,
+                    ${accessScope === 'own' ? 'NULL' : 'r.Phone'} AS Phone,
+                    ${accessScope === 'own' ? 'NULL' : 'r.Email'} AS Email,
                     cr.Relationship,
                     cr.MoveInDate
                 FROM ContractResident cr
                 JOIN Resident r ON cr.ResidentID = r.ResidentID
                 JOIN Contract c ON cr.ContractID = c.ContractID
                 WHERE c.ApartmentID = @ApartmentID
+                    ${accessScope === 'own' ? `AND ${contractOwnershipSql()}` : ''}
                     AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
                     AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
                     AND cr.MoveOutDate IS NULL
+                    AND (cr.MoveInDate IS NULL OR cr.MoveInDate <= CAST(GETDATE() AS date))
+                    ${accessScope === 'own' ? 'AND r.ResidentID = @CurrentResidentID' : ''}
             `);
         apartment.CurrentResidents = residentResult.recordset;
 
         // Lấy lịch sử thuê
         const historyResult = await pool.request()
             .input('ApartmentID', sql.Int, id)
+            .input('CurrentResidentID', sql.Int, currentResidentId)
             .query(`
                 SELECT 
                     c.ContractNumber,
@@ -304,6 +396,7 @@ exports.getApartmentById = async (req, res) => {
                 JOIN ContractStatus cs ON c.StatusID = cs.StatusID
                 JOIN Resident r ON c.OwnerID = r.ResidentID
                 WHERE c.ApartmentID = @ApartmentID
+                    ${accessScope === 'own' ? `AND ${contractOwnershipSql()}` : ''}
                 ORDER BY c.SignDate DESC
             `);
         apartment.RentalHistory = historyResult.recordset;
@@ -528,6 +621,7 @@ exports.getBuildings = async (req, res) => {
     try {
         const { areaId } = req.query;
         const pool = await getPool();
+        const { scope, residentId } = await resolveScope(req, pool, 'APARTMENT');
 
         let query = `
             SELECT 
@@ -544,6 +638,7 @@ exports.getBuildings = async (req, res) => {
             LEFT JOIN Floor f ON b.BuildingID = f.BuildingID
             LEFT JOIN Apartment a ON f.FloorID = a.FloorID
             WHERE 1=1
+            ${scope === 'own' ? `AND ${apartmentOwnershipSql()}` : ''}
         `;
 
         if (areaId) {
@@ -555,7 +650,7 @@ exports.getBuildings = async (req, res) => {
             ORDER BY b.BuildingName
         `;
 
-        const request = pool.request();
+        const request = pool.request().input('CurrentResidentID', sql.Int, residentId);
         if (areaId) {
             request.input('AreaID', sql.Int, parseInt(areaId));
         }
@@ -727,6 +822,7 @@ exports.getFloors = async (req, res) => {
     try {
         const { buildingId } = req.query;
         const pool = await getPool();
+        const { scope, residentId } = await resolveScope(req, pool, 'APARTMENT');
 
         let query = `
             SELECT 
@@ -739,6 +835,7 @@ exports.getFloors = async (req, res) => {
             JOIN Building b ON f.BuildingID = b.BuildingID
             LEFT JOIN Apartment a ON f.FloorID = a.FloorID
             WHERE 1=1
+            ${scope === 'own' ? `AND ${apartmentOwnershipSql()}` : ''}
         `;
 
         if (buildingId) {
@@ -750,7 +847,7 @@ exports.getFloors = async (req, res) => {
             ORDER BY f.FloorNumber
         `;
 
-        const request = pool.request();
+        const request = pool.request().input('CurrentResidentID', sql.Int, residentId);
         if (buildingId) {
             request.input('BuildingID', sql.Int, parseInt(buildingId));
         }
@@ -890,7 +987,8 @@ exports.getApartmentStatuses = async (req, res) => {
 exports.getAreas = async (req, res) => {
     try {
         const pool = await getPool();
-        const result = await pool.query(`
+        const { scope, residentId } = await resolveScope(req, pool, 'APARTMENT');
+        const result = await pool.request().input('CurrentResidentID', sql.Int, residentId).query(`
             SELECT 
                 ar.AreaID,
                 ar.AreaName,
@@ -899,6 +997,7 @@ exports.getAreas = async (req, res) => {
                 COUNT(DISTINCT b.BuildingID) as TotalBuildings
             FROM ApartmentArea ar
             LEFT JOIN Building b ON ar.AreaID = b.AreaID
+            ${scope === 'own' ? `WHERE EXISTS (SELECT 1 FROM Floor f JOIN Apartment a ON a.FloorID=f.FloorID WHERE f.BuildingID=b.BuildingID AND ${apartmentOwnershipSql()})` : ''}
             GROUP BY ar.AreaID, ar.AreaName, ar.Address, ar.Description
             ORDER BY ar.AreaName
         `);
@@ -926,13 +1025,15 @@ exports.getApartmentStats = async (req, res) => {
     try {
         const pool = await getPool();
 
-        const result = await pool.request().query(`
+        const { scope, residentId } = await resolveScope(req, pool, 'APARTMENT');
+        const result = await pool.request().input('CurrentResidentID', sql.Int, residentId).query(`
             SELECT 
                 rs.StatusName,
                 COUNT(a.ApartmentID) as Count,
                 CAST(COUNT(a.ApartmentID) * 100.0 / NULLIF(SUM(COUNT(a.ApartmentID)) OVER(), 0) AS DECIMAL(5,2)) as Percentage
             FROM Apartment a
             JOIN RoomStatus rs ON a.StatusID = rs.StatusID
+            ${scope === 'own' ? `WHERE ${apartmentOwnershipSql()}` : ''}
             GROUP BY rs.StatusName
             ORDER BY Count DESC
         `);

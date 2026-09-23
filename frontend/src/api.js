@@ -8,6 +8,7 @@ class ApiError extends Error {
     this.name = 'ApiError';
     this.status = status;
     this.data = data;
+    this.response = { status, data }; // Keep existing screen error handlers consistent.
   }
 }
 
@@ -55,16 +56,6 @@ async function request(path, options = {}) {
       headers['Content-Type'] = 'application/json';
     }
 
-    // 🔥 LOG REQUEST
-    console.log(`📡 API Request: ${options.method || 'GET'} ${path}`);
-    if (options.body && !(options.body instanceof FormData)) {
-      try {
-        console.log('📦 Request body:', JSON.parse(options.body));
-      } catch {
-        console.log('📦 Request body:', options.body);
-      }
-    }
-
     const res = await fetch(`${API_URL}${path}`, {
       ...options,
       headers,
@@ -82,7 +73,7 @@ async function request(path, options = {}) {
     }
 
     // 🔥 LOG RESPONSE
-    console.log(`📡 API Response [${res.status}]:`, data);
+
 
     // Xử lý 401 Unauthorized
     if (res.status === 401) {
@@ -172,12 +163,12 @@ async function request(path, options = {}) {
 export const authAPI = {
   login: async (credentials) => {
     try {
-      console.log('🔐 Đang gọi API login với:', credentials);
+
       const response = await request('/auth/login', {
         method: 'POST',
         body: JSON.stringify(credentials),
       });
-      console.log('✅ Login response:', response);
+
       return response;
     } catch (error) {
       console.error('❌ Login error:', error);
@@ -197,6 +188,8 @@ export const authAPI = {
 
 // ============ APARTMENT API ============
 export const apartmentAPI = {
+  getEquipment: (search = '') => request(`/apartments/equipment?search=${encodeURIComponent(search)}`),
+  updateEquipment: (id,data) => request(`/apartments/equipment/${id}`,{method:'PUT',body:JSON.stringify(data)}),
   getAll: (search = '', statusId = '', page = 1, limit = 999, buildingId = '', floorId = '') => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
@@ -290,6 +283,11 @@ export const contractAPI = {
 
 // ============ INVOICE API ============
 export const invoiceAPI = {
+  getPaymentInfo: id => request(`/invoices/${id}/payment-info`),
+  submitPayment: id => request(`/invoices/${id}/payment-submission`, { method: 'POST' }),
+  confirmPayment: (id, data) => request(`/invoices/${id}/confirm-payment`, { method: 'POST', body: JSON.stringify(data) }),
+  getPaymentConfig: () => request('/invoices/payment-config'),
+  savePaymentConfig: data => request('/invoices/payment-config', { method: 'PUT', body: JSON.stringify(data) }),
   getAll: (statusId = '', month = '', year = '', page = 1, limit = 999) => {
     const params = new URLSearchParams();
     if (statusId) params.set('statusId', statusId);
@@ -355,11 +353,26 @@ export const invoiceAPI = {
 
 // ============ RESIDENT API ============
 export const residentAPI = {
-  getAll: (search = '', page = 1, limit = 999) => {
+  getAll: (search = '', page = 1, limit = 999, hasAccount = null) => {
     const params = new URLSearchParams();
-    if (search) params.set('search', search);
+
+    if (search) {
+      params.set('search', search);
+    }
+
     params.set('page', page);
     params.set('limit', limit);
+
+    // true hoặc 1: chỉ lấy cư dân đã có tài khoản
+    if (hasAccount === true || hasAccount === 1 || hasAccount === '1') {
+      params.set('hasAccount', '1');
+    }
+
+    // false hoặc 0: chỉ lấy cư dân chưa có tài khoản
+    if (hasAccount === false || hasAccount === 0 || hasAccount === '0') {
+      params.set('hasAccount', '0');
+    }
+
     return request(`/residents?${params.toString()}`);
   },
   getById: (id) => request(`/residents/${id}`),
@@ -486,8 +499,9 @@ export const serviceAPI = {
 
 // ============ TICKET API ============
 export const ticketAPI = {
-  getAll: (statusId = '', page = 1, limit = 999) => {
+  getAll: (statusId = '', page = 1, limit = 999, search = '') => {
     const params = new URLSearchParams();
+    if (search) params.set('search', search);
     if (statusId) params.set('statusId', statusId);
     params.set('page', page);
     params.set('limit', limit);
@@ -518,6 +532,8 @@ export const ticketAPI = {
 // ============ VEHICLE API ============
 // ============ VEHICLE API ============
 export const vehicleAPI = {
+  getParkingAreas: () => request('/vehicles/parking-areas'),
+  getEligibleResidents: () => request('/vehicles/eligible-residents'),
   /**
    * Lấy danh sách phương tiện
    * @param {string} residentId - ID cư dân (tùy chọn)
@@ -978,6 +994,7 @@ export const utilityAPI = {
 
 // ============ DASHBOARD API ============
 export const dashboardAPI = {
+  getRevenue: (filters={}) => request(`/dashboard/revenue?${new URLSearchParams(filters)}`),
   getStats: () => request('/dashboard/stats'),
   getActivities: () => request('/dashboard/activities'),
   getFinancial: () => request('/dashboard/financial'),
@@ -985,6 +1002,8 @@ export const dashboardAPI = {
 
 // ============ USER & PERMISSION API ============
 export const userAPI = {
+  getSystemInfo: () => request('/users/system-info'),
+  updateAccount: (id,data) => request(`/users/accounts/${id}`,{method:'PUT',body:JSON.stringify(data)}),
   getEmployees: (search = '', status = '', roleId = '', page = 1, limit = 999) => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
@@ -1101,7 +1120,7 @@ export const aiAPI = {
   getStatisticsDashboard: async () => {
     try {
       const response = await fetch(
-        'http://127.0.0.1:8000/ai/statistics/dashboard'
+        'http://127.0.0.1:8000/ai/statistics/dashboard', { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );
 
       if (!response.ok) {
@@ -1134,7 +1153,7 @@ export const aiAPI = {
     }
 
     const response = await fetch(
-      `http://127.0.0.1:8000/ai/search?q=${encodeURIComponent(query)}`
+      `http://127.0.0.1:8000/ai/search?q=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }
     );
 
     if (!response.ok) {
@@ -1166,7 +1185,7 @@ chat: async (message) => {
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}`
         },
         body: JSON.stringify({
           message: content
@@ -1194,7 +1213,7 @@ chat: async (message) => {
 getPredictionDashboard: async () => {
   try {
     const response = await fetch(
-      'http://127.0.0.1:8000/ai/prediction/dashboard'
+      'http://127.0.0.1:8000/ai/prediction/dashboard', { headers: { Authorization: `Bearer ${getAuthToken()}` } }
     );
 
     if (!response.ok) {

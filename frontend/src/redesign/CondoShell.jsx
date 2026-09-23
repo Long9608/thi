@@ -12,7 +12,7 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
-import { navigationGroups, pageMeta } from './navigation';
+import { itemIsAccessible, navigationGroups, pageMeta } from './navigation';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -31,6 +31,7 @@ function Sidebar({
   onLogout,
   user,
   onClose,
+  audience = 'staff',
 }) {
   const [collapsedGroups, setCollapsedGroups] = useState({});
 
@@ -38,10 +39,10 @@ function Sidebar({
     () => navigationGroups
       .map((group) => ({
         ...group,
-        items: group.items.filter((item) => canAccess(item.permission)),
+        items: group.items.filter((item) => itemIsAccessible(item, canAccess, audience)).map(item => audience === 'resident' ? { ...item, label: ({ buildings: 'Căn hộ của tôi', vehicles: 'Phương tiện của tôi', residents: 'Hồ sơ cư dân', 'contract-list': 'Hợp đồng của tôi', feedbacks: 'Phản ánh của tôi' })[item.id] || item.label } : item),
       }))
       .filter((group) => group.items.length > 0),
-    [canAccess],
+    [audience, canAccess],
   );
 
   const displayName = user?.name || user?.employee?.fullName || user?.username || 'Người dùng';
@@ -174,6 +175,7 @@ export default function CondoShell({
   onNavigate,
   onRefresh,
   user,
+  audience = 'staff',
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -181,8 +183,8 @@ export default function CondoShell({
   const accessibleItems = useMemo(
     () => navigationGroups
       .flatMap((group) => group.items)
-      .filter((item) => canAccess(item.permission)),
-    [canAccess],
+      .filter((item) => itemIsAccessible(item, canAccess, audience)),
+    [audience, canAccess],
   );
 
   const searchResults = useMemo(() => {
@@ -220,6 +222,7 @@ export default function CondoShell({
           canAccess={canAccess}
           onLogout={onLogout}
           onNavigate={onNavigate}
+          audience={audience}
           user={user}
         />
       </div>
@@ -251,6 +254,7 @@ export default function CondoShell({
                 onClose={() => setMobileMenuOpen(false)}
                 onLogout={onLogout}
                 onNavigate={onNavigate}
+                audience={audience}
                 user={user}
               />
             </motion.div>
@@ -318,7 +322,7 @@ export default function CondoShell({
               <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
             </button>
 
-            {canAccess('NOTIFICATION_VIEW') && (
+            {itemIsAccessible({ permissions: ['NOTIFICATION_VIEW_ALL', 'NOTIFICATION_VIEW_OWN'], audience: ['staff', 'resident'] }, canAccess, audience) && (
               <button
                 type="button"
                 aria-label="Thông báo"

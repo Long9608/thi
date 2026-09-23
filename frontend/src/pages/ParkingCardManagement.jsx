@@ -10,6 +10,7 @@ import {
 import { vehicleAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, money, getInitials } from '../utils/formatters';
+import { PermissionGate } from '../permissions';
 
 export default function ParkingCardManagement({ flash }) {
   const [cards, setCards] = useState([]);
@@ -393,9 +394,11 @@ if (!selectedVehicle?.ContractID) {
               placeholder="Tìm mã thẻ, biển số..."
               className="w-48"
             />
-            <Button onClick={openCreateModal}>
-              <Plus size={16} /> Cấp thẻ mới
-            </Button>
+            <PermissionGate permission="CARD_CREATE">
+              <Button onClick={openCreateModal}>
+                <Plus size={16} /> Cấp thẻ mới
+              </Button>
+            </PermissionGate>
             <Button variant="secondary" onClick={fetchCards} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
@@ -422,9 +425,11 @@ if (!selectedVehicle?.ContractID) {
           <CreditCard size={48} className="text-slate-300 mx-auto" />
           <h3 className="mt-3 text-xl font-bold text-slate-900">Chưa có thẻ xe</h3>
           <p className="text-sm text-slate-500">Nhấn "Cấp thẻ mới" để tạo</p>
-          <Button className="mt-4" onClick={openCreateModal}>
-            <Plus size={16} /> Cấp thẻ mới
-          </Button>
+          <PermissionGate permission="CARD_CREATE">
+            <Button className="mt-4" onClick={openCreateModal}>
+              <Plus size={16} /> Cấp thẻ mới
+            </Button>
+          </PermissionGate>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -479,23 +484,27 @@ if (!selectedVehicle?.ContractID) {
                     <Button variant="secondary" className="flex-1" onClick={() => openViewModal(card)}>
                       <Eye size={14} /> Xem
                     </Button>
-                    <Button variant="secondary" className="flex-1" onClick={() => openEditModal(card)}>
-                      <Edit size={14} /> Sửa
-                    </Button>
-                    {card.CardStatus === 1 ? (
-                      <Button variant="warning" className="flex-1" onClick={() => handleToggleCardStatus(card)}>
-                        <Lock size={14} /> Khóa
+                    <PermissionGate permission="CARD_UPDATE">
+                      <Button variant="secondary" className="flex-1" onClick={() => openEditModal(card)}>
+                        <Edit size={14} /> Sửa
                       </Button>
-                    ) : (
-                      <Button variant="success" className="flex-1" onClick={() => handleToggleCardStatus(card)}>
-                        <Key size={14} /> Mở khóa
-                      </Button>
-                    )}
+                      {card.CardStatus === 1 ? (
+                        <Button variant="warning" className="flex-1" onClick={() => handleToggleCardStatus(card)}>
+                          <Lock size={14} /> Khóa
+                        </Button>
+                      ) : (
+                        <Button variant="success" className="flex-1" onClick={() => handleToggleCardStatus(card)}>
+                          <Key size={14} /> Mở khóa
+                        </Button>
+                      )}
+                    </PermissionGate>
                   </div>
                   <div className="mt-2">
-                    <Button variant="danger" className="w-full" onClick={() => handleDeleteCard(card.CardID)}>
-                      <Trash2 size={14} /> Xóa thẻ
-                    </Button>
+                    <PermissionGate permission="CARD_UPDATE">
+                      <Button variant="danger" className="w-full" onClick={() => handleDeleteCard(card.CardID)}>
+                        <Trash2 size={14} /> Xóa thẻ
+                      </Button>
+                    </PermissionGate>
                   </div>
                 </div>
               </Card>

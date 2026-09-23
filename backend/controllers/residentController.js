@@ -1,5 +1,6 @@
 // backend/controllers/residentController.js
 const { getPool, sql } = require('../config/db');
+const { isResidentAccount } = require('../utils/accessScope');
 
 // ============================================
 // QUẢN LÝ CƯ DÂN
@@ -43,13 +44,25 @@ exports.getResidents = async (req, res) => {
                 ri.IssuePlace,
                 ri.ExpiredDate,
                 (
+                    SELECT TOP 1 a.ApartmentID
+                    FROM ContractResident cr2
+                    JOIN Contract c2 ON cr2.ContractID = c2.ContractID
+                    JOIN Apartment a ON c2.ApartmentID = a.ApartmentID
+                    WHERE cr2.ResidentID = r.ResidentID 
+                        AND cr2.MoveOutDate IS NULL
+                        AND c2.StatusID IN (2, 5)
+                        AND CAST(GETDATE() AS DATE) BETWEEN c2.StartDate AND c2.EndDate
+                    ORDER BY c2.SignDate DESC
+                ) AS ApartmentID,
+                (
                     SELECT TOP 1 a.ApartmentCode
                     FROM ContractResident cr2
                     JOIN Contract c2 ON cr2.ContractID = c2.ContractID
                     JOIN Apartment a ON c2.ApartmentID = a.ApartmentID
                     WHERE cr2.ResidentID = r.ResidentID 
                         AND cr2.MoveOutDate IS NULL
-                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
+                        AND c2.StatusID IN (2, 5)
+                        AND CAST(GETDATE() AS DATE) BETWEEN c2.StartDate AND c2.EndDate
                     ORDER BY c2.SignDate DESC
                 ) AS ApartmentCode,
                 (
@@ -61,7 +74,8 @@ exports.getResidents = async (req, res) => {
                     JOIN Building b ON f.BuildingID = b.BuildingID
                     WHERE cr2.ResidentID = r.ResidentID 
                         AND cr2.MoveOutDate IS NULL
-                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
+                        AND c2.StatusID IN (2, 5)
+                        AND CAST(GETDATE() AS DATE) BETWEEN c2.StartDate AND c2.EndDate
                     ORDER BY c2.SignDate DESC
                 ) AS BuildingName,
                 (
@@ -72,7 +86,8 @@ exports.getResidents = async (req, res) => {
                     JOIN Floor f ON a.FloorID = f.FloorID
                     WHERE cr2.ResidentID = r.ResidentID 
                         AND cr2.MoveOutDate IS NULL
-                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
+                        AND c2.StatusID IN (2, 5)
+                        AND CAST(GETDATE() AS DATE) BETWEEN c2.StartDate AND c2.EndDate
                     ORDER BY c2.SignDate DESC
                 ) AS FloorNumber,
                 (
@@ -83,7 +98,8 @@ exports.getResidents = async (req, res) => {
                     JOIN RoomStatus rs ON a.StatusID = rs.StatusID
                     WHERE cr2.ResidentID = r.ResidentID 
                         AND cr2.MoveOutDate IS NULL
-                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
+                        AND c2.StatusID IN (2, 5)
+                        AND CAST(GETDATE() AS DATE) BETWEEN c2.StartDate AND c2.EndDate
                     ORDER BY c2.SignDate DESC
                 ) AS RoomStatus
             FROM Resident r
@@ -92,15 +108,48 @@ exports.getResidents = async (req, res) => {
         `;
 
         const request = pool.request();
-        let countQuery = `
-            SELECT COUNT(DISTINCT r.ResidentID) as total 
-            FROM Resident r
-            WHERE 1=1
-        `;
 
-        if (search) {
+let countQuery = `
+    SELECT COUNT(DISTINCT r.ResidentID) as total 
+    FROM Resident r
+    LEFT JOIN ResidentIdentity ri ON r.ResidentID = ri.ResidentID
+    WHERE 1=1
+`;
+
+        // A resident account never receives the global resident directory,
+        // even when an old broad RESIDENT_VIEW permission is still present.
+        if (isResidentAccount(req)) {
+            query += ' AND r.UserID = @CurrentUserID';
+            countQuery += ' AND r.UserID = @CurrentUserID';
+            request.input('CurrentUserID', sql.Int, req.userId);
+        }
+
+// Lọc cư dân theo trạng thái tài khoản
+if (req.query.hasAccount === '1') {
+    const accountFilter = `
+        AND EXISTS (
+            SELECT 1
+            FROM Users u
+            WHERE u.UserID = r.UserID
+              AND u.Status = 1
+        )
+    `;
+
+    query += accountFilter;
+    countQuery += accountFilter;
+}
+else if (req.query.hasAccount === '0') {
+    const noAccountFilter = `
+        AND r.UserID IS NULL
+    `;
+
+    query += noAccountFilter;
+    countQuery += noAccountFilter;
+}
+
+if (search) {
             query += ` AND (r.FullName LIKE @Search OR r.Phone LIKE @Search OR r.Email LIKE @Search OR ri.IdentityNumber LIKE @Search)`;
-            countQuery += ` AND (r.FullName LIKE @Search OR r.Phone LIKE @Search OR r.Email LIKE @Search)`;
+            countQuery += ` AND (r.FullName LIKE @Search OR r.Phone LIKE @Search OR r.Email LIKE @Search OR ri.IdentityNumber LIKE @Search)`;
             request.input('Search', sql.NVarChar, `%${search}%`);
         }
 
@@ -117,7 +166,8 @@ exports.getResidents = async (req, res) => {
                 WHERE cr2.ResidentID = r.ResidentID 
                     AND c2.ApartmentID = @ApartmentID
                     AND cr2.MoveOutDate IS NULL
-                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
+                        AND c2.StatusID IN (2, 5)
+                        AND CAST(GETDATE() AS DATE) BETWEEN c2.StartDate AND c2.EndDate
             )`;
             countQuery += ` AND EXISTS (
                 SELECT 1 FROM ContractResident cr2
@@ -125,7 +175,8 @@ exports.getResidents = async (req, res) => {
                 WHERE cr2.ResidentID = r.ResidentID 
                     AND c2.ApartmentID = @ApartmentID
                     AND cr2.MoveOutDate IS NULL
-                        AND EXISTS (SELECT 1 FROM ContractStatus cs2 WHERE cs2.StatusID = c2.StatusID AND cs2.StatusName = N'Đang hiệu lực')
+                        AND c2.StatusID IN (2, 5)
+                        AND CAST(GETDATE() AS DATE) BETWEEN c2.StartDate AND c2.EndDate
             )`;
             request.input('ApartmentID', sql.Int, parseInt(apartmentId));
         }
@@ -245,7 +296,8 @@ exports.getResidentById = async (req, res) => {
                 JOIN Building b ON f.BuildingID = b.BuildingID
                 WHERE cr.ResidentID = @ResidentID
                     AND cr.MoveOutDate IS NULL
-                    AND cs.StatusName = N'Đang hiệu lực'
+                    AND c.StatusID IN (2, 5)
+                    AND CAST(GETDATE() AS DATE) BETWEEN c.StartDate AND c.EndDate
                 ORDER BY c.SignDate DESC
             `);
         resident.CurrentApartment = currentApt.recordset[0] || null;
@@ -750,7 +802,7 @@ exports.getResidentsByBirthday = async (req, res) => {
                     r.FullName,
                     r.BirthDate,
                     r.Phone,
-                    r.Email,s
+                    r.Email,
                     r.Address,
                     a.ApartmentCode,
                     b.BuildingName
@@ -916,6 +968,11 @@ exports.getFamilyMembers = async (req, res) => {
 exports.exportResidents = async (req, res) => {
     try {
         const pool = await getPool();
+        const isAllResidentView = (req.user?.Permissions || []).includes('RESIDENT_VIEW_ALL');
+        const isExportAllowed = (req.user?.Permissions || []).includes('RESIDENT_EXPORT');
+        if (!isAllResidentView && !isExportAllowed) {
+            return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Bạn không có quyền xuất danh sách cư dân' });
+        }
         
         const result = await pool.request().query(`
             SELECT 
@@ -1147,7 +1204,7 @@ exports.uploadIdentityImage = async (req, res) => {
             });
         }
 
-        const imagePath = `/uploads/identity/${id}_${type}_${Date.now()}.png`;
+        const imagePath = `/uploads/identity/${file.filename}`;
         const column = type === 'front' ? 'FrontImage' : 'BackImage';
 
         // Kiểm tra identity đã tồn tại chưa
@@ -1266,6 +1323,7 @@ exports.getFamilyMembersDetail = async (req, res) => {
                 WHERE cr.ContractID = @ContractID
                     AND cr.MoveOutDate IS NULL
                     AND r.Status = 1
+                    ${getAccessScope(req, { viewAll: 'RESIDENT_VIEW_ALL', viewOwn: 'RESIDENT_VIEW_OWN' }) === 'own' ? 'AND r.ResidentID=@ResidentID' : ''}
                 ORDER BY 
                     CASE WHEN cr.Relationship = 'Chủ hộ' THEN 0 ELSE 1 END,
                     r.FullName

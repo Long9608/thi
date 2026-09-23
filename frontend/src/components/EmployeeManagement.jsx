@@ -1,3 +1,4 @@
+import { PermissionGate, createPermissionChecker } from '../permissions';
 // src/components/EmployeeManagement.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -8,10 +9,11 @@ import {
   Building2, CreditCard, Clock, AlertCircle
 } from 'lucide-react';
 // SỬA: Import userAPI từ api
-import { userAPI } from '../api';
+import { userAPI, residentAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from './UI';
 
 export default function EmployeeManagement({ flash }) {
+  const { can } = createPermissionChecker(JSON.parse(localStorage.getItem('user') || '{}'));
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -19,12 +21,14 @@ export default function EmployeeManagement({ flash }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [roles, setRoles] = useState([]);
+  const [availableResidents, setAvailableResidents] = useState([]);
   const [error, setError] = useState(null);
 
   // Form state
   const [form, setForm] = useState({
     username: '',
     password: '',
+    residentId: '',
     email: '',
     phone: '',
     fullName: '',
@@ -38,7 +42,7 @@ export default function EmployeeManagement({ flash }) {
 
   useEffect(() => {
     fetchEmployees();
-    fetchRoles();
+    if ((JSON.parse(localStorage.getItem('user') || '{}').permissions || []).includes('ROLE_MANAGE')) fetchRoles();
   }, []);
 
   // 🔥 Gọi API lấy danh sách nhân viên
@@ -98,15 +102,44 @@ export default function EmployeeManagement({ flash }) {
     }
   };
 
-  // 🔥 Tạo nhân viên mới
+  // Lấy danh sách cư dân chưa có tài khoản
+  const fetchResidentsWithoutAccount = async () => {
+    try {
+      const res = await residentAPI.getAll('', 1, 999, false);
+      console.log('📊 Residents without account:', res);
+
+      if (res && Array.isArray(res.data)) {
+        setAvailableResidents(res.data);
+      } else if (res?.data?.data && Array.isArray(res.data.data)) {
+        setAvailableResidents(res.data.data);
+      } else if (res?.data?.recordset && Array.isArray(res.data.recordset)) {
+        setAvailableResidents(res.data.recordset);
+      } else {
+        setAvailableResidents([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching residents without account:', error);
+      setAvailableResidents([]);
+      if (flash) flash('❌ Không thể tải danh sách cư dân chưa có tài khoản');
+    }
+  };
+
+  // 🔥 Tạo/cập nhật người dùng
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      if (isResidentRole && !form.residentId) {
+        if (flash) flash('❌ Vui lòng chọn cư dân chưa có tài khoản');
+        return;
+      }
+
       setLoading(true);
       
       const submitData = {
         username: form.username,
-        password: form.password || '123456',
+        status: form.status ?? 1,
+        ...(form.password ? { password: form.password } : {}),
+        residentId: form.residentId ? Number(form.residentId) : null,
         email: form.email,
         phone: form.phone,
         fullName: form.fullName,
@@ -115,16 +148,16 @@ export default function EmployeeManagement({ flash }) {
         address: form.address,
         cccd: form.cccd,
         hireDate: form.hireDate || new Date().toISOString().split('T')[0],
-        roleIds: form.roleIds
+        ...((JSON.parse(localStorage.getItem('user') || '{}').permissions || []).includes('ROLE_MANAGE') ? { roleIds: form.roleIds } : {})
       };
 
       let response;
       if (modalMode === 'create') {
         response = await userAPI.createEmployee(submitData);
-        if (flash) flash('✅ Thêm nhân viên thành công!');
+        if (flash) flash('✅ Thêm người dùng thành công!');
       } else {
-        response = await userAPI.updateEmployee(selectedEmployee?.EmployeeID || selectedEmployee?.id, submitData);
-        if (flash) flash('✅ Cập nhật nhân viên thành công!');
+        response = await userAPI.updateAccount(selectedEmployee.UserID, submitData);
+        if (flash) flash('✅ Cập nhật người dùng thành công!');
       }
       
       console.log('📊 Submit response:', response);
@@ -140,13 +173,13 @@ export default function EmployeeManagement({ flash }) {
     }
   };
 
-  // 🔥 Xóa nhân viên
-  const handleDelete = async (id) => {
-    if (!confirm('Bạn có chắc muốn xóa nhân viên này?')) return;
+  // Xóa vĩnh viễn tài khoản; hồ sơ cư dân vẫn được giữ lại nhưng mất liên kết đăng nhập.
+  const handleDelete = async (userId) => {
+    if (!confirm('Bạn có chắc muốn xóa vĩnh viễn tài khoản này? Thao tác không thể hoàn tác.')) return;
     try {
       setLoading(true);
-      await userAPI.deleteEmployee(id);
-      if (flash) flash('✅ Xóa nhân viên thành công!');
+      await userAPI.deleteEmployee(userId);
+      if (flash) flash('✅ Đã xóa vĩnh viễn tài khoản!');
       await fetchEmployees();
     } catch (error) {
       console.error('❌ Delete error:', error);
@@ -160,6 +193,7 @@ export default function EmployeeManagement({ flash }) {
     setForm({
       username: '',
       password: '',
+      residentId: '',
       email: '',
       phone: '',
       fullName: '',
@@ -182,12 +216,14 @@ export default function EmployeeManagement({ flash }) {
   const openEditModal = (employee) => {
     setSelectedEmployee(employee);
     setForm({
+      status: Number(employee.Status),
       username: employee.Username || employee.username || '',
       password: '',
+      residentId: employee.ResidentID || '',
       email: employee.Email || employee.email || '',
       phone: employee.Phone || employee.phone || '',
       fullName: employee.FullName || employee.fullName || '',
-      gender: employee.Gender || employee.gender || 1,
+      gender: employee.Gender ?? employee.gender ?? 1,
       birthDate: employee.BirthDate || employee.birthDate ? new Date(employee.BirthDate || employee.birthDate).toISOString().split('T')[0] : '',
       address: employee.Address || employee.address || '',
       cccd: employee.CCCD || employee.cccd || '',
@@ -231,14 +267,38 @@ export default function EmployeeManagement({ flash }) {
     });
   }, [employees, search]);
 
+  // Kiểm tra form hiện có đang chọn vai trò RESIDENT hay không
+  const residentRole = roles.find((role) => {
+    const roleId = Number(role.RoleID || role.roleId || role.id);
+    const roleCode = role.RoleCode || role.roleCode || role.code;
+    return roleCode === 'RESIDENT' && form.roleIds.includes(roleId);
+  });
+
+  const isResidentRole = Boolean(residentRole);
+  const isResidentCreate = isResidentRole && (modalMode === 'create' || !selectedEmployee?.ResidentID);
+
+  // Khi chọn vai trò Cư dân trong form tạo mới, tải cư dân chưa có tài khoản
+  useEffect(() => {
+    if (modalOpen && isResidentCreate) {
+      fetchResidentsWithoutAccount();
+    }
+  }, [modalOpen, isResidentCreate]);
+
+  // Khi bỏ vai trò Cư dân thì bỏ lựa chọn cư dân cũ
+  useEffect(() => {
+    if (modalMode === 'create' && !isResidentRole && form.residentId) {
+      setForm((prev) => ({ ...prev, residentId: '' }));
+    }
+  }, [modalMode, isResidentRole, form.residentId]);
+
   return (
     <div className="space-y-5">
       {/* Header */}
       <Card className="p-5">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div>
-            <h3 className="text-base font-bold text-slate-950">Quản lý nhân viên</h3>
-            <p className="text-sm text-slate-500">Quản lý nhân sự, vai trò và phân quyền truy cập hệ thống.</p>
+            <h3 className="text-base font-bold text-slate-950">Quản lý người dùng</h3>
+            <p className="text-sm text-slate-500">Quản lý người dùng, vai trò và phân quyền truy cập hệ thống.</p>
             {employees.length === 0 && !loading && (
               <Badge tone="amber" className="mt-2">⚠️ Chưa có dữ liệu</Badge>
             )}
@@ -248,12 +308,12 @@ export default function EmployeeManagement({ flash }) {
               icon={Search} 
               value={search} 
               onChange={(e) => setSearch(e.target.value)} 
-              placeholder="Tìm nhân viên..." 
+              placeholder="Tìm người dùng..." 
               className="w-48"
             />
-            <Button onClick={openCreateModal} disabled={loading}>
-              <Plus size={16} /> Thêm nhân viên
-            </Button>
+            <PermissionGate permission="EMPLOYEE_CREATE"><Button onClick={openCreateModal} disabled={loading}>
+              <Plus size={16} /> Thêm người dùng
+            </Button></PermissionGate>
             <Button variant="secondary" onClick={fetchEmployees} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </Button>
@@ -263,17 +323,17 @@ export default function EmployeeManagement({ flash }) {
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard 
-          icon={Users} 
-          label="Tổng nhân viên" 
-          value={employees.length} 
-          hint="Đang hoạt động và nghỉ" 
+        <StatCard
+          icon={Users}
+          label="Tổng tài khoản"
+          value={employees.length}
+          hint="Tài khoản nhân viên và cư dân"
         />
-        <StatCard 
-          icon={CheckCircle2} 
-          label="Đang hoạt động" 
-          value={employees.filter(e => (e.Status || e.status || 1) === 1).length} 
-          hint="Nhân viên đang làm việc" 
+        <StatCard
+          icon={CheckCircle2}
+          label="Đang hoạt động"
+          value={employees.filter(e => Number(e.Status ?? e.status ?? 1) === 1).length}
+          hint="Tài khoản có thể đăng nhập"
         />
         <StatCard 
           icon={Shield} 
@@ -314,17 +374,17 @@ export default function EmployeeManagement({ flash }) {
         <Card className="p-8 text-center">
           <div className="flex flex-col items-center gap-3">
             <Users size={48} className="text-slate-300" />
-            <h3 className="text-xl font-bold text-slate-900">Chưa có nhân viên</h3>
-            <p className="text-sm text-slate-500">Nhấn "Thêm nhân viên" để tạo mới</p>
-            <Button onClick={openCreateModal}>
-              <Plus size={16} /> Thêm nhân viên
-            </Button>
+            <h3 className="text-xl font-bold text-slate-900">Chưa có người dùng</h3>
+            <p className="text-sm text-slate-500">Nhấn "Thêm người dùng" để tạo mới</p>
+            <PermissionGate permission="EMPLOYEE_CREATE"><Button onClick={openCreateModal}>
+              <Plus size={16} /> Thêm người dùng
+            </Button></PermissionGate>
           </div>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredEmployees.map((employee) => (
-            <Card key={employee.EmployeeID || employee.employeeId || employee.id} className="group hover:border-[#635bff]/30 transition-all">
+            <Card key={employee.UserID} className="group hover:border-[#635bff]/30 transition-all">
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -364,20 +424,20 @@ export default function EmployeeManagement({ flash }) {
                   >
                     <Eye size={14} /> Xem
                   </Button>
-                  <Button 
+                  <PermissionGate permission="EMPLOYEE_UPDATE"><Button 
                     variant="secondary" 
                     className="flex-1" 
                     onClick={() => openEditModal(employee)}
                   >
                     <Edit size={14} /> Sửa
-                  </Button>
-                  <Button 
+                  </Button></PermissionGate>
+                  <PermissionGate permission="EMPLOYEE_DELETE"><Button 
                     variant="danger" 
                     className="flex-1" 
-                    onClick={() => handleDelete(employee.EmployeeID || employee.employeeId || employee.id)}
+                    onClick={() => handleDelete(employee.UserID || employee.userId)}
                   >
                     <Trash2 size={14} />
-                  </Button>
+                  </Button></PermissionGate>
                 </div>
               </div>
             </Card>
@@ -388,10 +448,10 @@ export default function EmployeeManagement({ flash }) {
       {/* Modal */}
       <Modal 
         open={modalOpen} 
-        title={modalMode === 'create' ? 'Thêm nhân viên mới' : 
-               modalMode === 'edit' ? 'Cập nhật nhân viên' : 
-               'Thông tin nhân viên'}
-        description={modalMode === 'view' ? 'Xem chi tiết hồ sơ nhân viên' : 'Nhập thông tin nhân viên'}
+        title={modalMode === 'create' ? 'Thêm người dùng mới' : 
+               modalMode === 'edit' ? 'Cập nhật người dùng' : 
+               'Thông tin người dùng'}
+        description={modalMode === 'view' ? 'Xem chi tiết hồ sơ người dùng' : 'Nhập thông tin người dùng'}
         onClose={() => setModalOpen(false)}
         size="lg"
       >
@@ -453,6 +513,7 @@ export default function EmployeeManagement({ flash }) {
                   onChange={(e) => setForm({...form, fullName: e.target.value})} 
                   placeholder="Nguyễn Văn A" 
                   required 
+                  disabled={isResidentCreate}
                 />
               </div>
               <div>
@@ -462,6 +523,7 @@ export default function EmployeeManagement({ flash }) {
                   value={form.email} 
                   onChange={(e) => setForm({...form, email: e.target.value})} 
                   placeholder="nhanvien@ducvu.vn" 
+                  disabled={isResidentCreate}
                 />
               </div>
             </div>
@@ -473,6 +535,7 @@ export default function EmployeeManagement({ flash }) {
                   value={form.phone} 
                   onChange={(e) => setForm({...form, phone: e.target.value})} 
                   placeholder="0900000000" 
+                  disabled={isResidentCreate}
                 />
               </div>
               <div>
@@ -480,6 +543,7 @@ export default function EmployeeManagement({ flash }) {
                 <select 
                   value={form.gender} 
                   onChange={(e) => setForm({...form, gender: parseInt(e.target.value)})}
+                  disabled={isResidentCreate}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
                 >
                   <option value={1}>Nam</option>
@@ -492,6 +556,7 @@ export default function EmployeeManagement({ flash }) {
                   type="date"
                   value={form.birthDate} 
                   onChange={(e) => setForm({...form, birthDate: e.target.value})} 
+                  disabled={isResidentCreate}
                 />
               </div>
             </div>
@@ -502,6 +567,7 @@ export default function EmployeeManagement({ flash }) {
                 value={form.address} 
                 onChange={(e) => setForm({...form, address: e.target.value})} 
                 placeholder="Số nhà, đường, quận/huyện..." 
+                disabled={isResidentCreate}
               />
             </div>
 
@@ -512,6 +578,7 @@ export default function EmployeeManagement({ flash }) {
                   value={form.cccd} 
                   onChange={(e) => setForm({...form, cccd: e.target.value})} 
                   placeholder="012345678901" 
+                  disabled={isResidentCreate}
                 />
               </div>
               <div>
@@ -520,6 +587,7 @@ export default function EmployeeManagement({ flash }) {
                   type="date"
                   value={form.hireDate} 
                   onChange={(e) => setForm({...form, hireDate: e.target.value})} 
+                  disabled={isResidentCreate}
                 />
               </div>
             </div>
@@ -527,7 +595,8 @@ export default function EmployeeManagement({ flash }) {
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">Vai trò</label>
               <select 
-                multiple 
+                multiple
+                disabled={!can('ROLE_MANAGE')}
                 value={form.roleIds} 
                 onChange={(e) => {
                   const options = e.target.options;
@@ -550,11 +619,83 @@ export default function EmployeeManagement({ flash }) {
               <p className="mt-1 text-xs text-slate-500">Giữ Ctrl để chọn nhiều vai trò</p>
             </div>
 
+            {modalMode === 'edit' && <div><label className="mb-1 block text-sm font-semibold">Trạng thái tài khoản</label><select className="w-full rounded-xl border p-3" value={form.status ?? 1} onChange={e => setForm({...form,status:Number(e.target.value)})}><option value={1}>Đang hoạt động</option><option value={0}>Khóa tài khoản</option></select></div>}
+            {isResidentCreate && (
+              <div className="rounded-xl border border-[#635bff]/20 bg-[#f8f7ff] p-4">
+                <label className="mb-1 block text-sm font-semibold text-slate-700">
+                  Chọn cư dân chưa có tài khoản *
+                </label>
+                <select
+                  value={form.residentId}
+                  onChange={(e) => {
+                    const residentId = e.target.value;
+                    const resident = availableResidents.find(
+                      (item) => String(item.ResidentID || item.residentId) === String(residentId)
+                    );
+
+                    if (!resident) {
+                      setForm((prev) => ({ ...prev, residentId: '' }));
+                      return;
+                    }
+
+                    const birthDate = resident.BirthDate || resident.birthDate;
+
+                    setForm((prev) => ({
+                      ...prev,
+                      residentId,
+                      fullName: resident.FullName || resident.fullName || '',
+                      email: resident.Email || resident.email || '',
+                      phone: resident.Phone || resident.phone || '',
+                      gender:
+                        resident.Gender !== undefined && resident.Gender !== null
+                          ? Number(resident.Gender)
+                          : (resident.gender !== undefined && resident.gender !== null
+                              ? Number(resident.gender)
+                              : 1),
+                      birthDate: birthDate
+                        ? new Date(birthDate).toISOString().split('T')[0]
+                        : '',
+                      address: resident.Address || resident.address || '',
+                      cccd: resident.IdentityNumber || resident.identityNumber || ''
+                    }));
+                  }}
+                  required
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
+                >
+                  <option value="">-- Chọn cư dân --</option>
+                  {availableResidents.map((resident) => (
+                    <option
+                      key={resident.ResidentID || resident.residentId}
+                      value={resident.ResidentID || resident.residentId}
+                    >
+                      {resident.FullName || resident.fullName || 'Không có tên'}
+                      {' - '}
+                      {resident.ApartmentCode || resident.apartmentCode || 'Chưa có căn hộ'}
+                      {' - '}
+                      {resident.Phone || resident.phone || 'Chưa có SĐT'}
+                    </option>
+                  ))}
+                </select>
+
+                {availableResidents.length === 0 && (
+                  <p className="mt-2 text-xs font-medium text-amber-600">
+                    Không có cư dân nào chưa có tài khoản.
+                  </p>
+                )}
+
+                {form.residentId && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Thông tin bên trên được lấy trực tiếp từ hồ sơ cư dân đã chọn.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Hủy</Button>
               <Button type="submit" disabled={loading}>
                 {loading ? <RefreshCw size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                {modalMode === 'create' ? 'Thêm nhân viên' : 'Cập nhật'}
+                {modalMode === 'create' ? 'Thêm người dùng' : 'Cập nhật'}
               </Button>
             </div>
           </form>

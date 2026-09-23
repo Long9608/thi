@@ -1,5 +1,6 @@
 const errorHandler = (err, req, res, next) => {
     console.error('Error:', err);
+    if (err.statusCode) return res.status(err.statusCode).json({ success: false, message: err.message });
     
     // SQL Server errors
     if (err.number) {

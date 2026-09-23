@@ -1,16 +1,17 @@
+const { requireScope, requireResourceScope } = require('../utils/accessScope');
 const express = require('express');
 const router = express.Router();
 const notificationController = require('../controllers/notificationController');
-const { authMiddleware, checkRole, checkPermission } = require('../middlewares/auth');
+const { authMiddleware, checkPermission, checkAnyPermission } = require('../middlewares/auth');
 
-router.get('/', authMiddleware, notificationController.getAllNotifications);
-router.get('/unread-count', authMiddleware, notificationController.getUnreadCount);
-router.get('/:id', authMiddleware, notificationController.getNotificationById);
+router.get('/', authMiddleware, requireScope('NOTIFICATION'), checkAnyPermission('NOTIFICATION_VIEW_ALL', 'NOTIFICATION_VIEW_OWN'), notificationController.getAllNotifications);
+router.get('/unread-count', authMiddleware, requireScope('NOTIFICATION'), checkAnyPermission('NOTIFICATION_VIEW_ALL', 'NOTIFICATION_VIEW_OWN'), notificationController.getUnreadCount);
+router.get('/:id', authMiddleware, requireScope('NOTIFICATION'), checkAnyPermission('NOTIFICATION_VIEW_ALL', 'NOTIFICATION_VIEW_OWN'), notificationController.getNotificationById);
 
 // Dùng checkPermission
-router.post('/', authMiddleware, checkPermission('NOTIFICATION_SEND'), notificationController.createNotification);
-router.put('/:id/read', authMiddleware, notificationController.markAsRead);
-router.put('/read-all', authMiddleware, notificationController.markAllAsRead);
-router.delete('/:id', authMiddleware, checkPermission('NOTIFICATION_DELETE'), notificationController.deleteNotification);
+router.post('/', authMiddleware, requireScope('NOTIFICATION', { allOnly: true }), checkPermission('NOTIFICATION_SEND'), notificationController.createNotification);
+router.put('/:id/read', authMiddleware, requireScope('NOTIFICATION'), notificationController.markAsRead);
+router.put('/read-all', authMiddleware, requireScope('NOTIFICATION'), notificationController.markAllAsRead);
+router.delete('/:id', authMiddleware, requireScope('NOTIFICATION', { allOnly: true }), checkPermission('NOTIFICATION_DELETE'), notificationController.deleteNotification);
 
 module.exports = router;

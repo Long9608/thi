@@ -11,6 +11,7 @@ import {
 import { notificationAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, formatDateTime, getInitials, timeAgo } from '../utils/formatters';
+import { PermissionGate } from '../permissions';
 
 export default function NotificationList({ flash }) {
   // State
@@ -189,7 +190,6 @@ export default function NotificationList({ flash }) {
           </div>
         </div>
       </Card>
-
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard icon={Bell} label="Tổng thông báo" value={stats.total} hint="Đã gửi" />
@@ -266,16 +266,18 @@ export default function NotificationList({ flash }) {
                             <Check size={14} /> Đọc
                           </Button>
                         )}
-                        <Button 
-                          variant="danger" 
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(notification.NotificationID);
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
+                        <PermissionGate permission="NOTIFICATION_DELETE">
+                          <Button 
+                            variant="danger" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(notification.NotificationID);
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </PermissionGate>
                       </div>
                     </div>
                   </div>
