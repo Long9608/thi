@@ -1029,6 +1029,7 @@ export const userAPI = {
     method: 'DELETE',
   }),
   getRoles: () => request('/users/roles'),
+  getEmployeeRoles: () => request('/users/employee-roles'),
   getRole: (id) => request(`/users/roles/${id}`),
   createRole: (data) => request('/users/roles', {
     method: 'POST',

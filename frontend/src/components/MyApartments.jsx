@@ -10,6 +10,7 @@ export default function MyApartments({onNavigate}) {
   const [view,setView]=useState('detail'),[equipment,setEquipment]=useState(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
   const [form,setForm]=useState({title:'',description:''});
   const [apartments, setApartments] = useState([]);
+  const [pendingEquipmentIds, setPendingEquipmentIds] = useState([]);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -34,11 +35,21 @@ export default function MyApartments({onNavigate}) {
   const open = async (id,mode='detail') => {
     setError('');
     setMessage('');setView(mode);setEquipment(null);
-    try { setSelected((await apartmentAPI.getById(id)).data); }
+    try {
+      const [apartmentResult, ticketResult] = await Promise.all([
+        apartmentAPI.getById(id),
+        ticketAPI.getAll('', 1, 999)
+      ]);
+      setSelected(apartmentResult.data);
+      setPendingEquipmentIds((ticketResult.data || [])
+        .filter(ticket => Number(ticket.ApartmentID) === Number(id) && [1, 2].includes(Number(ticket.StatusID)) && ticket.ContractEquipmentID)
+        .map(ticket => Number(ticket.ContractEquipmentID)));
+    }
     catch (err) { setError(err.message); }
   };
   const report=async event=>{event.preventDefault();setBusy(true);setError('');try{
     await ticketAPI.create({apartmentId:selected.ApartmentID,equipmentId:equipment.EquipmentID,title:form.title,description:form.description});
+    setPendingEquipmentIds(ids => ids.includes(Number(equipment.EquipmentID)) ? ids : [...ids, Number(equipment.EquipmentID)]);
     setEquipment(null);setMessage('Đã gửi yêu cầu. Bạn có thể theo dõi tại Yêu cầu hỗ trợ.');
   }catch(err){setError(err.message);}finally{setBusy(false);}};
   return <div className="space-y-5">
@@ -60,7 +71,7 @@ export default function MyApartments({onNavigate}) {
         <h3 className="font-bold">{item.Name}</h3><p>Loại: {item.Category || 'Chưa cập nhật'} · Mã bàn giao: #{item.EquipmentID}</p><p>{item.Brand} {item.Model} · {item.Location}</p><p>Số lượng: {item.Quantity}</p>
         <p>Tình trạng: {({operational:'Đang sử dụng',maintenance:'Đang bảo trì',broken:'Hỏng',retired:'Ngừng sử dụng'})[item.Status] || item.Status || 'Chưa cập nhật'}</p>
         <p>Ngày ghi nhận: {formatDate(item.CreatedDate)}</p><p>{item.Specifications}</p><p>Ghi chú: {item.ConditionDescription || 'Không có'}</p>
-        {can('TICKET_CREATE')&&<Button onClick={()=>{setEquipment(item);setMessage('');setForm({title:`Báo hỏng: ${item.Name}`,description:''});}}>Báo hỏng / Bảo trì</Button>}
+        {can('TICKET_CREATE')&&<Button disabled={pendingEquipmentIds.includes(Number(item.EquipmentID))} className={pendingEquipmentIds.includes(Number(item.EquipmentID)) ? 'opacity-50' : ''} onClick={()=>{setEquipment(item);setMessage('');setForm({title:`Báo hỏng: ${item.Name}`,description:''});}}>{pendingEquipmentIds.includes(Number(item.EquipmentID)) ? 'Chờ bảo trì' : 'Báo hỏng / Bảo trì'}</Button>}
       </Card>):<p>Chưa có thiết bị bàn giao cho căn hộ này.</p>}<Button variant="secondary" onClick={()=>setSelected(null)}>Đóng</Button></div>}
       {equipment&&<form onSubmit={report} className="space-y-4"><p>Căn {selected.ApartmentCode} · {equipment.Name} · #{equipment.EquipmentID}</p><label className="block">Tiêu đề<Input required maxLength={200} value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label><label className="block">Mô tả sự cố<textarea className="w-full rounded-xl border p-3" required maxLength={10000} value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label><div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={busy} onClick={()=>setEquipment(null)}>Hủy</Button><Button type="submit" disabled={busy}>Gửi yêu cầu</Button></div></form>}
       {selected && view==='detail' && <div className="space-y-3">

@@ -148,26 +148,6 @@ function equipmentIcon(category) {
   return Wind;
 }
 
-function equipmentFromStorage(contractId) {
-  if (!contractId || typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(`contract-equipment:${contractId}`);
-    const parsed = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed) && parsed.length ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function storeContractEquipment(contractId, equipment) {
-  if (!contractId || typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(`contract-equipment:${contractId}`, JSON.stringify(equipment));
-  } catch {
-    // localStorage is only a fallback until the optional SQL patch is applied.
-  }
-}
-
 function unwrap(response) {
   return Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
 }
@@ -262,7 +242,19 @@ function parseJsonArray(value) {
 
 function normalizeEquipment(value) {
   const items = Array.isArray(value) ? value : parseJsonArray(value);
-  return items.length ? items : null;
+  return items.length ? items.map((item) => ({
+    ...item,
+    id: item.id || item.EquipmentID,
+    name: item.name || item.Name || 'Thiết bị',
+    category: item.category || item.Category || '',
+    brand: item.brand || item.Brand || '',
+    model: item.model || item.Model || '',
+    quantity: item.quantity || item.Quantity || 1,
+    location: item.location || item.Location || '',
+    specs: item.specs || item.Specifications || '',
+    condition: item.condition || item.Condition || item.ConditionDescription || '',
+    status: item.status || item.Status || 'operational',
+  })) : null;
 }
 
 function normalizeApartmentDetail(apartment) {
@@ -335,7 +327,7 @@ export default function ApartmentBuildingWorkspace({ flash }) {
   const [contractViewLoading, setContractViewLoading] = useState(false);
   const [selectedContract, setSelectedContract] = useState(null);
   const [selectedEquipment, setSelectedEquipment] = useState([]);
-  const [contractEquipment, setContractEquipment] = useState(DEFAULT_EQUIPMENT);
+  const [contractEquipment, setContractEquipment] = useState([]);
   const [editingBuilding, setEditingBuilding] = useState(null);
   const [editingApartment, setEditingApartment] = useState(null);
   const [buildingForm, setBuildingForm] = useState(EMPTY_BUILDING_FORM);
@@ -536,7 +528,7 @@ export default function ApartmentBuildingWorkspace({ flash }) {
       ...summary,
       Residents: selectedApartment.CurrentResidents || [],
       History: selectedApartment.AllContracts || [],
-      Equipment: normalizeEquipment(summary.Equipment) || equipmentFromStorage(summary.ContractID) || DEFAULT_EQUIPMENT,
+      Equipment: normalizeEquipment(summary.Equipment) || [],
     });
     setContractViewModalOpen(true);
     if (!summary.ContractID) return;
@@ -552,8 +544,7 @@ export default function ApartmentBuildingWorkspace({ flash }) {
         ...contract,
         Residents: residentsFromApi,
         History: selectedApartment.AllContracts || [],
-        Equipment: normalizeEquipment(contract.Equipment)
-          || equipmentFromStorage(contract.ContractID) || DEFAULT_EQUIPMENT,
+        Equipment: normalizeEquipment(contract.Equipment) || [],
       });
     } catch (requestError) {
       console.error('Load contract detail error:', requestError);
@@ -570,12 +561,12 @@ export default function ApartmentBuildingWorkspace({ flash }) {
       return;
     }
 
-    let equipment = normalizeEquipment(contract.Equipment) || equipmentFromStorage(contract.ContractID) || DEFAULT_EQUIPMENT;
+    let equipment = normalizeEquipment(contract.Equipment) || [];
     if (contract.ContractID) {
       try {
         const response = await contractAPI.getById(contract.ContractID);
         const detail = response?.data || {};
-        if (normalizeEquipment(detail.Equipment)) equipment = normalizeEquipment(detail.Equipment);
+        equipment = normalizeEquipment(detail.Equipment) || [];
       } catch (requestError) {
         console.warn('Load equipment detail fallback:', requestError);
       }
@@ -686,7 +677,7 @@ export default function ApartmentBuildingWorkspace({ flash }) {
         email: String(contractForm.tenantEmail || '').trim() || null,
         identityNumber: String(contractForm.tenantIdentity || '').trim() || undefined,
       });
-      const createResponse = await contractAPI.create({
+      await contractAPI.create({
         apartmentId: Number(selectedApartment.ApartmentID),
         ownerId: Number(contractForm.ownerId),
         contractNumber: contractForm.contractNumber.trim(),
@@ -707,7 +698,6 @@ export default function ApartmentBuildingWorkspace({ flash }) {
         })),
         equipment: contractEquipment,
       });
-      storeContractEquipment(createResponse?.data?.contractId, contractEquipment);
       if (flash) flash('✅ Đã tạo hợp đồng và chuyển trạng thái căn hộ sang đang ở.');
       setContractModalOpen(false);
       setSelectedApartment(null);
@@ -1054,7 +1044,7 @@ export default function ApartmentBuildingWorkspace({ flash }) {
           <section className="mt-6">
             <h2 className="border-b border-slate-300 pb-1 text-lg font-bold uppercase">ĐIỀU 3: PHỤ LỤC BÀN GIAO TRANG THIẾT BỊ (TIVI, TỦ LẠNH, MÁY LẠNH…)</h2>
             <p className="mt-3">Bên A đã kiểm tra vận hành và bàn giao đầy đủ cho Bên B các trang thiết bị nội thất điện tử, điện lạnh sau:</p>
-            <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-left text-sm"><thead><tr className="bg-slate-100"><th className="border border-slate-300 p-2">STT</th><th className="border border-slate-300 p-2">TÊN THIẾT BỊ / CHỦNG LOẠI</th><th className="border border-slate-300 p-2">HÃNG / MODEL</th><th className="border border-slate-300 p-2">SL</th><th className="border border-slate-300 p-2">VỊ TRÍ LẮP ĐẶT</th><th className="border border-slate-300 p-2">TÌNH TRẠNG VẬN HÀNH</th></tr></thead><tbody>{(selectedContract.Equipment || DEFAULT_EQUIPMENT).map((item, index) => <tr key={item.id || `${item.name}-${index}`}><td className="border border-slate-300 p-2 text-center">{index + 1}</td><td className="border border-slate-300 p-2 font-semibold">{item.name}</td><td className="border border-slate-300 p-2">{item.brand || '—'} · {item.model || '—'}</td><td className="border border-slate-300 p-2 text-center">{item.quantity || 1}</td><td className="border border-slate-300 p-2">{item.location || '—'}</td><td className="border border-slate-300 p-2 text-emerald-700">{item.condition || 'Hoạt động tốt'}</td></tr>)}</tbody></table></div>
+            <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-left text-sm"><thead><tr className="bg-slate-100"><th className="border border-slate-300 p-2">STT</th><th className="border border-slate-300 p-2">TÊN THIẾT BỊ / CHỦNG LOẠI</th><th className="border border-slate-300 p-2">HÃNG / MODEL</th><th className="border border-slate-300 p-2">SL</th><th className="border border-slate-300 p-2">VỊ TRÍ LẮP ĐẶT</th><th className="border border-slate-300 p-2">TÌNH TRẠNG VẬN HÀNH</th></tr></thead><tbody>{(selectedContract.Equipment || []).map((item, index) => <tr key={item.EquipmentID || `${item.name}-${index}`}><td className="border border-slate-300 p-2 text-center">{index + 1}</td><td className="border border-slate-300 p-2 font-semibold">{item.name || item.Name}</td><td className="border border-slate-300 p-2">{item.brand || item.Brand || '—'} · {item.model || item.Model || '—'}</td><td className="border border-slate-300 p-2 text-center">{item.quantity || item.Quantity || 1}</td><td className="border border-slate-300 p-2">{item.location || item.Location || '—'}</td><td className="border border-slate-300 p-2 text-emerald-700">{item.condition || item.Condition || 'Hoạt động tốt'}</td></tr>)}</tbody></table></div>
           </section>
           <section className="mt-6"><h2 className="border-b border-slate-300 pb-1 text-lg font-bold uppercase">ĐIỀU 4: CAM KẾT CHUNG</h2><p className="mt-3">Hai bên cam kết thực hiện đúng các điều khoản của hợp đồng. Mọi thay đổi hoặc gia hạn phải được lập thành văn bản và ghi nhận trên hệ thống.</p></section>
         </article>}

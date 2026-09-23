@@ -316,6 +316,7 @@ exports.getApartmentById = async (req, res) => {
                         FROM ContractEquipment ce
                         JOIN Contract c ON c.ContractID=ce.ContractID
                         WHERE c.ApartmentID=@ApartmentID
+                            AND c.ContractID=@ContractID
                             AND c.StatusID IN (${ACTIVE_CONTRACT_STATUS_SQL})
                             AND CAST(GETDATE() AS date) BETWEEN c.StartDate AND c.EndDate
                             ${accessScope === 'own' ? `AND ${contractOwnershipSql('c')}` : ''}

@@ -32,7 +32,7 @@ export default function InvoicePayment({ invoice, onUpdated }) {
     } catch(err) { setError(err.message); } finally { setBusy(false); }
   };
   return <>
-    <Button onClick={show}>{resident ? (invoice.PaymentSubmittedAt ? 'Chờ xác nhận' : 'Thanh toán') : 'Xác nhận thanh toán'}</Button>
+    <Button disabled={resident && Boolean(invoice.PaymentSubmittedAt)} className={resident && invoice.PaymentSubmittedAt ? 'opacity-50' : ''} onClick={show}>{resident ? (invoice.PaymentSubmittedAt ? 'Chờ xác nhận' : 'Thanh toán') : 'Xác nhận thanh toán'}</Button>
     <Modal open={open} title={resident ? 'Thanh toán hóa đơn' : 'Xác nhận thanh toán'} onClose={() => !busy && setOpen(false)}>
       {error && <p role="alert" className="mb-3 text-red-600">{error}</p>}
       {done && <p role="status" className="mb-3 text-emerald-700">{done}</p>}
@@ -55,7 +55,7 @@ export default function InvoicePayment({ invoice, onUpdated }) {
           <Input placeholder="Mã giao dịch / số chứng từ" value={transactionCode} onChange={e=>setTransactionCode(e.target.value)} maxLength={100} />
         </>}
         <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={busy} onClick={()=>setOpen(false)}>Đóng</Button>
-          {(!resident || !info.invoice.SubmittedAt) && <Button type="submit" disabled={busy || (resident && !info.config)}>{busy?'Đang lưu…':resident?'Tôi đã thanh toán':'Xác nhận thanh toán'}</Button>}
+          {(!resident || !info.invoice.SubmittedAt) && <Button type="submit" disabled={busy || (resident && !info.config)}>{busy?'Đang lưu…':resident?'Tôi đã chuyển tiền':'Xác nhận thanh toán'}</Button>}
         </div>
       </form>}
     </Modal>

@@ -59,6 +59,10 @@ exports.createTicket = async(req,res,next) => {
                         AND c.StatusID IN(2,5) AND CAST(GETDATE() AS date) BETWEEN c.StartDate AND c.EndDate
                         AND (c.OwnerID=@ResidentID OR EXISTS(SELECT 1 FROM ContractResident cr WHERE cr.ContractID=c.ContractID AND cr.ResidentID=@ResidentID AND (cr.MoveInDate IS NULL OR cr.MoveInDate<=CAST(GETDATE() AS date)) AND (cr.MoveOutDate IS NULL OR cr.MoveOutDate>=CAST(GETDATE() AS date))))`);
                 if(!equipment.recordset.length)fail(404,'Thiết bị không thuộc căn hộ/hợp đồng của cư dân');
+                const pending=await tx.request().input('EquipmentID',sql.Int,equipmentId)
+                    .query(`SELECT TOP 1 RequestID FROM MaintenanceRequest WITH(UPDLOCK,HOLDLOCK)
+                        WHERE ContractEquipmentID=@EquipmentID AND StatusID IN (1,2)`);
+                if(pending.recordset.length)fail(409,'Thiết bị này đã có yêu cầu bảo trì đang chờ xử lý');
             }
             const row=await tx.request().input('ResidentID',sql.Int,residentId).input('ApartmentID',sql.Int,apartmentId)
                 .input('EquipmentID',sql.Int,equipmentId)

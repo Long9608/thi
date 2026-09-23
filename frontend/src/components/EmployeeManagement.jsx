@@ -17,6 +17,7 @@ export default function EmployeeManagement({ flash }) {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
@@ -41,16 +42,20 @@ export default function EmployeeManagement({ flash }) {
   });
 
   useEffect(() => {
-    fetchEmployees();
-    if ((JSON.parse(localStorage.getItem('user') || '{}').permissions || []).includes('ROLE_MANAGE')) fetchRoles();
+    fetchEmployees(roleFilter);
+    fetchRoles();
   }, []);
 
+  useEffect(() => {
+    if (roleFilter !== '') fetchEmployees(roleFilter);
+  }, [roleFilter]);
+
   // 🔥 Gọi API lấy danh sách nhân viên
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (selectedRoleId = roleFilter) => {
     try {
       setLoading(true);
       setError(null);
-      const res = await userAPI.getEmployees(search);
+      const res = await userAPI.getEmployees('', '', selectedRoleId);
       console.log('📊 Employee API response:', res);
       
       if (res && res.data) {
@@ -85,7 +90,7 @@ export default function EmployeeManagement({ flash }) {
   // 🔥 Gọi API lấy danh sách roles
   const fetchRoles = async () => {
     try {
-      const res = await userAPI.getRoles();
+      const res = await userAPI.getEmployeeRoles();
       console.log('📊 Roles API response:', res);
       
       if (res && res.data) {
@@ -311,6 +316,16 @@ export default function EmployeeManagement({ flash }) {
               placeholder="Tìm người dùng..." 
               className="w-48"
             />
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#635bff]"
+            >
+              <option value="">Tất cả quyền</option>
+              {roles.map(role => <option key={role.RoleID || role.roleId || role.id} value={role.RoleID || role.roleId || role.id}>
+                {role.RoleName || role.roleName || role.name}
+              </option>)}
+            </select>
             <PermissionGate permission="EMPLOYEE_CREATE"><Button onClick={openCreateModal} disabled={loading}>
               <Plus size={16} /> Thêm người dùng
             </Button></PermissionGate>

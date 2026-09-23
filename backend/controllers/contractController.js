@@ -1,6 +1,15 @@
 ﻿const { getPool, sql } = require('../config/db');
 const { getAccessScope, getCurrentResidentId, contractOwnershipSql, apartmentOwnershipSql } = require('../utils/accessScope');
 
+const DEFAULT_CONTRACT_EQUIPMENT = [
+    { name: 'Smart Tivi 4K Samsung Crystal UHD 55 inch', category: 'TIVI', brand: 'Samsung', model: 'UA55AU7002KXXV', location: 'Phòng khách', specs: '55 inch - 4K UHD - Wi-Fi 5G & Bluetooth', condition: 'Hoạt động tốt (98%)' },
+    { name: 'Tủ lạnh Inverter Panasonic 322 Lít 2 cánh', category: 'TỦ LẠNH', brand: 'Panasonic', model: 'NR-BV360QSVN', location: 'Khu vực bếp', specs: '322 Lít - Ngăn đông mềm - Inverter Econavi', condition: 'Mới 98%, làm lạnh êm' },
+    { name: 'Máy lạnh Daikin Inverter 1.5 HP (Phòng khách)', category: 'MÁY LẠNH', brand: 'Daikin', model: 'FTKB35XVMV', location: 'Phòng khách', specs: '1.5 HP - 12.000 BTU - Inverter', condition: 'Làm lạnh nhanh, đã vệ sinh bảo dưỡng định kỳ' },
+    { name: 'Máy lạnh Daikin Inverter 1.0 HP (Phòng ngủ Master)', category: 'MÁY LẠNH', brand: 'Daikin', model: 'FTKB25XVMV', location: 'Phòng ngủ Master', specs: '1.0 HP - 9.000 BTU - Inverter', condition: 'Hoạt động rất êm' },
+    { name: 'Máy lạnh Daikin Inverter 1.0 HP (Phòng ngủ nhỏ)', category: 'MÁY LẠNH', brand: 'Daikin', model: 'FTKB25XVMV', location: 'Phòng ngủ 2', specs: '1.0 HP - 9.000 BTU - Inverter', condition: 'Hoạt động ổn định' },
+    { name: 'Máy giặt cửa ngang Electrolux UltimateCare 9.0 Kg', category: 'MÁY GIẶT', brand: 'Electrolux', model: 'EWF9024P5WB', location: 'Logia giặt phơi', specs: '9.0 Kg - EcoInverter - Giặt hơi nước', condition: 'Hoạt động tốt, vắt êm' }
+];
+
 exports.getAllContracts = async (req, res) => {
     try {
         const { 
@@ -288,6 +297,7 @@ exports.getContractById = async (req, res) => {
 };
 
 exports.createContract = async (req, res) => {
+    let transaction;
     try {
         const { 
             apartmentId,
@@ -382,8 +392,11 @@ exports.createContract = async (req, res) => {
             });
         }
 
-        // Create contract
-        const result = await pool.request()
+        transaction = new sql.Transaction(pool);
+        await transaction.begin();
+
+        // Create contract and all handover records atomically.
+        const result = await transaction.request()
             .input('ApartmentID', sql.Int, apartmentId)
             .input('OwnerID', sql.Int, ownerId)
             .input('ContractNumber', sql.VarChar, contractNumber)
@@ -418,7 +431,7 @@ exports.createContract = async (req, res) => {
         // Add residents to contract
         if (residents && residents.length > 0) {
             for (const resident of residents) {
-                await pool.request()
+                await transaction.request()
                     .input('ContractID', sql.Int, contractId)
                     .input('ResidentID', sql.Int, resident.residentId)
                     .input('Relationship', sql.NVarChar, resident.relationship || null)
@@ -437,7 +450,7 @@ exports.createContract = async (req, res) => {
         // Add services to contract
         if (services && services.length > 0) {
             for (const service of services) {
-                await pool.request()
+                await transaction.request()
                     .input('ContractID', sql.Int, contractId)
                     .input('ServiceID', sql.Int, service.serviceId)
                     .input('RegisterDate', sql.Date, service.registerDate || new Date())
@@ -455,9 +468,11 @@ exports.createContract = async (req, res) => {
         }
 
         // Lưu danh mục thiết bị bàn giao theo hợp đồng.
-        if (Array.isArray(equipment) && equipment.length > 0) {
-            for (const item of equipment) {
-                await pool.request()
+        const equipmentToSave = Array.isArray(equipment) && equipment.length > 0
+            ? equipment
+            : DEFAULT_CONTRACT_EQUIPMENT;
+        for (const item of equipmentToSave) {
+            await transaction.request()
                     .input('ContractID', sql.Int, contractId)
                     .input('EquipmentName', sql.NVarChar, item.name || 'Thiết bị')
                     .input('Category', sql.NVarChar, item.category || null)
@@ -477,14 +492,15 @@ exports.createContract = async (req, res) => {
                             @Location, @Specifications, @ConditionDescription, @EquipmentStatus
                         )
                     `);
-            }
         }
 
         // Update apartment status to occupied
-        await pool.request()
+        await transaction.request()
             .input('ApartmentID', sql.Int, apartmentId)
             .input('StatusID', sql.Int, 2) // Đang ở
             .query('UPDATE Apartment SET StatusID = @StatusID WHERE ApartmentID = @ApartmentID');
+
+        await transaction.commit();
 
         res.status(201).json({
             success: true,
@@ -493,6 +509,13 @@ exports.createContract = async (req, res) => {
         });
 
     } catch (error) {
+        if (transaction) {
+            try {
+                await transaction.rollback();
+            } catch (rollbackError) {
+                console.error('Rollback create contract error:', rollbackError);
+            }
+        }
         console.error('Create contract error:', error);
         res.status(500).json({
             success: false,

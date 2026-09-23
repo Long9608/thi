@@ -21,6 +21,7 @@ router.delete('/employees/:id', authMiddleware, checkPermission('EMPLOYEE_DELETE
 // ============================================
 // QUẢN LÝ VAI TRÒ (ROLE)
 // ============================================
+router.get('/employee-roles', authMiddleware, checkPermission('EMPLOYEE_VIEW'), userController.getEmployeeRoles);
 router.get('/roles', authMiddleware, checkAnyPermission('ROLE_MANAGE','PERMISSION_MANAGE'), userController.getRoles);
 router.get('/roles/:id', authMiddleware, checkPermission('ROLE_MANAGE'), userController.getRoleById);
 router.post('/roles', authMiddleware, checkPermission('ROLE_MANAGE'), roleController.createRole);

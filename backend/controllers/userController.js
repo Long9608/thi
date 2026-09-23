@@ -540,6 +540,22 @@ exports.getRoles = async (req, res) => {
     }
 };
 
+exports.getEmployeeRoles = async (req, res) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request().query(`
+            SELECT RoleID, RoleCode, RoleName
+            FROM Role
+            WHERE Status = 1
+            ORDER BY RoleName
+        `);
+        res.json({ success: true, data: result.recordset || [] });
+    } catch (error) {
+        console.error('Get employee role catalog error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch employee role catalog', error: error.message });
+    }
+};
+
 // Lấy chi tiết role
 exports.getRoleById = async (req, res) => {
     try {
