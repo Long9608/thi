@@ -1,3 +1,4 @@
+import { fetchAllPages } from '../utils/fetchAllPages';
 import { PermissionGate } from '../permissions';
 import InvoicePayment, { PaymentConfiguration } from '../components/InvoicePayment';
 // src/pages/Fees.jsx
@@ -13,7 +14,7 @@ import { invoiceAPI, contractAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, money, formatNumber } from '../utils/formatters';
 
-export default function Fees({ flash }) {
+export default function Fees({ flash, deepLink }) {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -43,13 +44,7 @@ export default function Fees({ flash }) {
   const fetchInvoices = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await invoiceAPI.getAll(
-        statusFilter,
-        monthFilter,
-        yearFilter,
-        page,
-        20
-      );
+      const res = await fetchAllPages((p, limit) => invoiceAPI.getAll(statusFilter, monthFilter, yearFilter, p, limit));
       console.log('📊 Invoices:', res);
 
       if (res && res.data) {
@@ -93,6 +88,18 @@ export default function Fees({ flash }) {
     fetchStatuses();
     fetchContracts();
   }, [fetchInvoices, fetchStatuses, fetchContracts]);
+
+  useEffect(() => {
+    const invoiceId = Number(deepLink?.invoiceId);
+    if (!invoiceId) return;
+    let cancelled = false;
+    invoiceAPI.getById(invoiceId).then(result => {
+      if (!cancelled && result?.data) openViewModal(result.data);
+    }).catch(error => {
+      if (!cancelled && flash) flash('❌ ' + (error.response?.data?.message || 'Không thể mở hóa đơn'));
+    });
+    return () => { cancelled = true; };
+  }, [deepLink?.invoiceId, flash]);
 
   // Handlers
   const handleGenerateInvoice = async (e) => {
@@ -191,20 +198,18 @@ export default function Fees({ flash }) {
       const contractNumber = (inv.ContractNumber || '').toLowerCase();
       const apartmentCode = (inv.ApartmentCode || '').toLowerCase();
       const ownerName = (inv.OwnerName || '').toLowerCase();
-      return contractNumber.includes(q) || apartmentCode.includes(q) || ownerName.includes(q);
+      return String(inv.InvoiceID).includes(q) || contractNumber.includes(q) || apartmentCode.includes(q) || ownerName.includes(q);
     });
   }, [invoices, search]);
 
-  // Stats
-  const stats = useMemo(() => {
-    const total = invoices.length;
-    const totalAmount = invoices.reduce((sum, inv) => sum + (inv.TotalAmount || 0), 0);
-    const unpaid = invoices.filter(inv => inv.StatusID === 1 || inv.StatusID === 3).reduce((sum, inv) => sum + (inv.TotalAmount || 0), 0);
-    const paid = invoices.filter(inv => inv.StatusID === 2).reduce((sum, inv) => sum + (inv.TotalAmount || 0), 0);
-    const overdue = invoices.filter(inv => inv.StatusID === 3).length;
-    const paidCount = invoices.filter(inv => inv.StatusID === 2).length;
-    return { total, totalAmount, unpaid, paid, overdue, paidCount };
-  }, [invoices]);
+  const stats = useMemo(() => ({
+    total: filteredInvoices.length,
+    totalAmount: filteredInvoices.reduce((s, i) => s + Number(i.TotalAmount || 0), 0),
+    unpaid: filteredInvoices.filter(i => i.StatusID !== 4 && i.WorkflowStatus !== 'DRAFT').reduce((s, i) => s + Number(i.RemainingAmount || 0), 0),
+    paid: filteredInvoices.reduce((s, i) => s + Number(i.PaidAmount || 0), 0),
+    overdue: filteredInvoices.filter(i => i.IsOverdue).length,
+    paidCount: filteredInvoices.filter(i => i.IsPaid).length
+  }), [filteredInvoices]);
 
   const chargeTypeLabels = {
     'ROOM': 'Tiền thuê',
@@ -403,6 +408,7 @@ export default function Fees({ flash }) {
       >
         {selectedInvoice && (
           <div className="space-y-6">
+            <InvoicePayment invoice={selectedInvoice} onUpdated={async()=>{await fetchInvoices();setSelectedInvoice((await invoiceAPI.getById(selectedInvoice.InvoiceID)).data);}} />
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-2xl font-black text-slate-950">

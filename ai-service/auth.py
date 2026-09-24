@@ -20,7 +20,7 @@ def require_permissions(*required):
             raise HTTPException(status_code=503, detail='Authentication service unavailable') from error
         permissions = set(user.get('permissions', []))
         # Current AI functions query whole modules. OWN identities cannot use those functions.
-        if 'RESIDENT' in user.get('roleCodes', []) or not set(required).issubset(permissions):
+        if not set(required).issubset(permissions):
             raise HTTPException(status_code=403, detail='Insufficient permissions for global AI data')
         return user
     return authorize

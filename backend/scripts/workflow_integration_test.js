@@ -51,7 +51,7 @@ async function main(){
   let requestQueue=Promise.resolve();
   app.use('/api',(req,res,next)=>{const previous=requestQueue;requestQueue=new Promise(resolve=>res.once('finish',resolve));previous.then(next);});
   app.use('/api',require('../routes'));app.use((e,req,res,next)=>res.status(e.statusCode||500).json({success:false,message:e.message}));
-  app.use(express.static(require('path').join(__dirname,'..','..','frontend','dist')));
+  app.use(express.static(process.env.TEST_FRONTEND_DIST || require('path').join(__dirname,'..','..','frontend','dist')));
   server=await new Promise(resolve=>{const s=app.listen(0,'127.0.0.1',()=>resolve(s));});
   const base=`http://127.0.0.1:${server.address().port}`;
   async function call(role,path,expected=200,method='GET',body){
@@ -157,14 +157,20 @@ async function main(){
   assert(dashboard.residentDetails.apartments.every(a=>ownApts.some(own=>own.ApartmentID===a.ApartmentID)));
   await call('ADMIN',`/users/accounts/${users.TECHNICIAN}`,200,'PUT',{fullName:'Updated technician',status:1});
   await call('MANAGER',`/users/accounts/${users.TECHNICIAN}`,403,'PUT',{roleIds:[residentRole]});
+  if(process.argv.includes('--extended')) await require('./testExtendedWorkflows')({pool,sql,call,users,contract,a,b,methodId});
+  if(process.argv.includes('--audit')) await require('./testProjectAudit')({pool,sql,call,users,contract,a,b});
   console.log(JSON.stringify({passed:results.length,roles:Object.keys(users),results},null,2));
   if(process.argv.includes('--browser')){
-   await pool.request().input('Contract',sql.Int,contract.ContractID).query(`INSERT Invoice(ContractID,InvoiceMonth,InvoiceYear,InvoiceDate,DueDate,TotalAmount,StatusID,WorkflowStatus) VALUES(@Contract,2,2099,DATEADD(day,-10,GETDATE()),DATEADD(day,-1,GETDATE()),45678,3,'WAITING_PAYMENT')`);
-   await require('./workflow_browser_test')({base,users:Object.fromEntries(Object.entries(users).map(([role,id])=>[role,jwt.sign({userId:id},process.env.JWT_SECRET,{expiresIn:'15m'})]))});
+   const browserInvoice=(await pool.request().input('Contract',sql.Int,contract.ContractID).query(`INSERT Invoice(ContractID,InvoiceMonth,InvoiceYear,InvoiceDate,DueDate,TotalAmount,StatusID,WorkflowStatus) OUTPUT INSERTED.InvoiceID VALUES(@Contract,2,2099,DATEADD(day,-10,GETDATE()),DATEADD(day,-1,GETDATE()),45678,3,'WAITING_PAYMENT')`)).recordset[0].InvoiceID;
+   const requestedDate=(await pool.request().query("SELECT CONVERT(varchar(10),DATEADD(day,20,GETDATE()),23) d")).recordset[0].d;
+   await require('./workflow_browser_test')({base,extensionInvoiceId:browserInvoice,requestedDate,users:Object.fromEntries(Object.entries(users).map(([role,id])=>[role,jwt.sign({userId:id},process.env.JWT_SECRET,{expiresIn:'15m'})]))});
   }
  }catch(error){ console.error('WORKFLOW FAILURE:',error);throw error; }finally{
   if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
-  await outer.rollback();await db.closePool();console.log('ALL WORKFLOW TEST DATA ROLLED BACK');
+  try { await outer.rollback(); }
+  catch(error) { if(error.code!=='EABORT') throw error; }
+  finally { await db.closePool(); }
+  console.log('ALL WORKFLOW TEST DATA ROLLED BACK');
  }
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

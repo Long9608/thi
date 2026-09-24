@@ -30,6 +30,7 @@ import ApartmentBuildingWorkspace from './components/ApartmentBuildingWorkspace'
 import AIChat from './pages/AIChat';
 import AIContractPrediction from './pages/AIContractPrediction';
 import AISearch from './pages/AISearch';
+import AIRecord from './pages/AIRecord';
 import AIStatistics from './pages/AIStatistics';
 import ApartmentReport from './pages/ApartmentReport';
 import ChangePassword from './pages/ChangePassword';
@@ -65,6 +66,31 @@ import {
   itemIsAccessible,
 } from './redesign/navigation';
 import { usePermissions } from './permissions';
+
+const notificationPageByEntity = {
+  Invoice: 'fees',
+  MaintenanceRequest: 'tickets',
+  Ticket: 'tickets',
+  Feedback: 'feedbacks',
+  Contract: 'contract-list',
+  Apartment: 'buildings',
+};
+
+function readDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const page = params.get('page');
+  const ids = ['invoiceId', 'requestId', 'feedbackId', 'contractId', 'apartmentId', 'residentId', 'vehicleId', 'cardId', 'slotId', 'serviceId', 'registrationId', 'notificationId'];
+  const values = ids.reduce((result, key) => {
+    const value = Number(params.get(key));
+    if (Number.isInteger(value) && value > 0) result[key] = value;
+    return result;
+  }, {});
+  const entityType=params.get('entityType');
+  if (/^[A-Z_]+$/.test(entityType || '')) values.entityType=entityType;
+  const recordId=Number(params.get('recordId'));
+  if (Number.isInteger(recordId) && recordId>0) values.recordId=recordId;
+  return { page: page || null, params: values };
+}
 
 function normalizeUser(raw = {}, permissions = []) {
   const roleCodes = Array.isArray(raw.roleCodes)
@@ -271,14 +297,15 @@ function PageContent({
   canAny,
   flash,
   onNavigate,
-  user
+  user,
+  deepLink
 }) {
   switch (activePage) {
     case 'dashboard': return <RoleDashboard canAccess={canAccess} canAny={canAny} onNavigate={onNavigate} user={user} />;
     case 'residents': return <ResidentManagement flash={flash} />;
     case 'buildings': return canAccess('APARTMENT_VIEW_ALL') && !(user?.roleCodes || []).includes('RESIDENT') ? <ApartmentBuildingWorkspace flash={flash} /> : <MyApartments onNavigate={onNavigate} />;
-    case 'contract-list': return <ContractList flash={flash} />;
-    case 'fees': return <Fees flash={flash} />;
+    case 'contract-list': return <ContractList flash={flash} deepLink={deepLink} />;
+    case 'fees': return <Fees flash={flash} deepLink={deepLink} />;
     case 'vehicles': return <VehicleManagement flash={flash} />;
     case 'parking-cards': return <ParkingCardManagement flash={flash} />;
     case 'parking-slots': return <ParkingSlotManagement flash={flash} />;
@@ -286,12 +313,12 @@ function PageContent({
     case 'gym': return <GymManagement flash={flash} />;
     case 'pool': return <PoolManagement flash={flash} />;
     case 'wifi': return <WifiManagement flash={flash} />;
-    case 'tickets': return <TicketManagement flash={flash} />;
-    case 'maintenance': return <TicketManagement flash={flash} />;
-    case 'feedbacks': return <FeedbackManagement flash={flash} />;
+    case 'tickets': return <TicketManagement flash={flash} deepLink={deepLink} />;
+    case 'maintenance': return <TicketManagement flash={flash} deepLink={deepLink} />;
+    case 'feedbacks': return <FeedbackManagement flash={flash} deepLink={deepLink} />;
     case 'maintenance-schedule': return <MaintenanceSchedule flash={flash} />;
     case 'equipment': return <EquipmentManagement flash={flash} />;
-    case 'notifications': return <NotificationList flash={flash} />;
+    case 'notifications': return <NotificationList flash={flash} onNavigate={onNavigate} />;
     case 'send-notification': return <SendNotification flash={flash} />;
     case 'schedule-notification': return <ScheduleNotification flash={flash} />;
     case 'revenue-report': return <RevenueReport flash={flash} />;
@@ -302,10 +329,11 @@ function PageContent({
     case 'permissions': return <PermissionManagement flash={flash} />;
     case 'roles': return <RoleManagement flash={flash} />;
     case 'system-logs': return <SystemLogPanel flash={flash} />;
-    case 'ai-chat': return <AIChat />;
+    case 'ai-chat': return <AIChat onNavigate={onNavigate} />;
     case 'ai-stats': return <AIStatistics />;
     case 'ai-predict': return <AIContractPrediction />;
-    case 'ai-search': return <AISearch />;
+    case 'ai-search': return <AISearch onNavigate={onNavigate} />;
+    case 'ai-record': return <AIRecord deepLink={deepLink} />;
     case 'profile': return <Profile flash={flash} />;
     case 'change-password': return <ChangePassword flash={flash} />;
     case 'system-info': return <SystemInfo flash={flash} />;
@@ -321,9 +349,11 @@ function PageContent({
 }
 
 export default function AppRedesign() {
+  const initialDeepLink = readDeepLink();
   const [user, setUser] = useState(null);
   const [booting, setBooting] = useState(true);
-  const [activePage, setActivePage] = useState(null);
+  const [activePage, setActivePage] = useState(initialDeepLink.page);
+  const [deepLink, setDeepLink] = useState(initialDeepLink.params);
   const [notificationCount, setNotificationCount] = useState(0);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [toast, setToast] = useState('');
@@ -409,13 +439,20 @@ export default function AppRedesign() {
     return () => window.clearInterval(timer);
   }, [loadNotificationCount, user]);
 
-  const navigate = useCallback((pageId) => {
+  const navigate = useCallback((pageId, params = {}) => {
     const item = findNavigationItem(pageId);
     if (!item || !itemIsAccessible(item, canAccess, audience)) {
       flash('Bạn không có quyền truy cập chức năng này.');
       return;
     }
     setActivePage(pageId);
+    setDeepLink(params);
+    const query = new URLSearchParams({ page: pageId });
+    Object.entries(params).forEach(([key, value]) => {
+      if (key === 'entityType' && /^[A-Z_]+$/.test(value)) query.set(key,value);
+      if (Number.isInteger(Number(value)) && Number(value) > 0) query.set(key, String(value));
+    });
+    window.history.replaceState({}, '', `${window.location.pathname}?${query.toString()}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [canAccess, flash, audience]);
 
@@ -467,6 +504,7 @@ export default function AppRedesign() {
             flash={flash}
             onNavigate={navigate}
             user={user}
+            deepLink={deepLink}
           />
         </div>
       </CondoShell>

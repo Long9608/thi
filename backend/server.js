@@ -5,7 +5,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const { getPool, closePool } = require('./config/db');
 const routes = require('./routes');

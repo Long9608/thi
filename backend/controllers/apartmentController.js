@@ -772,20 +772,19 @@ exports.deleteBuilding = async (req, res) => {
         const { id } = req.params;
         const pool = await getPool();
 
-        // Check if building has apartments
+        // Floors reference the building even when they contain no apartments.
         const checkResult = await pool.request()
             .input('BuildingID', sql.Int, id)
             .query(`
                 SELECT COUNT(*) as count 
                 FROM Floor f
-                JOIN Apartment a ON f.FloorID = a.FloorID
                 WHERE f.BuildingID = @BuildingID
             `);
 
         if (checkResult.recordset[0].count > 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Cannot delete building with existing apartments'
+                message: 'Không thể xóa tòa nhà còn tầng. Hãy xóa các căn hộ và tầng trước.'
             });
         }
 

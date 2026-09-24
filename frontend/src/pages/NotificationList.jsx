@@ -13,7 +13,7 @@ import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, formatDateTime, getInitials, timeAgo } from '../utils/formatters';
 import { PermissionGate } from '../permissions';
 
-export default function NotificationList({ flash }) {
+export default function NotificationList({ flash, onNavigate }) {
   // State
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -103,6 +103,23 @@ export default function NotificationList({ flash }) {
     if (!notification.IsRead) {
       handleMarkAsRead(notification.NotificationID);
     }
+  };
+
+  const openNotification = async (notification) => {
+    if (!notification.IsRead) await handleMarkAsRead(notification.NotificationID);
+    const entityPages = { Invoice: 'fees', MaintenanceRequest: 'tickets', Ticket: 'tickets', Feedback: 'feedbacks', Contract: 'contract-list', Apartment: 'buildings' };
+    const page = notification.TargetPage || entityPages[notification.EntityType];
+    if (!page || !notification.EntityID || !onNavigate) {
+      openViewModal(notification);
+      return;
+    }
+    const keyByEntity = { Invoice: 'invoiceId', MaintenanceRequest: 'requestId', Ticket: 'requestId', Feedback: 'feedbackId', Contract: 'contractId', Apartment: 'apartmentId' };
+    const key = keyByEntity[notification.EntityType];
+    if (!key) {
+      openViewModal(notification);
+      return;
+    }
+    onNavigate(page, { [key]: Number(notification.EntityID) });
   };
 
   // Filtered data
@@ -217,7 +234,7 @@ export default function NotificationList({ flash }) {
               className={`group hover:border-[#635bff]/30 transition-all cursor-pointer ${
                 !notification.IsRead ? 'border-blue-200 bg-blue-50/30' : ''
               }`}
-              onClick={() => openViewModal(notification)}
+              onClick={() => openNotification(notification)}
             >
               <div className="p-5">
                 <div className="flex items-start gap-4">

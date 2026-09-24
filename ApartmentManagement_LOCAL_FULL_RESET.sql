@@ -2790,3 +2790,382 @@ FROM dbo.RolePermission rp
 JOIN dbo.Role r ON r.RoleID = rp.RoleID
 WHERE r.RoleCode = 'ADMIN' AND rp.IsGranted = 1;
 GO
+GO
+-- BEGIN SYNCHRONIZED WORKFLOW MIGRATIONS
+
+-- 20260921_add_rbac_scoped_view_permissions.sql
+BEGIN TRANSACTION;
+BEGIN TRY
+    DECLARE @Permissions TABLE (
+        PermissionCode NVARCHAR(100) PRIMARY KEY,
+        ModuleID INT NOT NULL,
+        PermissionName NVARCHAR(200) NOT NULL,
+        Description NVARCHAR(500) NULL
+    );
+
+    INSERT INTO @Permissions (PermissionCode, ModuleID, PermissionName, Description) VALUES
+        ('RESIDENT_VIEW_OWN', 2, N'Xem dữ liệu cư dân của mình', N'Quyền xem danh sách và hồ sơ cư dân thuộc tài khoản hiện tại.'),
+        ('RESIDENT_VIEW_ALL', 2, N'Xem tất cả cư dân', N'Quyền xem toàn bộ danh sách cư dân trong hệ thống.'),
+        ('APARTMENT_VIEW_OWN', 3, N'Xem căn hộ của mình', N'Quyền xem căn hộ có liên quan đến cư dân hiện tại.'),
+        ('APARTMENT_VIEW_ALL', 3, N'Xem tất cả căn hộ', N'Quyền xem toàn bộ căn hộ trong hệ thống.'),
+        ('CONTRACT_VIEW_OWN', 4, N'Xem hợp đồng của mình', N'Quyền xem hợp đồng liên quan đến cư dân hiện tại.'),
+        ('CONTRACT_VIEW_ALL', 4, N'Xem tất cả hợp đồng', N'Quyền xem toàn bộ hợp đồng trong hệ thống.'),
+        ('INVOICE_VIEW_OWN', 6, N'Xem hóa đơn của mình', N'Quyền xem hóa đơn thuộc hợp đồng/căn hộ của cư dân hiện tại.'),
+        ('INVOICE_VIEW_ALL', 6, N'Xem tất cả hóa đơn', N'Quyền xem toàn bộ hóa đơn trong hệ thống.'),
+        ('VEHICLE_VIEW_OWN', 7, N'Xem phương tiện của mình', N'Quyền xem phương tiện thuộc cư dân hiện tại.'),
+        ('VEHICLE_VIEW_ALL', 7, N'Xem tất cả phương tiện', N'Quyền xem toàn bộ phương tiện trong hệ thống.'),
+        ('PARKING_VIEW_OWN', 7, N'Xem bãi xe của mình', N'Quyền xem thẻ, đăng ký và lịch sử bãi xe thuộc cư dân hiện tại.'),
+        ('PARKING_VIEW_ALL', 7, N'Xem tất cả bãi xe', N'Quyền xem toàn bộ thẻ, đăng ký và lịch sử bãi xe.'),
+        ('TICKET_VIEW_OWN', 8, N'Xem ticket của mình', N'Quyền xem yêu cầu hỗ trợ thuộc cư dân hiện tại.'),
+        ('TICKET_VIEW_ALL', 8, N'Xem tất cả ticket', N'Quyền xem toàn bộ yêu cầu hỗ trợ trong hệ thống.'),
+        ('FEEDBACK_VIEW_OWN', 8, N'Xem phản ánh của mình', N'Quyền xem phản ánh thuộc cư dân hiện tại.'),
+        ('FEEDBACK_VIEW_ALL', 8, N'Xem tất cả phản ánh', N'Quyền xem toàn bộ phản ánh trong hệ thống.'),
+        ('NOTIFICATION_VIEW_OWN', 9, N'Xem thông báo của mình', N'Quyền xem inbox thông báo của tài khoản hiện tại.'),
+        ('NOTIFICATION_VIEW_ALL', 9, N'Xem tất cả thông báo quản trị', N'Quyền xem dữ liệu thông báo theo quyền quản trị.'),
+        ('RESIDENT_EXPORT', 2, N'Xuất danh sách cư dân', N'Quyền xuất dữ liệu cư dân cho vai trò quản lý.');
+
+    INSERT INTO dbo.Permission (ModuleID, PermissionCode, PermissionName, Description)
+    SELECT p.ModuleID, p.PermissionCode, p.PermissionName, p.Description
+    FROM @Permissions p
+    WHERE NOT EXISTS (
+        SELECT 1 FROM dbo.Permission x WHERE x.PermissionCode = p.PermissionCode
+    );
+
+    INSERT INTO dbo.RolePermission (RoleID, PermissionID, IsGranted, CreatedAt)
+    SELECT r.RoleID, p.PermissionID, 1, GETDATE()
+    FROM dbo.Role r
+    JOIN dbo.Permission p ON p.PermissionCode IN (
+        'RESIDENT_VIEW_OWN', 'APARTMENT_VIEW_OWN', 'CONTRACT_VIEW_OWN', 'INVOICE_VIEW_OWN',
+        'VEHICLE_VIEW_OWN', 'PARKING_VIEW_OWN', 'TICKET_VIEW_OWN', 'FEEDBACK_VIEW_OWN'
+        , 'NOTIFICATION_VIEW_OWN'
+    )
+    WHERE r.RoleCode = 'RESIDENT'
+      AND NOT EXISTS (
+          SELECT 1 FROM dbo.RolePermission rp WHERE rp.RoleID = r.RoleID AND rp.PermissionID = p.PermissionID
+      );
+
+    INSERT INTO dbo.RolePermission (RoleID, PermissionID, IsGranted, CreatedAt)
+    SELECT r.RoleID, p.PermissionID, 1, GETDATE()
+    FROM dbo.Role r
+    JOIN dbo.Permission p ON p.PermissionCode IN (
+        'RESIDENT_VIEW_ALL', 'RESIDENT_VIEW_OWN', 'APARTMENT_VIEW_ALL', 'APARTMENT_VIEW_OWN',
+        'CONTRACT_VIEW_ALL', 'CONTRACT_VIEW_OWN', 'INVOICE_VIEW_ALL', 'INVOICE_VIEW_OWN',
+        'VEHICLE_VIEW_ALL', 'VEHICLE_VIEW_OWN', 'PARKING_VIEW_ALL', 'PARKING_VIEW_OWN',
+        'TICKET_VIEW_ALL', 'TICKET_VIEW_OWN', 'FEEDBACK_VIEW_ALL', 'FEEDBACK_VIEW_OWN'
+        , 'NOTIFICATION_VIEW_ALL', 'RESIDENT_EXPORT'
+    )
+    WHERE r.RoleCode IN ('MANAGER', 'ADMIN')
+      AND NOT EXISTS (
+          SELECT 1 FROM dbo.RolePermission rp WHERE rp.RoleID = r.RoleID AND rp.PermissionID = p.PermissionID
+      );
+
+    INSERT INTO dbo.RolePermission (RoleID, PermissionID, IsGranted, CreatedAt)
+    SELECT r.RoleID, p.PermissionID, 1, GETDATE()
+    FROM dbo.Role r
+    JOIN dbo.Permission p ON p.PermissionCode IN (
+        'RESIDENT_VIEW_ALL', 'RESIDENT_VIEW_OWN', 'APARTMENT_VIEW_ALL', 'APARTMENT_VIEW_OWN',
+        'CONTRACT_VIEW_ALL', 'CONTRACT_VIEW_OWN', 'INVOICE_VIEW_ALL', 'INVOICE_VIEW_OWN'
+    )
+    WHERE r.RoleCode IN ('ACCOUNTANT', 'RECEPTION')
+      AND NOT EXISTS (
+          SELECT 1 FROM dbo.RolePermission rp WHERE rp.RoleID = r.RoleID AND rp.PermissionID = p.PermissionID
+      );
+
+    INSERT INTO dbo.RolePermission (RoleID, PermissionID, IsGranted, CreatedAt)
+    SELECT r.RoleID, p.PermissionID, 1, GETDATE()
+    FROM dbo.Role r
+    JOIN dbo.Permission p ON p.PermissionCode IN (
+        'VEHICLE_VIEW_ALL', 'VEHICLE_VIEW_OWN', 'PARKING_VIEW_ALL', 'PARKING_VIEW_OWN',
+        'TICKET_VIEW_ALL', 'TICKET_VIEW_OWN', 'FEEDBACK_VIEW_ALL', 'FEEDBACK_VIEW_OWN'
+                    , 'NOTIFICATION_VIEW_ALL', 'RESIDENT_EXPORT'
+    )
+    WHERE r.RoleCode IN ('SECURITY', 'RECEPTION')
+      AND NOT EXISTS (
+          SELECT 1 FROM dbo.RolePermission rp WHERE rp.RoleID = r.RoleID AND rp.PermissionID = p.PermissionID
+      );
+
+        UPDATE rp
+        SET rp.IsGranted = 1
+        FROM dbo.RolePermission rp
+        JOIN dbo.Role r ON r.RoleID = rp.RoleID
+        JOIN dbo.Permission p ON p.PermissionID = rp.PermissionID
+        WHERE r.RoleCode = 'RESIDENT'
+            AND p.PermissionCode IN (
+                    'RESIDENT_VIEW_OWN', 'APARTMENT_VIEW_OWN', 'CONTRACT_VIEW_OWN', 'INVOICE_VIEW_OWN',
+                    'VEHICLE_VIEW_OWN', 'PARKING_VIEW_OWN', 'TICKET_VIEW_OWN', 'FEEDBACK_VIEW_OWN',
+                    'NOTIFICATION_VIEW_OWN'
+            );
+
+        UPDATE rp
+        SET rp.IsGranted = 1
+        FROM dbo.RolePermission rp
+        JOIN dbo.Role r ON r.RoleID = rp.RoleID
+        JOIN dbo.Permission p ON p.PermissionID = rp.PermissionID
+        WHERE r.RoleCode IN ('MANAGER', 'ADMIN', 'ACCOUNTANT', 'RECEPTION', 'SECURITY')
+            AND p.PermissionCode IN (
+                    'RESIDENT_VIEW_ALL', 'RESIDENT_VIEW_OWN', 'APARTMENT_VIEW_ALL', 'APARTMENT_VIEW_OWN',
+                    'CONTRACT_VIEW_ALL', 'CONTRACT_VIEW_OWN', 'INVOICE_VIEW_ALL', 'INVOICE_VIEW_OWN',
+                    'VEHICLE_VIEW_ALL', 'VEHICLE_VIEW_OWN', 'PARKING_VIEW_ALL', 'PARKING_VIEW_OWN',
+                    'TICKET_VIEW_ALL', 'TICKET_VIEW_OWN', 'FEEDBACK_VIEW_ALL', 'FEEDBACK_VIEW_OWN'
+                                        , 'NOTIFICATION_VIEW_ALL', 'RESIDENT_EXPORT'
+            );
+
+                UPDATE rp
+                SET rp.IsGranted = 0
+                FROM dbo.RolePermission rp
+                JOIN dbo.Role r ON r.RoleID = rp.RoleID
+                JOIN dbo.Permission p ON p.PermissionID = rp.PermissionID
+                WHERE r.RoleCode = 'RESIDENT'
+                    AND p.PermissionCode IN (
+                            'RESIDENT_VIEW_ALL', 'APARTMENT_VIEW_ALL', 'CONTRACT_VIEW_ALL', 'INVOICE_VIEW_ALL',
+                            'VEHICLE_VIEW_ALL', 'PARKING_VIEW_ALL', 'TICKET_VIEW_ALL', 'FEEDBACK_VIEW_ALL',
+                            'NOTIFICATION_VIEW_ALL', 'RESIDENT_EXPORT'
+                    );
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
+GO
+GO
+
+-- 20260922_complete_workflows.sql
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+IF COL_LENGTH('dbo.Role', 'IsSystem') IS NULL
+    ALTER TABLE dbo.Role ADD IsSystem bit NOT NULL CONSTRAINT DF_Role_IsSystem DEFAULT 0;
+EXEC(N'UPDATE dbo.Role SET IsSystem=1 WHERE RoleCode IN (''ADMIN'',''RESIDENT'')');
+IF COL_LENGTH('dbo.MaintenanceRequest','Progress') IS NULL
+    ALTER TABLE dbo.MaintenanceRequest ADD Progress int NOT NULL CONSTRAINT DF_Maintenance_Progress DEFAULT 0,
+        Response nvarchar(max) NULL, UpdatedAt datetime2 NULL, CompletedAt datetime2 NULL;
+IF OBJECT_ID('dbo.TicketUpdate','U') IS NULL
+    CREATE TABLE dbo.TicketUpdate (
+        UpdateID int IDENTITY PRIMARY KEY, RequestID int NOT NULL REFERENCES dbo.MaintenanceRequest(RequestID) ON DELETE CASCADE,
+        ActorID int NOT NULL REFERENCES dbo.Users(UserID), StatusID int NOT NULL REFERENCES dbo.MaintenanceStatus(StatusID),
+        Progress int NOT NULL CHECK (Progress BETWEEN 0 AND 100), Response nvarchar(max) NULL,
+        CreatedAt datetime2 NOT NULL DEFAULT SYSDATETIME()
+    );
+IF OBJECT_ID('dbo.InvoicePaymentSubmission','U') IS NULL
+    CREATE TABLE dbo.InvoicePaymentSubmission (
+        InvoiceID int PRIMARY KEY REFERENCES dbo.Invoice(InvoiceID),
+        SubmittedBy int NOT NULL REFERENCES dbo.Users(UserID), SubmittedAt datetime2 NOT NULL DEFAULT SYSDATETIME(),
+        Amount decimal(18,2) NOT NULL CHECK (Amount > 0), TransferContent varchar(100) NOT NULL,
+        ConfirmedBy int NULL REFERENCES dbo.Users(UserID), ConfirmedAt datetime2 NULL,
+        PaymentID int NULL REFERENCES dbo.Payment(PaymentID)
+    );
+IF OBJECT_ID('dbo.PaymentConfiguration','U') IS NULL
+    CREATE TABLE dbo.PaymentConfiguration (
+        ConfigKey varchar(30) PRIMARY KEY, BankBin varchar(6) NOT NULL,
+        AccountNumber varchar(30) NOT NULL, AccountName nvarchar(150) NOT NULL
+    );
+
+DECLARE @NewPermissions TABLE(ModuleCode varchar(50), Code varchar(100), Name nvarchar(200));
+INSERT @NewPermissions VALUES
+('SERVICE','SERVICE_VIEW_OWN',N'Xem dịch vụ của mình'),('SERVICE','SERVICE_VIEW_ALL',N'Xem tất cả dịch vụ'),
+('OPERATION','TICKET_VIEW_OWN',N'Xem yêu cầu của mình và việc kỹ thuật có thể nhận'),
+('SETTING','PROFILE_UPDATE',N'Cập nhật hồ sơ cá nhân'),('SETTING','PASSWORD_CHANGE',N'Đổi mật khẩu'),
+('NOTIFICATION','NOTIFICATION_VIEW_OWN',N'Xem thông báo của mình');
+INSERT dbo.Permission(ModuleID,PermissionCode,PermissionName)
+SELECT m.ModuleID,n.Code,n.Name FROM @NewPermissions n JOIN Module m ON m.ModuleCode=n.ModuleCode
+WHERE NOT EXISTS(SELECT 1 FROM Permission p WHERE p.PermissionCode=n.Code);
+
+DECLARE @Grants TABLE(RoleCode varchar(50), PermissionCode varchar(100));
+INSERT @Grants SELECT RoleCode,p.Code FROM Role CROSS JOIN (VALUES('PROFILE_UPDATE'),('PASSWORD_CHANGE'),('NOTIFICATION_VIEW_OWN')) p(Code) WHERE Status=1;
+INSERT @Grants VALUES
+('TECHNICIAN','TICKET_VIEW_OWN'),('TECHNICIAN','MAINTENANCE_UPDATE'),
+('RESIDENT','SERVICE_VIEW_OWN'),('RESIDENT','SERVICE_VIEW'),('RESIDENT','SERVICE_REGISTRATION_CREATE'),('RESIDENT','SERVICE_REGISTRATION_UPDATE'),('RESIDENT','FEEDBACK_CREATE'),
+('ADMIN','SERVICE_VIEW_ALL'),('MANAGER','SERVICE_VIEW_ALL'),('ACCOUNTANT','SERVICE_VIEW_ALL'),('ACCOUNTANT','SERVICE_VIEW');
+UPDATE rp SET IsGranted=1 FROM RolePermission rp JOIN Role r ON r.RoleID=rp.RoleID JOIN Permission p ON p.PermissionID=rp.PermissionID
+JOIN @Grants g ON g.RoleCode=r.RoleCode AND g.PermissionCode=p.PermissionCode;
+INSERT RolePermission(RoleID,PermissionID,IsGranted,CreatedAt)
+SELECT DISTINCT r.RoleID,p.PermissionID,1,GETDATE() FROM @Grants g JOIN Role r ON r.RoleCode=g.RoleCode JOIN Permission p ON p.PermissionCode=g.PermissionCode
+WHERE NOT EXISTS(SELECT 1 FROM RolePermission rp WHERE rp.RoleID=r.RoleID AND rp.PermissionID=p.PermissionID);
+-- Remove known accidental administrative grants, without granting global reads from a menu permission.
+UPDATE rp SET IsGranted=0 FROM RolePermission rp JOIN Role r ON r.RoleID=rp.RoleID JOIN Permission p ON p.PermissionID=rp.PermissionID
+WHERE (r.RoleCode='RESIDENT' AND (p.PermissionCode LIKE '%[_]VIEW[_]ALL' OR p.PermissionCode IN ('SYSTEM_SETTING','MENU_SYSTEM_INFO_VIEW','AI_CHAT','AI_SEARCH')))
+   OR (r.RoleCode='TECHNICIAN' AND p.PermissionCode IN ('TICKET_VIEW_ALL','TICKET_CREATE'))
+   OR (r.RoleCode='SECURITY' AND p.PermissionCode IN ('RESIDENT_EXPORT','FEEDBACK_VIEW_ALL','FEEDBACK_VIEW_OWN','TICKET_VIEW_ALL','TICKET_VIEW_OWN','NOTIFICATION_VIEW_ALL'));
+COMMIT;
+GO
+
+-- 20260923_core_roles_equipment_tickets.sql
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+UPDATE dbo.MaintenanceRequest SET Progress=100 WHERE StatusID=3 AND Progress<>100;
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name='CK_MaintenanceRequest_Progress')
+    ALTER TABLE dbo.MaintenanceRequest WITH CHECK ADD CONSTRAINT CK_MaintenanceRequest_Progress CHECK(Progress BETWEEN 0 AND 100);
+-- Only these two role codes define core authorization/account identity behavior.
+UPDATE dbo.Role SET IsSystem=CASE WHEN RoleCode IN ('ADMIN','RESIDENT') THEN 1 ELSE 0 END
+WHERE RoleCode IN ('ADMIN','RESIDENT','MANAGER','ACCOUNTANT','TECHNICIAN','SECURITY','RECEPTION');
+IF COL_LENGTH('dbo.MaintenanceRequest','ContractEquipmentID') IS NULL
+    ALTER TABLE dbo.MaintenanceRequest ADD ContractEquipmentID int NULL;
+IF NOT EXISTS(SELECT 1 FROM sys.foreign_keys WHERE name='FK_MaintenanceRequest_ContractEquipment')
+    EXEC(N'ALTER TABLE dbo.MaintenanceRequest WITH CHECK ADD CONSTRAINT FK_MaintenanceRequest_ContractEquipment FOREIGN KEY(ContractEquipmentID) REFERENCES dbo.ContractEquipment(ContractEquipmentID)');
+COMMIT;
+GO
+
+-- 20260924_add_notification_deep_links.sql
+-- Add optional deep-link metadata without changing existing notification behavior.
+IF COL_LENGTH('dbo.Notification', 'EntityType') IS NULL
+    ALTER TABLE dbo.Notification ADD EntityType varchar(50) NULL;
+IF COL_LENGTH('dbo.Notification', 'EntityID') IS NULL
+    ALTER TABLE dbo.Notification ADD EntityID int NULL;
+IF COL_LENGTH('dbo.Notification', 'TargetPage') IS NULL
+    ALTER TABLE dbo.Notification ADD TargetPage varchar(100) NULL;
+IF COL_LENGTH('dbo.Notification', 'ActionUrl') IS NULL
+    ALTER TABLE dbo.Notification ADD ActionUrl varchar(500) NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Notification_EntityLink' AND object_id = OBJECT_ID('dbo.Notification'))
+    CREATE INDEX IX_Notification_EntityLink ON dbo.Notification(EntityType, EntityID);
+GO
+GO
+
+-- 20260924_backfill_contract_equipment.sql
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+
+-- Seed the handover template only for contracts that have no persisted equipment.
+-- This is idempotent and covers the active contract for apartment A-T5-P1.
+INSERT INTO dbo.ContractEquipment (
+    ContractID,
+    EquipmentName,
+    Category,
+    Brand,
+    Model,
+    Quantity,
+    Location,
+    Specifications,
+    ConditionDescription,
+    EquipmentStatus
+)
+SELECT
+    c.ContractID,
+    v.EquipmentName,
+    v.Category,
+    v.Brand,
+    v.Model,
+    1,
+    v.Location,
+    v.Specifications,
+    v.ConditionDescription,
+    'operational'
+FROM dbo.Contract c
+CROSS JOIN (VALUES
+    (N'Smart Tivi 4K Samsung Crystal UHD 55 inch', N'TIVI', N'Samsung', N'UA55AU7002KXXV', N'Phòng khách', N'55 inch - 4K UHD - Wi-Fi 5G & Bluetooth', N'Hoạt động tốt (98%)'),
+    (N'Tủ lạnh Inverter Panasonic 322 Lít 2 cánh', N'TỦ LẠNH', N'Panasonic', N'NR-BV360QSVN', N'Khu vực bếp', N'322 Lít - Ngăn đông mềm - Inverter Econavi', N'Mới 98%, làm lạnh êm'),
+    (N'Máy lạnh Daikin Inverter 1.5 HP (Phòng khách)', N'MÁY LẠNH', N'Daikin', N'FTKB35XVMV', N'Phòng khách', N'1.5 HP - 12.000 BTU - Inverter', N'Làm lạnh nhanh, đã vệ sinh bảo dưỡng định kỳ'),
+    (N'Máy lạnh Daikin Inverter 1.0 HP (Phòng ngủ Master)', N'MÁY LẠNH', N'Daikin', N'FTKB25XVMV', N'Phòng ngủ Master', N'1.0 HP - 9.000 BTU - Inverter', N'Hoạt động rất êm'),
+    (N'Máy lạnh Daikin Inverter 1.0 HP (Phòng ngủ nhỏ)', N'MÁY LẠNH', N'Daikin', N'FTKB25XVMV', N'Phòng ngủ 2', N'1.0 HP - 9.000 BTU - Inverter', N'Hoạt động ổn định'),
+    (N'Máy giặt cửa ngang Electrolux UltimateCare 9.0 Kg', N'MÁY GIẶT', N'Electrolux', N'EWF9024P5WB', N'Logia giặt phơi', N'9.0 Kg - EcoInverter - Giặt hơi nước', N'Hoạt động tốt, vắt êm')
+) v(EquipmentName, Category, Brand, Model, Location, Specifications, ConditionDescription)
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM dbo.ContractEquipment existing
+    WHERE existing.ContractID = c.ContractID
+);
+
+COMMIT;
+GO
+
+-- 20260924_backfill_legacy_notification_links.sql
+-- Backfill links for legacy notifications created before EntityType/EntityID existed.
+-- This is a one-time pattern migration; new notifications always write structured metadata.
+UPDATE n
+SET EntityType = 'Invoice',
+    EntityID = TRY_CONVERT(int, LTRIM(RTRIM(SUBSTRING(n.Title, CHARINDEX('#', n.Title) + 1, 20)))),
+    TargetPage = 'fees'
+FROM dbo.Notification n
+WHERE n.EntityType IS NULL
+  AND n.Title LIKE N'%hóa đơn #%'
+  AND CHARINDEX('#', n.Title) > 0
+  AND TRY_CONVERT(int, LTRIM(RTRIM(SUBSTRING(n.Title, CHARINDEX('#', n.Title) + 1, 20)))) IS NOT NULL;
+
+UPDATE n
+SET EntityType = 'MaintenanceRequest',
+    EntityID = TRY_CONVERT(int, LTRIM(RTRIM(SUBSTRING(n.Title, CHARINDEX('#', n.Title) + 1, 20)))),
+    TargetPage = 'tickets'
+FROM dbo.Notification n
+WHERE n.EntityType IS NULL
+  AND (n.Title LIKE N'%yêu cầu #%'
+       OR n.Title LIKE N'%bảo trì #%')
+  AND CHARINDEX('#', n.Title) > 0
+  AND TRY_CONVERT(int, LTRIM(RTRIM(SUBSTRING(n.Title, CHARINDEX('#', n.Title) + 1, 20)))) IS NOT NULL;
+GO
+
+-- 20260924_finalize_complete_draft_invoices.sql
+-- Promote only complete non-utility drafts so residents can pay invoices whose amount is already final.
+-- Utility drafts remain drafts until the meter workflow finalizes them.
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+
+UPDATE i
+SET WorkflowStatus = 'WAITING_PAYMENT', StatusID = 1
+FROM dbo.Invoice i
+WHERE i.WorkflowStatus = 'DRAFT'
+  AND i.StatusID <> 4
+  AND i.TotalAmount > 0
+  AND EXISTS (SELECT 1 FROM dbo.InvoiceDetail d WHERE d.InvoiceID = i.InvoiceID)
+  AND NOT EXISTS (SELECT 1 FROM dbo.InvoiceDetail d WHERE d.InvoiceID = i.InvoiceID AND d.ChargeType IN ('ELECTRIC', 'WATER'))
+  AND i.TotalAmount = (SELECT SUM(d.Amount) FROM dbo.InvoiceDetail d WHERE d.InvoiceID = i.InvoiceID);
+
+COMMIT TRANSACTION;
+GO
+GO
+
+-- 20260925_delivery_extensions_ai.sql
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+IF OBJECT_ID('dbo.NotificationDelivery','U') IS NULL
+BEGIN
+ CREATE TABLE dbo.NotificationDelivery (
+  DeliveryID int IDENTITY PRIMARY KEY,
+  NotificationID int NOT NULL REFERENCES dbo.Notification(NotificationID) ON DELETE CASCADE,
+  UserID int NOT NULL REFERENCES dbo.Users(UserID),
+  Channel varchar(10) NOT NULL CHECK(Channel IN ('WEB','EMAIL')),
+  Recipient nvarchar(320) NULL,
+  Status varchar(10) NOT NULL CHECK(Status IN ('PENDING','SENT','FAILED','SKIPPED')),
+  AttemptCount int NOT NULL DEFAULT 0 CHECK(AttemptCount>=0),
+  ErrorMessage nvarchar(500) NULL,
+  CreatedAt datetime2 NOT NULL DEFAULT SYSDATETIME(), SentAt datetime2 NULL,
+  CONSTRAINT UQ_NotificationDelivery UNIQUE(NotificationID,UserID,Channel)
+ );
+ CREATE INDEX IX_NotificationDelivery_Status ON dbo.NotificationDelivery(Status,CreatedAt);
+END;
+IF OBJECT_ID('dbo.InvoiceDueDateExtensionRequest','U') IS NULL
+BEGIN
+ CREATE TABLE dbo.InvoiceDueDateExtensionRequest (
+  RequestID int IDENTITY PRIMARY KEY,
+  InvoiceID int NOT NULL REFERENCES dbo.Invoice(InvoiceID),
+  RequestedByUserID int NOT NULL REFERENCES dbo.Users(UserID),
+  RequestedAt datetime2 NOT NULL DEFAULT SYSDATETIME(),
+  OriginalDueDate date NOT NULL, RequestedDueDate date NOT NULL,
+  Reason nvarchar(2000) NOT NULL,
+  Status varchar(10) NOT NULL DEFAULT 'PENDING' CHECK(Status IN ('PENDING','APPROVED','REJECTED','CANCELLED')),
+  ReviewedByUserID int NULL REFERENCES dbo.Users(UserID), ReviewedAt datetime2 NULL,
+  ApprovedDueDate date NULL, ReviewNote nvarchar(2000) NULL,
+  CreatedAt datetime2 NOT NULL DEFAULT SYSDATETIME(), UpdatedAt datetime2 NOT NULL DEFAULT SYSDATETIME(),
+  CONSTRAINT CK_Extension_Dates CHECK(RequestedDueDate>OriginalDueDate),
+  CONSTRAINT CK_Extension_Approval CHECK(Status<>'APPROVED' OR (ApprovedDueDate>OriginalDueDate AND ReviewedByUserID IS NOT NULL AND ReviewedAt IS NOT NULL))
+ );
+ CREATE UNIQUE INDEX UX_Extension_Pending ON dbo.InvoiceDueDateExtensionRequest(InvoiceID) WHERE Status='PENDING';
+ CREATE INDEX IX_Extension_Invoice ON dbo.InvoiceDueDateExtensionRequest(InvoiceID,RequestedAt);
+END;
+IF COL_LENGTH('dbo.MaintenanceRequest','DueDate') IS NULL
+ ALTER TABLE dbo.MaintenanceRequest ADD DueDate date NULL;
+IF NOT EXISTS(SELECT 1 FROM Permission WHERE PermissionCode='INVOICE_DUE_DATE_EXTEND')
+ INSERT Permission(ModuleID,PermissionCode,PermissionName)
+ SELECT ModuleID,'INVOICE_DUE_DATE_EXTEND',N'Gia hạn thanh toán hóa đơn' FROM Permission WHERE PermissionCode='INVOICE_UPDATE';
+DECLARE @Grants TABLE(RoleCode varchar(50),PermissionCode varchar(100));
+INSERT @Grants VALUES ('ADMIN','INVOICE_DUE_DATE_EXTEND'),('MANAGER','INVOICE_DUE_DATE_EXTEND'),('ACCOUNTANT','INVOICE_DUE_DATE_EXTEND'),
+ ('RESIDENT','AI_CHAT'),('RESIDENT','AI_SEARCH'),('RESIDENT','MENU_AI_CHAT_VIEW'),('RESIDENT','MENU_AI_SEARCH_VIEW');
+UPDATE rp SET IsGranted=1 FROM RolePermission rp JOIN Role r ON r.RoleID=rp.RoleID JOIN Permission p ON p.PermissionID=rp.PermissionID
+ JOIN @Grants g ON g.RoleCode=r.RoleCode AND g.PermissionCode=p.PermissionCode;
+INSERT RolePermission(RoleID,PermissionID,IsGranted,CreatedAt)
+ SELECT r.RoleID,p.PermissionID,1,GETDATE() FROM @Grants g JOIN Role r ON r.RoleCode=g.RoleCode JOIN Permission p ON p.PermissionCode=g.PermissionCode
+ WHERE NOT EXISTS(SELECT 1 FROM RolePermission rp WHERE rp.RoleID=r.RoleID AND rp.PermissionID=p.PermissionID);
+COMMIT;
+GO
+GO

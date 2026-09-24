@@ -25,7 +25,7 @@ const SUGGESTIONS = [
 ];
 
 
-export default function AIChat() {
+export default function AIChat({ onNavigate }) {
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -68,7 +68,7 @@ export default function AIChat() {
     };
 
     setMessages((prev) => [
-      ...prev,
+      ...prev.slice(-19),
       userMessage
     ]);
 
@@ -77,7 +77,7 @@ export default function AIChat() {
 
     try {
       const response = await aiAPI.chat(
-        content
+        content, messages
       );
 
       const aiMessage = {
@@ -87,11 +87,12 @@ export default function AIChat() {
           response?.answer ||
           'Tôi chưa có câu trả lời phù hợp.',
         type: response?.type || null,
-        data: response?.data || null
+        data: response?.data || null,
+        actions: response?.actions || []
       };
 
       setMessages((prev) => [
-        ...prev,
+        ...prev.slice(-19),
         aiMessage
       ]);
 
@@ -102,13 +103,13 @@ export default function AIChat() {
       );
 
       setMessages((prev) => [
-        ...prev,
+        ...prev.slice(-19),
         {
           id: Date.now() + 2,
           role: 'assistant',
           content:
             'Không thể kết nối tới AI Service. ' +
-            'Vui lòng kiểm tra FastAPI đang chạy ở cổng 8000.'
+            (error.message || 'Vui lòng thử lại sau.')
         }
       ]);
 
@@ -206,6 +207,7 @@ export default function AIChat() {
             <ChatMessage
               key={message.id}
               message={message}
+              onNavigate={onNavigate}
             />
           ))}
 
@@ -328,7 +330,7 @@ export default function AIChat() {
 
 
 function ChatMessage({
-  message
+  message, onNavigate
 }) {
   const isUser =
     message.role === 'user';
@@ -365,6 +367,7 @@ function ChatMessage({
           }
         >
           {message.content}
+          {message.actions?.map((action,index)=><button key={index} className="block mt-2 text-indigo-600 underline" onClick={()=>onNavigate?.(action.page,action.params)}>{action.label}</button>)}
         </div>
 
 

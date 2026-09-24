@@ -1,6 +1,7 @@
 // backend/routes/index.js
 const express = require('express');
 const router = express.Router();
+router.use(require('../middlewares/validatePagination'));
 
 // Import routes
 const authRoutes = require('./authRoutes');

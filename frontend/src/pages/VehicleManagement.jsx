@@ -1,3 +1,4 @@
+import { fetchAllPages } from '../utils/fetchAllPages';
 import { PermissionGate } from '../permissions';
 // src/pages/VehicleManagement.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -113,13 +114,7 @@ vehicles.forEach(v => {
   const fetchVehicles = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await vehicleAPI.getAll(
-        '', // residentId
-        typeFilter || '', // vehicleTypeId
-        statusFilter !== '' ? statusFilter : '', // status
-        page,
-        20
-      );
+      const res = await fetchAllPages((p, limit) => vehicleAPI.getAll('', typeFilter || '', statusFilter, p, limit));
       console.log('📊 Vehicles response:', res);
       
       if (res && res.success !== false) {

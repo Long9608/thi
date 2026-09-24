@@ -1,0 +1,1602 @@
+[
+  {
+    "TABLE_NAME": "Apartment",
+    "COLUMN_NAME": "ApartmentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Apartment",
+    "COLUMN_NAME": "FloorID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Apartment",
+    "COLUMN_NAME": "ApartmentCode",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Apartment",
+    "COLUMN_NAME": "Area",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "Apartment",
+    "COLUMN_NAME": "StatusID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ApartmentArea",
+    "COLUMN_NAME": "AreaID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ApartmentArea",
+    "COLUMN_NAME": "AreaName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ApartmentArea",
+    "COLUMN_NAME": "Address",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ApartmentArea",
+    "COLUMN_NAME": "Description",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ApartmentPriceHistory",
+    "COLUMN_NAME": "PriceHistoryID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ApartmentPriceHistory",
+    "COLUMN_NAME": "ApartmentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ApartmentPriceHistory",
+    "COLUMN_NAME": "BaseRentalPrice",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "ApartmentPriceHistory",
+    "COLUMN_NAME": "EffectiveDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "ApartmentPriceHistory",
+    "COLUMN_NAME": "Note",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "AuditLog",
+    "COLUMN_NAME": "LogID",
+    "DATA_TYPE": "bigint"
+  },
+  {
+    "TABLE_NAME": "AuditLog",
+    "COLUMN_NAME": "UserID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "AuditLog",
+    "COLUMN_NAME": "Action",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "AuditLog",
+    "COLUMN_NAME": "TableName",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "AuditLog",
+    "COLUMN_NAME": "RecordID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "AuditLog",
+    "COLUMN_NAME": "OldValue",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "AuditLog",
+    "COLUMN_NAME": "NewValue",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "AuditLog",
+    "COLUMN_NAME": "Timestamp",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "AuditLog",
+    "COLUMN_NAME": "IPAddress",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Building",
+    "COLUMN_NAME": "BuildingID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Building",
+    "COLUMN_NAME": "AreaID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Building",
+    "COLUMN_NAME": "BuildingName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Building",
+    "COLUMN_NAME": "NumberOfFloors",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "ContractID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "ApartmentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "OwnerID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "ContractNumber",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "SignDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "StartDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "EndDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "Deposit",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "Rent",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "StatusID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "CreatedDate",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "ContractTermMonths",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "DepositMonths",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "PaymentCycleMonths",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "MonthlyBillingDay",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Contract",
+    "COLUMN_NAME": "SignedContractImage",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "ContractEquipmentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "ContractID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "EquipmentName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "Category",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "Brand",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "Model",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "Quantity",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "Location",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "Specifications",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "ConditionDescription",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "EquipmentStatus",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ContractEquipment",
+    "COLUMN_NAME": "CreatedDate",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "ContractResident",
+    "COLUMN_NAME": "ContractResidentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ContractResident",
+    "COLUMN_NAME": "ContractID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ContractResident",
+    "COLUMN_NAME": "ResidentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ContractResident",
+    "COLUMN_NAME": "Relationship",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ContractResident",
+    "COLUMN_NAME": "MoveInDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "ContractResident",
+    "COLUMN_NAME": "MoveOutDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "ContractStatus",
+    "COLUMN_NAME": "StatusID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ContractStatus",
+    "COLUMN_NAME": "StatusName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Employee",
+    "COLUMN_NAME": "EmployeeID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Employee",
+    "COLUMN_NAME": "UserID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Employee",
+    "COLUMN_NAME": "FullName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Employee",
+    "COLUMN_NAME": "Gender",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "Employee",
+    "COLUMN_NAME": "BirthDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "Employee",
+    "COLUMN_NAME": "Phone",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Employee",
+    "COLUMN_NAME": "Email",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Employee",
+    "COLUMN_NAME": "Address",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Employee",
+    "COLUMN_NAME": "CCCD",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Employee",
+    "COLUMN_NAME": "HireDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "Employee",
+    "COLUMN_NAME": "Status",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "Feedback",
+    "COLUMN_NAME": "FeedbackID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Feedback",
+    "COLUMN_NAME": "ResidentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Feedback",
+    "COLUMN_NAME": "Title",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Feedback",
+    "COLUMN_NAME": "Content",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Feedback",
+    "COLUMN_NAME": "Rating",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Feedback",
+    "COLUMN_NAME": "Reply",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Feedback",
+    "COLUMN_NAME": "CreatedDate",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "Floor",
+    "COLUMN_NAME": "FloorID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Floor",
+    "COLUMN_NAME": "BuildingID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Floor",
+    "COLUMN_NAME": "FloorNumber",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Invoice",
+    "COLUMN_NAME": "InvoiceID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Invoice",
+    "COLUMN_NAME": "ContractID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Invoice",
+    "COLUMN_NAME": "InvoiceMonth",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Invoice",
+    "COLUMN_NAME": "InvoiceYear",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Invoice",
+    "COLUMN_NAME": "InvoiceDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "Invoice",
+    "COLUMN_NAME": "DueDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "Invoice",
+    "COLUMN_NAME": "TotalAmount",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "Invoice",
+    "COLUMN_NAME": "StatusID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Invoice",
+    "COLUMN_NAME": "WorkflowStatus",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "InvoiceDetail",
+    "COLUMN_NAME": "InvoiceDetailID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "InvoiceDetail",
+    "COLUMN_NAME": "InvoiceID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "InvoiceDetail",
+    "COLUMN_NAME": "ChargeType",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "InvoiceDetail",
+    "COLUMN_NAME": "Description",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "InvoiceDetail",
+    "COLUMN_NAME": "Quantity",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "InvoiceDetail",
+    "COLUMN_NAME": "UnitPrice",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "InvoiceDetail",
+    "COLUMN_NAME": "Amount",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "InvoiceDetail",
+    "COLUMN_NAME": "ParkingSubscriptionID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "InvoicePaymentSubmission",
+    "COLUMN_NAME": "InvoiceID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "InvoicePaymentSubmission",
+    "COLUMN_NAME": "SubmittedBy",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "InvoicePaymentSubmission",
+    "COLUMN_NAME": "SubmittedAt",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "InvoicePaymentSubmission",
+    "COLUMN_NAME": "Amount",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "InvoicePaymentSubmission",
+    "COLUMN_NAME": "TransferContent",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "InvoicePaymentSubmission",
+    "COLUMN_NAME": "ConfirmedBy",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "InvoicePaymentSubmission",
+    "COLUMN_NAME": "ConfirmedAt",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "InvoicePaymentSubmission",
+    "COLUMN_NAME": "PaymentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "InvoiceStatus",
+    "COLUMN_NAME": "StatusID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "InvoiceStatus",
+    "COLUMN_NAME": "StatusName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "RequestID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "ResidentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "ApartmentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "Title",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "Description",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "RequestDate",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "AssignedEmployeeID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "StatusID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "Progress",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "Response",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "UpdatedAt",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "CompletedAt",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "MaintenanceRequest",
+    "COLUMN_NAME": "ContractEquipmentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MaintenanceStatus",
+    "COLUMN_NAME": "StatusID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MaintenanceStatus",
+    "COLUMN_NAME": "StatusName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "MeterReading",
+    "COLUMN_NAME": "ReadingID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MeterReading",
+    "COLUMN_NAME": "ApartmentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MeterReading",
+    "COLUMN_NAME": "EmployeeID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MeterReading",
+    "COLUMN_NAME": "UtilityTypeID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MeterReading",
+    "COLUMN_NAME": "ReadingMonth",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MeterReading",
+    "COLUMN_NAME": "ReadingYear",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "MeterReading",
+    "COLUMN_NAME": "OldIndex",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "MeterReading",
+    "COLUMN_NAME": "NewIndex",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "MeterReading",
+    "COLUMN_NAME": "ReadingDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "Module",
+    "COLUMN_NAME": "ModuleID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Module",
+    "COLUMN_NAME": "ModuleCode",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Module",
+    "COLUMN_NAME": "ModuleName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Module",
+    "COLUMN_NAME": "Icon",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Module",
+    "COLUMN_NAME": "SortOrder",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Module",
+    "COLUMN_NAME": "Status",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "Notification",
+    "COLUMN_NAME": "NotificationID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Notification",
+    "COLUMN_NAME": "SenderID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Notification",
+    "COLUMN_NAME": "Title",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Notification",
+    "COLUMN_NAME": "Content",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Notification",
+    "COLUMN_NAME": "CreatedDate",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "Notification",
+    "COLUMN_NAME": "TargetScope",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Notification",
+    "COLUMN_NAME": "EntityType",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Notification",
+    "COLUMN_NAME": "EntityID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Notification",
+    "COLUMN_NAME": "TargetPage",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Notification",
+    "COLUMN_NAME": "ActionUrl",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "NotificationReceiver",
+    "COLUMN_NAME": "ReceiverID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "NotificationReceiver",
+    "COLUMN_NAME": "NotificationID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "NotificationReceiver",
+    "COLUMN_NAME": "UserID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "NotificationReceiver",
+    "COLUMN_NAME": "IsRead",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "NotificationReceiver",
+    "COLUMN_NAME": "ReadDate",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "AccessLogID",
+    "DATA_TYPE": "bigint"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "ParkingSubscriptionID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "VehicleID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "CardID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "SlotID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "EventType",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "EventTime",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "PlateNumberSnapshot",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "CardCodeSnapshot",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "GateName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "Note",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ParkingAccessLog",
+    "COLUMN_NAME": "RecordedByUserID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingCard",
+    "COLUMN_NAME": "CardID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingCard",
+    "COLUMN_NAME": "VehicleID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingCard",
+    "COLUMN_NAME": "CardCode",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "ParkingCard",
+    "COLUMN_NAME": "SlotID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingCard",
+    "COLUMN_NAME": "IssueDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "ParkingCard",
+    "COLUMN_NAME": "ExpiredDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "ParkingCard",
+    "COLUMN_NAME": "Status",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "ParkingSlot",
+    "COLUMN_NAME": "SlotID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingSlot",
+    "COLUMN_NAME": "AreaID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingSlot",
+    "COLUMN_NAME": "SlotNumber",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "ParkingSlot",
+    "COLUMN_NAME": "VehicleTypeID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingSlot",
+    "COLUMN_NAME": "IsOccupied",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "ParkingSubscription",
+    "COLUMN_NAME": "ParkingSubscriptionID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingSubscription",
+    "COLUMN_NAME": "VehicleID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingSubscription",
+    "COLUMN_NAME": "ContractID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingSubscription",
+    "COLUMN_NAME": "CardID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingSubscription",
+    "COLUMN_NAME": "StartDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "ParkingSubscription",
+    "COLUMN_NAME": "EndDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "ParkingSubscription",
+    "COLUMN_NAME": "MonthlyFeeSnapshot",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "ParkingSubscription",
+    "COLUMN_NAME": "Status",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "ParkingSubscription",
+    "COLUMN_NAME": "CreatedByUserID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ParkingSubscription",
+    "COLUMN_NAME": "CreatedAt",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "ParkingSubscription",
+    "COLUMN_NAME": "UpdatedAt",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "Payment",
+    "COLUMN_NAME": "PaymentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Payment",
+    "COLUMN_NAME": "InvoiceID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Payment",
+    "COLUMN_NAME": "MethodID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Payment",
+    "COLUMN_NAME": "PaymentDate",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "Payment",
+    "COLUMN_NAME": "Amount",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "Payment",
+    "COLUMN_NAME": "TransactionCode",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Payment",
+    "COLUMN_NAME": "StatusID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "PaymentConfiguration",
+    "COLUMN_NAME": "ConfigKey",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "PaymentConfiguration",
+    "COLUMN_NAME": "BankBin",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "PaymentConfiguration",
+    "COLUMN_NAME": "AccountNumber",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "PaymentConfiguration",
+    "COLUMN_NAME": "AccountName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "PaymentMethod",
+    "COLUMN_NAME": "MethodID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "PaymentMethod",
+    "COLUMN_NAME": "MethodName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "PaymentStatus",
+    "COLUMN_NAME": "StatusID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "PaymentStatus",
+    "COLUMN_NAME": "StatusName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Permission",
+    "COLUMN_NAME": "PermissionID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Permission",
+    "COLUMN_NAME": "ModuleID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Permission",
+    "COLUMN_NAME": "PermissionCode",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Permission",
+    "COLUMN_NAME": "PermissionName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Permission",
+    "COLUMN_NAME": "Description",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "ResidentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "UserID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "FullName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "Gender",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "BirthDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "Phone",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "Email",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "Address",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "Avatar",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "Status",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "EmergencyContactName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Resident",
+    "COLUMN_NAME": "EmergencyContactPhone",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "ResidentIdentity",
+    "COLUMN_NAME": "IdentityID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ResidentIdentity",
+    "COLUMN_NAME": "ResidentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ResidentIdentity",
+    "COLUMN_NAME": "IdentityNumber",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "ResidentIdentity",
+    "COLUMN_NAME": "FrontImage",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ResidentIdentity",
+    "COLUMN_NAME": "BackImage",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ResidentIdentity",
+    "COLUMN_NAME": "IssueDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "ResidentIdentity",
+    "COLUMN_NAME": "IssuePlace",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ResidentIdentity",
+    "COLUMN_NAME": "ExpiredDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "Role",
+    "COLUMN_NAME": "RoleID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Role",
+    "COLUMN_NAME": "RoleCode",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Role",
+    "COLUMN_NAME": "RoleName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Role",
+    "COLUMN_NAME": "Description",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Role",
+    "COLUMN_NAME": "Status",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "Role",
+    "COLUMN_NAME": "CreatedAt",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "Role",
+    "COLUMN_NAME": "IsSystem",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "RolePermission",
+    "COLUMN_NAME": "RolePermissionID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "RolePermission",
+    "COLUMN_NAME": "RoleID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "RolePermission",
+    "COLUMN_NAME": "PermissionID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "RolePermission",
+    "COLUMN_NAME": "IsGranted",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "RolePermission",
+    "COLUMN_NAME": "CreatedAt",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "RoomStatus",
+    "COLUMN_NAME": "StatusID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "RoomStatus",
+    "COLUMN_NAME": "StatusName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Service",
+    "COLUMN_NAME": "ServiceID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Service",
+    "COLUMN_NAME": "CategoryID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Service",
+    "COLUMN_NAME": "ServiceName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Service",
+    "COLUMN_NAME": "Unit",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Service",
+    "COLUMN_NAME": "Price",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "Service",
+    "COLUMN_NAME": "Status",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "ServiceCategory",
+    "COLUMN_NAME": "CategoryID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ServiceCategory",
+    "COLUMN_NAME": "CategoryName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ServiceCategory",
+    "COLUMN_NAME": "Description",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "ServiceRegistration",
+    "COLUMN_NAME": "RegistrationID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ServiceRegistration",
+    "COLUMN_NAME": "ContractID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ServiceRegistration",
+    "COLUMN_NAME": "ServiceID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ServiceRegistration",
+    "COLUMN_NAME": "RegisterDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "ServiceRegistration",
+    "COLUMN_NAME": "EndDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "ServiceRegistration",
+    "COLUMN_NAME": "Quantity",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "ServiceRegistration",
+    "COLUMN_NAME": "Status",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "SmartMeter",
+    "COLUMN_NAME": "MeterID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "SmartMeter",
+    "COLUMN_NAME": "ApartmentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "SmartMeter",
+    "COLUMN_NAME": "UtilityTypeID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "SmartMeter",
+    "COLUMN_NAME": "CurrentIndex",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "SmartMeter",
+    "COLUMN_NAME": "LastTickAt",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "SmartMeter",
+    "COLUMN_NAME": "Status",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "SmartMeter",
+    "COLUMN_NAME": "CreatedAt",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "SmartMeterLog",
+    "COLUMN_NAME": "LogID",
+    "DATA_TYPE": "bigint"
+  },
+  {
+    "TABLE_NAME": "SmartMeterLog",
+    "COLUMN_NAME": "MeterID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "SmartMeterLog",
+    "COLUMN_NAME": "OldIndex",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "SmartMeterLog",
+    "COLUMN_NAME": "NewIndex",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "SmartMeterLog",
+    "COLUMN_NAME": "DeltaValue",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "SmartMeterLog",
+    "COLUMN_NAME": "Source",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "SmartMeterLog",
+    "COLUMN_NAME": "CreatedAt",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "sysdiagrams",
+    "COLUMN_NAME": "name",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "sysdiagrams",
+    "COLUMN_NAME": "principal_id",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "sysdiagrams",
+    "COLUMN_NAME": "diagram_id",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "sysdiagrams",
+    "COLUMN_NAME": "version",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "sysdiagrams",
+    "COLUMN_NAME": "definition",
+    "DATA_TYPE": "varbinary"
+  },
+  {
+    "TABLE_NAME": "TicketUpdate",
+    "COLUMN_NAME": "UpdateID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "TicketUpdate",
+    "COLUMN_NAME": "RequestID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "TicketUpdate",
+    "COLUMN_NAME": "ActorID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "TicketUpdate",
+    "COLUMN_NAME": "StatusID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "TicketUpdate",
+    "COLUMN_NAME": "Progress",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "TicketUpdate",
+    "COLUMN_NAME": "Response",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "TicketUpdate",
+    "COLUMN_NAME": "CreatedAt",
+    "DATA_TYPE": "datetime2"
+  },
+  {
+    "TABLE_NAME": "UserRole",
+    "COLUMN_NAME": "UserRoleID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "UserRole",
+    "COLUMN_NAME": "UserID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "UserRole",
+    "COLUMN_NAME": "RoleID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "UserRole",
+    "COLUMN_NAME": "AssignedDate",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "UserRole",
+    "COLUMN_NAME": "AssignedBy",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Users",
+    "COLUMN_NAME": "UserID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Users",
+    "COLUMN_NAME": "Username",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Users",
+    "COLUMN_NAME": "PasswordHash",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Users",
+    "COLUMN_NAME": "Email",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Users",
+    "COLUMN_NAME": "Phone",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Users",
+    "COLUMN_NAME": "Status",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "Users",
+    "COLUMN_NAME": "LastLogin",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "Users",
+    "COLUMN_NAME": "CreatedAt",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "UtilityPriceTier",
+    "COLUMN_NAME": "PriceTierID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "UtilityPriceTier",
+    "COLUMN_NAME": "UtilityTypeID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "UtilityPriceTier",
+    "COLUMN_NAME": "TierName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "UtilityPriceTier",
+    "COLUMN_NAME": "FromValue",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "UtilityPriceTier",
+    "COLUMN_NAME": "ToValue",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "UtilityPriceTier",
+    "COLUMN_NAME": "UnitPrice",
+    "DATA_TYPE": "decimal"
+  },
+  {
+    "TABLE_NAME": "UtilityPriceTier",
+    "COLUMN_NAME": "EffectiveDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "UtilityType",
+    "COLUMN_NAME": "UtilityTypeID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "UtilityType",
+    "COLUMN_NAME": "UtilityName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Vehicle",
+    "COLUMN_NAME": "VehicleID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Vehicle",
+    "COLUMN_NAME": "ResidentID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Vehicle",
+    "COLUMN_NAME": "PlateNumber",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "Vehicle",
+    "COLUMN_NAME": "VehicleTypeID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "Vehicle",
+    "COLUMN_NAME": "Brand",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Vehicle",
+    "COLUMN_NAME": "Color",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "Vehicle",
+    "COLUMN_NAME": "RegisterDate",
+    "DATA_TYPE": "date"
+  },
+  {
+    "TABLE_NAME": "Vehicle",
+    "COLUMN_NAME": "Status",
+    "DATA_TYPE": "bit"
+  },
+  {
+    "TABLE_NAME": "VehicleType",
+    "COLUMN_NAME": "VehicleTypeID",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "VehicleType",
+    "COLUMN_NAME": "TypeName",
+    "DATA_TYPE": "nvarchar"
+  },
+  {
+    "TABLE_NAME": "VehicleType",
+    "COLUMN_NAME": "MonthlyFee",
+    "DATA_TYPE": "decimal"
+  }
+]

@@ -13,6 +13,9 @@ import { formatDate, getInitials } from '../utils/formatters';
 
 export default function SendNotification({ flash }) {
   // State
+  const [channels, setChannels] = useState(['WEB']);
+  const [summary, setSummary] = useState(null);
+  const [sentContent,setSentContent]=useState(null);
   const [loading, setLoading] = useState(false);
   const [residents, setResidents] = useState([]);
   const [apartments, setApartments] = useState([]);
@@ -63,11 +66,13 @@ export default function SendNotification({ flash }) {
       return;
     }
 
+    if (!channels.length) { flash?.('Chọn ít nhất một kênh gửi'); return; }
     setLoading(true);
     try {
       const data = {
         title: form.title,
         content: form.content,
+        channels: [...new Set(channels.map(channel => String(channel).toUpperCase()))],
         targetScope: form.targetScope
       };
 
@@ -95,7 +100,9 @@ export default function SendNotification({ flash }) {
 
       const res = await notificationAPI.create(data);
       console.log('📊 Send notification response:', res);
-      
+
+      setSummary(res?.data);
+      setSentContent({title:form.title,content:form.content});
       setSentCount(res?.data?.recipientsCount || 0);
       setPreviewOpen(true);
       
@@ -109,10 +116,13 @@ export default function SendNotification({ flash }) {
       });
       setSelectedRecipients([]);
       
-      if (flash) flash('✅ Gửi thông báo thành công!');
+      if (!res?.data?.targetCount) flash?.('⚠️ Không có cư dân phù hợp để nhận thông báo.');
+      else if (res?.data?.emailFailed || res?.data?.missingEmail) {
+        flash?.('⚠️ Gửi email chưa hoàn tất. Vui lòng xem chi tiết kết quả.');
+      } else flash?.(res?.data?.emailSent ? '✅ Máy chủ email đã chấp nhận gửi. Xem địa chỉ nhận trong kết quả.' : '✅ Đã gửi thông báo trên hệ thống.');
     } catch (error) {
       console.error('Send notification error:', error);
-      if (flash) flash('❌ ' + (error.response?.data?.message || 'Không thể gửi thông báo'));
+      if (flash) flash('❌ ' + (error.response?.data?.message || error.message || 'Không thể gửi thông báo'));
     } finally {
       setLoading(false);
     }
@@ -195,6 +205,11 @@ export default function SendNotification({ flash }) {
       {/* Form */}
       <Card className="p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
+          <fieldset className="flex gap-5"><legend className="font-semibold mb-2">Kênh gửi</legend>
+            {[['WEB','Thông báo trên hệ thống'],['EMAIL','Email']].map(([value,label])=><label key={value}><input type="checkbox" checked={channels.includes(value)} onChange={e=>setChannels(prev=>e.target.checked?[...prev,value]:prev.filter(c=>c!==value))}/> {label}</label>)}
+          </fieldset>
+          {summary && <p role="status">Người nhận: {summary.targetCount} · Web: {summary.webDelivered} · SMTP đã chấp nhận: {summary.emailSent} · Email lỗi: {summary.emailFailed} · Thiếu email: {summary.missingEmail}</p>}
+          {summary?.emailErrors?.map(error => <p key={error.code} role="alert" className="text-sm text-rose-600">{error.message} ({error.count} email)</p>)}
           {/* Title */}
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-slate-700">
@@ -438,23 +453,39 @@ export default function SendNotification({ flash }) {
       {/* Preview Modal */}
       <Modal
         open={previewOpen}
-        title="Gửi thông báo thành công!"
-        description={`Đã gửi đến ${sentCount} người nhận`}
+        title="Kết quả gửi thông báo"
+        description={`Đã xử lý ${sentCount} người nhận`}
         onClose={() => setPreviewOpen(false)}
       >
         <div className="space-y-4">
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
-            <CheckCircle2 size={48} className="mx-auto text-emerald-600" />
-            <h3 className="mt-3 text-xl font-bold text-emerald-800">Thông báo đã được gửi!</h3>
+            {summary?.emailFailed || summary?.missingEmail || !summary?.targetCount
+              ? <AlertCircle size={48} className="mx-auto text-amber-600" />
+              : <CheckCircle2 size={48} className="mx-auto text-emerald-600" />}
+            <h3 className="mt-3 text-xl font-bold text-emerald-800">Đã xử lý gửi thông báo</h3>
             <p className="text-emerald-600">
-              {sentCount} người nhận đã nhận được thông báo
+              Web: {summary?.webDelivered} · SMTP đã chấp nhận: {summary?.emailSent} · Email lỗi: {summary?.emailFailed} · Thiếu email: {summary?.missingEmail}
             </p>
           </div>
 
+          {summary?.emailErrors?.map(error => <p key={error.code} role="alert" className="text-sm text-rose-600">{error.message} ({error.count} email)</p>)}
+          {!!summary?.missingEmail && <p className="text-sm text-amber-700">Cập nhật địa chỉ email hợp lệ trong hồ sơ của {summary.missingEmail} cư dân bị bỏ qua.</p>}
+          {!!summary?.emailSent && <p className="text-sm text-slate-500">Máy chủ email đã chấp nhận gửi. Nếu chưa thấy thư, hãy kiểm tra mục Thư rác và địa chỉ email trong hồ sơ cư dân.</p>}
+          {!!summary?.emailResults?.length && <div className="space-y-2 text-sm">
+            <p className="font-semibold text-slate-700">Địa chỉ nhận thực tế</p>
+            {summary.emailResults.map((result, index) => <div key={index} className="rounded-lg border border-slate-200 p-3 break-all">
+              <p>{result.recipient} · {result.status === 'SENT' ? 'SMTP đã chấp nhận' : 'Gửi thất bại'}</p>
+              {result.messageId && <details className="mt-1 text-slate-500"><summary>Tìm thư trong Gmail bằng mã thư</summary>
+                <p className="mt-1">Sao chép dòng sau vào ô tìm kiếm Gmail:</p>
+                <code className="select-all">in:anywhere rfc822msgid:{result.messageId.replace(/[<>]/g, '')}</code>
+              </details>}
+            </div>)}
+          </div>}
+
           <div className="rounded-xl border border-slate-200 p-4">
             <p className="text-sm font-semibold text-slate-500">Thông báo vừa gửi</p>
-            <h4 className="mt-2 font-bold text-slate-950">{form.title}</h4>
-            <p className="mt-1 text-sm text-slate-600">{form.content}</p>
+            <h4 className="mt-2 font-bold text-slate-950">{sentContent?.title}</h4>
+            <p className="mt-1 text-sm text-slate-600">{sentContent?.content}</p>
           </div>
 
           <div className="flex justify-end">

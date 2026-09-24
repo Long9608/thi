@@ -1,6 +1,3 @@
-USE ApartmentManagement;
-GO
-
 BEGIN TRANSACTION;
 BEGIN TRY
     DECLARE @Permissions TABLE (

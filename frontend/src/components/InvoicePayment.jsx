@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { invoiceAPI } from '../api';
 import { createPermissionChecker } from '../permissions';
 import { Button, Modal, Input } from './UI';
 import { money, formatDateTime } from '../utils/formatters';
+import InvoiceExtension from './InvoiceExtension';
 
 export default function InvoicePayment({ invoice, onUpdated }) {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -10,9 +11,17 @@ export default function InvoicePayment({ invoice, onUpdated }) {
   const resident = roleCodes.includes('RESIDENT');
   const canConfirm = !resident && can('INVOICE_VIEW_ALL') && can('PAYMENT_CREATE');
   const [open, setOpen] = useState(false), [info, setInfo] = useState(null);
+  const [paymentSubmitted, setPaymentSubmitted] = useState(Boolean(invoice.PaymentSubmittedAt));
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [done, setDone] = useState('');
   const [methods, setMethods] = useState([]), [methodId, setMethodId] = useState(''), [transactionCode, setTransactionCode] = useState('');
-  const payable = !invoice.IsPaid && ![2,4].includes(invoice.StatusID) && invoice.WorkflowStatus !== 'DRAFT' && Number(invoice.RemainingAmount ?? invoice.TotalAmount)>0;
+  useEffect(() => {
+    setPaymentSubmitted(Boolean(invoice.PaymentSubmittedAt));
+  }, [invoice.PaymentSubmittedAt]);
+  const pendingSubmission = paymentSubmitted;
+  const payable = !invoice.IsPaid && invoice.StatusID !== 4 && invoice.WorkflowStatus !== 'DRAFT' && Number(invoice.RemainingAmount ?? invoice.TotalAmount) > 0;
+  const canExtend = !resident && can('INVOICE_VIEW_ALL') && can('INVOICE_DUE_DATE_EXTEND');
+  if (payable && invoice.IsOverdue && !pendingSubmission && (resident || canExtend)) return <InvoiceExtension invoice={invoice} resident={resident} onUpdated={onUpdated}/>;
+  if (payable && invoice.IsOverdue && !pendingSubmission) return null;
   if ((!resident && !canConfirm) || !payable) return null;
   const show = async () => {
     setOpen(true); setBusy(true); setError(''); setDone(''); setInfo(null);
@@ -27,12 +36,13 @@ export default function InvoicePayment({ invoice, onUpdated }) {
       const result = resident ? await invoiceAPI.submitPayment(invoice.InvoiceID)
         : await invoiceAPI.confirmPayment(invoice.InvoiceID, { methodId: Number(methodId), transactionCode });
       setDone(result.message);
+      if (resident) setPaymentSubmitted(true);
       if (resident) setInfo((await invoiceAPI.getPaymentInfo(invoice.InvoiceID)).data);
       else { setOpen(false); await onUpdated?.(); }
     } catch(err) { setError(err.message); } finally { setBusy(false); }
   };
   return <>
-    <Button disabled={resident && Boolean(invoice.PaymentSubmittedAt)} className={resident && invoice.PaymentSubmittedAt ? 'opacity-50' : ''} onClick={show}>{resident ? (invoice.PaymentSubmittedAt ? 'Chờ xác nhận' : 'Thanh toán') : 'Xác nhận thanh toán'}</Button>
+    <Button disabled={resident && pendingSubmission} className={resident && pendingSubmission ? 'opacity-50' : ''} onClick={show}>{resident ? (pendingSubmission ? 'Chờ xác nhận' : 'Thanh toán') : 'Xác nhận thanh toán'}</Button>
     <Modal open={open} title={resident ? 'Thanh toán hóa đơn' : 'Xác nhận thanh toán'} onClose={() => !busy && setOpen(false)}>
       {error && <p role="alert" className="mb-3 text-red-600">{error}</p>}
       {done && <p role="status" className="mb-3 text-emerald-700">{done}</p>}

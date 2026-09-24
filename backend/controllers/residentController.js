@@ -1,6 +1,6 @@
 // backend/controllers/residentController.js
 const { getPool, sql } = require('../config/db');
-const { isResidentAccount } = require('../utils/accessScope');
+const { isResidentAccount, getAccessScope } = require('../utils/accessScope');
 
 // ============================================
 // QUẢN LÝ CƯ DÂN

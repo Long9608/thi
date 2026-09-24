@@ -1,3 +1,4 @@
+const { notifyUsers } = require('../utils/workflowUtils');
 ﻿const { getPool, sql } = require('../config/db');
 const { getAccessScope, getCurrentResidentId, contractOwnershipSql, apartmentOwnershipSql } = require('../utils/accessScope');
 
@@ -623,18 +624,13 @@ exports.updateContract = async (req, res) => {
                 await transaction.request()
                     .input('ContractID', sql.Int, id)
                     .query(`
-                        DELETE p
-                        FROM Payment p
-                        JOIN Invoice i ON i.InvoiceID = p.InvoiceID
-                        WHERE i.ContractID = @ContractID;
-
-                        DELETE idt
-                        FROM InvoiceDetail idt
-                        JOIN Invoice i ON i.InvoiceID = idt.InvoiceID
-                        WHERE i.ContractID = @ContractID;
-
-                        DELETE FROM Invoice
-                        WHERE ContractID = @ContractID;
+                        -- Preserve financial history and extension audit when a contract ends.
+                        UPDATE i SET StatusID=4 FROM Invoice i
+                        WHERE i.ContractID=@ContractID AND i.StatusID<>2
+                          AND NOT EXISTS(SELECT 1 FROM InvoicePaymentSubmission ps WHERE ps.InvoiceID=i.InvoiceID AND ps.ConfirmedAt IS NULL);
+                        UPDATE er SET Status='CANCELLED',UpdatedAt=SYSDATETIME()
+                        FROM InvoiceDueDateExtensionRequest er JOIN Invoice i ON i.InvoiceID=er.InvoiceID
+                        WHERE i.ContractID=@ContractID AND i.StatusID=4 AND er.Status='PENDING';
 
                         UPDATE ServiceRegistration
                         SET Status = 0, EndDate = CAST(GETDATE() AS DATE)
@@ -667,7 +663,7 @@ exports.updateContract = async (req, res) => {
                     `);
 
                 if (invoiceIds.recordset.length > 0) {
-                    console.log(`Cleaned ${invoiceIds.recordset.length} invoices for terminated contract #${id}`);
+                    console.log(`Preserved ${invoiceIds.recordset.length} invoices for terminated contract #${id}`);
                 }
 
                 await transaction.request()
@@ -682,6 +678,12 @@ exports.updateContract = async (req, res) => {
             }
         }
 
+        const recipients = (await transaction.request().input('ContractID',sql.Int,id).query(`SELECT DISTINCT r.UserID FROM Resident r
+          JOIN Contract c ON c.OwnerID=r.ResidentID OR EXISTS(SELECT 1 FROM ContractResident cr WHERE cr.ContractID=c.ContractID AND cr.ResidentID=r.ResidentID
+            AND (cr.MoveOutDate IS NULL OR cr.MoveOutDate>=CAST(GETDATE() AS date)))
+          WHERE c.ContractID=@ContractID AND r.Status=1 AND r.UserID IS NOT NULL`)).recordset;
+        await notifyUsers(transaction,{senderId:req.userId,title:`Hợp đồng #${id} được cập nhật`,content:'Ban quản lý đã cập nhật hợp đồng. Vui lòng xem chi tiết.',
+          userIds:recipients.map(r=>r.UserID),entityType:'Contract',entityId:Number(id),targetPage:'contract-list'});
         await transaction.commit();
         res.json({ success: true, message: 'Contract updated successfully' });
     } catch (error) {

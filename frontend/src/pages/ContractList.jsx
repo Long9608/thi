@@ -13,7 +13,7 @@ import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, money, getInitials } from '../utils/formatters';
 import { PermissionGate } from '../permissions';
 
-export default function ContractList({ flash }) {
+export default function ContractList({ flash, deepLink }) {
   const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
   const getFileUrl = (path) => {
     if (!path) return '';
@@ -70,6 +70,18 @@ export default function ContractList({ flash }) {
     fetchContracts();
     fetchStatuses();
   }, [fetchContracts, fetchStatuses]);
+
+  useEffect(() => {
+    const contractId = Number(deepLink?.contractId);
+    if (!contractId) return;
+    let cancelled = false;
+    contractAPI.getById(contractId).then(result => {
+      if (!cancelled && result?.data) openViewModal(result.data);
+    }).catch(error => {
+      if (!cancelled && flash) flash('❌ ' + (error.response?.data?.message || 'Không thể mở hợp đồng'));
+    });
+    return () => { cancelled = true; };
+  }, [deepLink?.contractId, flash]);
 
   const handleDelete = async (id) => {
     if (!confirm('Bạn có chắc muốn xóa hợp đồng này?')) return;

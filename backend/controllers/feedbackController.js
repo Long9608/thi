@@ -1,3 +1,4 @@
+const { inTransaction, notifyUsers, fail } = require('../utils/workflowUtils');
 const { getPool, sql } = require('../config/db');
 const { getAccessScope, getCurrentResidentId } = require('../utils/accessScope');
 
@@ -181,21 +182,13 @@ exports.updateFeedbackReply = async (req, res) => {
     }
 
     const pool = await getPool();
-    const result = await pool.request()
-      .input('FeedbackID', sql.Int, id)
-      .input('Reply', sql.NVarChar, reply)
-      .query(`
-        UPDATE Feedback
-        SET Reply = @Reply
-        WHERE FeedbackID = @FeedbackID
-      `);
-
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Feedback not found'
-      });
-    }
+    await inTransaction(pool,async tx=>{
+      const result=await tx.request().input('FeedbackID',sql.Int,id).input('Reply',sql.NVarChar(sql.MAX),reply)
+        .query('UPDATE Feedback SET Reply=@Reply WHERE FeedbackID=@FeedbackID');
+      if(!result.rowsAffected[0]) fail(404,'Không tìm thấy phản ánh');
+      const recipients=(await tx.request().input('ID',sql.Int,id).query('SELECT r.UserID FROM Feedback f JOIN Resident r ON r.ResidentID=f.ResidentID WHERE f.FeedbackID=@ID AND r.UserID IS NOT NULL')).recordset;
+      await notifyUsers(tx,{senderId:req.userId,title:`Phản ánh #${id} đã được trả lời`,content:reply,userIds:recipients.map(r=>r.UserID),entityType:'Feedback',entityId:Number(id),targetPage:'feedbacks'});
+    });
 
     res.json({
       success: true,

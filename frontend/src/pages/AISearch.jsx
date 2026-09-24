@@ -13,7 +13,8 @@ import {
 import { aiAPI } from '../api';
 
 
-export default function AISearch() {
+export default function AISearch({ onNavigate }) {
+  const [page,setPage]=useState(1),[total,setTotal]=useState(0),[query,setQuery]=useState('');
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -21,8 +22,8 @@ export default function AISearch() {
   const [searched, setSearched] = useState(false);
 
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
+  const handleSearch = async (e, nextPage=1) => {
+    e?.preventDefault();
 
     const query = keyword.trim();
 
@@ -36,7 +37,7 @@ export default function AISearch() {
       setLoading(true);
       setError('');
 
-      const response = await aiAPI.search(query);
+      const response = await aiAPI.search(query, nextPage);
 
       if (!response?.success) {
         throw new Error(
@@ -45,6 +46,7 @@ export default function AISearch() {
         );
       }
 
+      setPage(nextPage); setTotal(response.total || 0); setQuery(query);
       setResults(
         Array.isArray(response.data)
           ? response.data
@@ -214,6 +216,7 @@ export default function AISearch() {
       </form>
 
 
+      {total>30 && <div className="flex gap-3"><button disabled={page<=1||loading} onClick={e=>handleSearch(e,page-1)}>Trang trước</button><span>Trang {page} / {Math.ceil(total/30)}</span><button disabled={page*30>=total||loading} onClick={e=>handleSearch(e,page+1)}>Trang sau</button></div>}
       {/* Error */}
       {error && (
         <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4">
@@ -241,7 +244,7 @@ export default function AISearch() {
             </h4>
 
             <p className="mt-1 text-sm text-slate-500">
-              Tìm thấy {results.length} kết quả cho "{keyword}"
+              Tìm thấy {total} kết quả cho "{keyword}"
             </p>
           </div>
 
@@ -277,6 +280,7 @@ export default function AISearch() {
                     className="rounded-2xl border border-slate-200 p-5 transition hover:border-[#635bff]/40 hover:shadow-sm"
                   >
 
+                    <button className="text-indigo-600 underline mb-2" onClick={()=>onNavigate?.(item.targetPage,item.params)}>Mở chi tiết</button>
                     {/* Card header */}
                     <div className="flex items-start gap-3">
 

@@ -283,6 +283,9 @@ export const contractAPI = {
 
 // ============ INVOICE API ============
 export const invoiceAPI = {
+  getExtensions: id => request(`/invoices/${id}/extensions`),
+  requestExtension: (id,data) => request(`/invoices/${id}/extensions`, {method:'POST',body:JSON.stringify(data)}),
+  reviewExtension: (id,data) => request(`/invoices/${id}/extensions/review`, {method:'POST',body:JSON.stringify(data)}),
   getPaymentInfo: id => request(`/invoices/${id}/payment-info`),
   submitPayment: id => request(`/invoices/${id}/payment-submission`, { method: 'POST' }),
   confirmPayment: (id, data) => request(`/invoices/${id}/confirm-payment`, { method: 'POST', body: JSON.stringify(data) }),
@@ -1117,121 +1120,18 @@ export { ApiError };
 
 export default api;
 
-export const aiAPI = {
-  getStatisticsDashboard: async () => {
-    try {
-      const response = await fetch(
-        'http://127.0.0.1:8000/ai/statistics/dashboard', { headers: { Authorization: `Bearer ${getAuthToken()}` } }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `AI Service error: ${response.status}`
-        );
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error(
-        '❌ aiAPI.getStatisticsDashboard error:',
-        error
-      );
-
-      throw error;
-    }
-  },
-  search: async (keyword) => {
-  try {
-    const query = String(keyword || '').trim();
-
-    if (!query) {
-      return {
-        success: true,
-        query: '',
-        count: 0,
-        data: []
-      };
-    }
-
-    const response = await fetch(
-      `http://127.0.0.1:8000/ai/search?q=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `AI Search error: ${response.status}`
-      );
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error(
-      '❌ aiAPI.search error:',
-      error
-    );
-
-    throw error;
-  }
-},
-chat: async (message) => {
-  try {
-    const content = String(message || '').trim();
-
-    if (!content) {
-      throw new Error('Vui lòng nhập câu hỏi');
-    }
-
-    const response = await fetch(
-      'http://127.0.0.1:8000/ai/chat',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}`
-        },
-        body: JSON.stringify({
-          message: content
-        })
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `AI Chat error: ${response.status}`
-      );
-    }
-
-    return await response.json();
-
-  } catch (error) {
-    console.error(
-      '❌ aiAPI.chat error:',
-      error
-    );
-
-    throw error;
-  }
-},
-getPredictionDashboard: async () => {
-  try {
-    const response = await fetch(
-      'http://127.0.0.1:8000/ai/prediction/dashboard', { headers: { Authorization: `Bearer ${getAuthToken()}` } }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `AI Prediction error: ${response.status}`
-      );
-    }
-
-    return await response.json();
-
-  } catch (error) {
-    console.error(
-      '❌ aiAPI.getPredictionDashboard error:',
-      error
-    );
-
-    throw error;
-  }
+const AI_BASE_URL = (import.meta.env.VITE_AI_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '')).replace(/\/$/, '');
+async function aiRequest(path, body) {
+  if (!AI_BASE_URL) throw new Error('Chưa cấu hình địa chỉ dịch vụ AI');
+  const response = await fetch(`${AI_BASE_URL}${path}`, {method:body?'POST':'GET',headers:{Authorization:`Bearer ${getAuthToken()}`,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
+  const result = await response.json();
+  if (!response.ok || result.success === false) throw new Error(typeof result.detail==='string'?result.detail:result.message||`Dịch vụ AI: ${response.status}`);
+  return result;
 }
+export const aiAPI = {
+  getRecord: (type,id) => aiRequest(`/ai/record?${new URLSearchParams({type,id})}`),
+  getStatisticsDashboard: () => aiRequest('/ai/statistics/dashboard'),
+  getPredictionDashboard: () => aiRequest('/ai/prediction/dashboard'),
+  search: (q,page=1,limit=30) => aiRequest(`/ai/search?${new URLSearchParams({q,page,limit})}`),
+  chat: (message,history=[]) => aiRequest('/ai/chat',{message,history:history.slice(-10).map(({role,content})=>({role,content:content.slice(0,4000)}))})
 };

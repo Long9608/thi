@@ -21,6 +21,10 @@ exports.getAllNotifications = async (req, res) => {
                 n.Content,
                 n.CreatedDate,
                 n.TargetScope,
+                n.EntityType,
+                n.EntityID,
+                n.TargetPage,
+                n.ActionUrl,
                 e.FullName AS SenderName,
                 nr.IsRead,
                 nr.ReadDate,
@@ -153,50 +157,12 @@ exports.getNotificationById = async (req, res) => {
     }
 };
 
-exports.createNotification = async (req, res) => {
-    const { title, content, targetScope = 'ALL', targetUserIds, targetBuildingIds } = req.body;
-    if (req.body.scheduledDate || req.body.scheduledAt) return res.status(409).json({ success: false, message: 'Chưa có cơ chế lưu lịch gửi. Thông báo chưa được gửi.' });
-    if (!title || !content || !['ALL', 'BUILDING', 'USER'].includes(targetScope)) return res.status(400).json({ success: false, message: 'Tiêu đề, nội dung hoặc đối tượng nhận không hợp lệ' });
-    const ids = targetScope === 'USER' ? targetUserIds : targetScope === 'BUILDING' ? targetBuildingIds : [];
-    if (!Array.isArray(ids) || (targetScope !== 'ALL' && !ids.length) || ids.some(id => !Number.isInteger(Number(id)) || Number(id) <= 0)) return res.status(400).json({ success: false, message: 'Danh sách người nhận không hợp lệ' });
-    let transaction;
+exports.createNotification = async (req, res, next) => {
     try {
-        transaction = new sql.Transaction(await getPool());
-        await transaction.begin();
-        const request = transaction.request().input('Title', sql.NVarChar, title).input('Content', sql.NVarChar, content)
-            .input('TargetScope', sql.VarChar, targetScope).input('UserID', sql.Int, req.user.UserID)
-            .input('TargetIDs', sql.NVarChar(sql.MAX), JSON.stringify([...new Set(ids.map(Number))]));
-        const result = await request.query(`
-            DECLARE @NotificationID int;
-            INSERT INTO Notification (SenderID, Title, Content, CreatedDate, TargetScope)
-            VALUES ((SELECT TOP 1 EmployeeID FROM Employee WHERE UserID=@UserID AND Status=1), @Title, @Content, GETDATE(), @TargetScope);
-            SET @NotificationID = SCOPE_IDENTITY();
-            INSERT INTO NotificationReceiver (NotificationID, UserID, IsRead)
-            SELECT @NotificationID, u.UserID, 0 FROM Users u
-            WHERE u.Status=1 AND (
-                @TargetScope='ALL'
-                OR (@TargetScope='USER' AND u.UserID IN (SELECT CONVERT(int, value) FROM OPENJSON(@TargetIDs)))
-                OR (@TargetScope='BUILDING' AND EXISTS (
-                    SELECT 1 FROM Resident r
-                    JOIN Contract c ON c.OwnerID=r.ResidentID OR EXISTS (
-                        SELECT 1 FROM ContractResident cr WHERE cr.ContractID=c.ContractID AND cr.ResidentID=r.ResidentID
-                        AND (cr.MoveInDate IS NULL OR cr.MoveInDate<=CAST(GETDATE() AS date))
-                        AND (cr.MoveOutDate IS NULL OR cr.MoveOutDate>=CAST(GETDATE() AS date)))
-                    JOIN Apartment a ON a.ApartmentID=c.ApartmentID JOIN Floor f ON f.FloorID=a.FloorID
-                    WHERE r.UserID=u.UserID AND r.Status=1 AND c.StatusID IN (2,5)
-                      AND CAST(GETDATE() AS date) BETWEEN c.StartDate AND c.EndDate
-                      AND f.BuildingID IN (SELECT CONVERT(int, value) FROM OPENJSON(@TargetIDs))
-                ))
-            );
-            SELECT @NotificationID AS notificationId, COUNT(*) AS recipientsCount FROM NotificationReceiver WHERE NotificationID=@NotificationID;
-        `);
-        await transaction.commit();
-        res.status(201).json({ success: true, message: 'Notification created successfully', data: result.recordset[0] });
-    } catch (error) {
-        if (transaction) { try { await transaction.rollback(); } catch {} }
-        console.error('Create notification error:', error);
-        res.status(500).json({ success: false, message: 'Failed to create notification' });
-    }
+        if (req.body.scheduledDate || req.body.scheduledAt) return res.status(409).json({success:false,message:'Chưa hỗ trợ lịch gửi'});
+        const data=await require('../services/notificationDeliveryService').createDelivery(await getPool(),req.userId,req.body);
+        res.status(201).json({success:true,data,message:'Đã xử lý gửi thông báo'});
+    } catch(error) { next(error); }
 };
 
 exports.markAsRead = async (req, res) => {

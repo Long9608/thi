@@ -5,7 +5,7 @@ const path=require('node:path');
 const os=require('node:os');
 const assert=require('node:assert/strict');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-module.exports=async function browserTest({base,users}){
+module.exports=async function browserTest({base,users,extensionInvoiceId,requestedDate}){
  const tempRoot=path.resolve(os.tmpdir()),profile=fs.mkdtempSync(path.join(tempRoot,'condo-ui-'));
  const chrome=spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',[
   '--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check','--remote-debugging-port=0',`--user-data-dir=${profile}`,'--window-size=1440,1000','about:blank'
@@ -55,6 +55,7 @@ module.exports=async function browserTest({base,users}){
    ADMIN:['Bảng tổng quan','Cư dân','Căn hộ & tòa nhà','Hợp đồng thuê','Hóa đơn & thu phí','Xe cư dân','Thẻ xe','Vị trí đỗ xe','Lịch sử ra vào','Phòng Gym','Hồ bơi','Dịch vụ Wi-Fi','Yêu cầu hỗ trợ','Xử lý bảo trì','Phản ánh cư dân','Lịch bảo trì','Thiết bị','Thông báo','Gửi thông báo','Lịch gửi','Người dùng','Vai trò','Phân quyền','Nhật ký hệ thống','Doanh thu','Công nợ','Căn hộ','Dịch vụ','Hồ sơ cá nhân','Đổi mật khẩu','Thông tin hệ thống']
   };
   for(const [role,pages] of Object.entries(menus)){
+   if(!users[role]) { console.log('BROWSER SKIP inactive/missing role',role); continue; }
    if(process.env.BROWSER_ROLES&&!process.env.BROWSER_ROLES.split(',').includes(role))continue;
    context=role;
    console.log('BROWSER ROLE',role);

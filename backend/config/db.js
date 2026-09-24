@@ -1,6 +1,6 @@
 // backend/config/db.js
 const sql = require('mssql');
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 const rawServer = process.env.DB_SERVER || '127.0.0.1';
 const isAzure = rawServer.endsWith('.database.windows.net');

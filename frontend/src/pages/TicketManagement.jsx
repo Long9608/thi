@@ -5,7 +5,7 @@ import { createPermissionChecker } from '../permissions';
 import { Card, Button, Input, Badge, Modal } from '../components/UI';
 import { formatDateTime } from '../utils/formatters';
 
-export default function TicketManagement({ flash }) {
+export default function TicketManagement({ flash, deepLink }) {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const { can, roleCodes } = createPermissionChecker(user);
   const resident = roleCodes.includes('RESIDENT');
@@ -25,6 +25,13 @@ export default function TicketManagement({ flash }) {
   },[status,page,search]);
   useEffect(()=>{const timer=setTimeout(load,200);return()=>clearTimeout(timer);},[load]);
   useEffect(()=>{ticketAPI.getStatuses().then(r=>setStatuses(r.data || [])).catch(e=>setError(e.message));},[]);
+  useEffect(()=>{
+    const requestId=Number(deepLink?.requestId);
+    if(!requestId)return;
+    let cancelled=false;
+    ticketAPI.getById(requestId).then(({data})=>{if(!cancelled){setSelected(data);setUpdate({progress:data.Progress||0,response:''});}}).catch(e=>{if(!cancelled)setError(e.message);});
+    return()=>{cancelled=true;};
+  },[deepLink?.requestId]);
   // Residents see updates from technicians without closing the detail modal.
   useEffect(()=>{
     const timer=setInterval(async()=>{

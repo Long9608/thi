@@ -323,6 +323,7 @@ def get_contract_predictions():
                     WHERE
                         i.ContractID = c.ContractID
                         AND i.DueDate < CAST(GETDATE() AS DATE)
+                        AND i.StatusID <> 4 AND i.WorkflowStatus <> 'DRAFT'
 
                         AND ISNULL(
                             (
@@ -332,6 +333,7 @@ def get_contract_predictions():
 
                                 WHERE
                                     p.InvoiceID = i.InvoiceID
+                                    AND p.StatusID = 2 -- SUCCESS_PAYMENT_STATUS_ID in billingService
                             ),
                             0
                         ) < i.TotalAmount

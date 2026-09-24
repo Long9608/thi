@@ -26,6 +26,36 @@
 
     Script an toan theo transaction. Neu resident01 da ton tai, script dung de tranh tao trung.
 */
+IF EXISTS (
+    SELECT 1
+    FROM dbo.PaymentConfiguration
+    WHERE ConfigKey = 'PRIMARY'
+)
+BEGIN
+    UPDATE dbo.PaymentConfiguration
+    SET
+        BankBin = '970422',
+        AccountNumber = '6327052008888',
+        AccountName = N'HO QUOC BAO'
+    WHERE ConfigKey = 'PRIMARY';
+END
+ELSE
+BEGIN
+    INSERT INTO dbo.PaymentConfiguration
+    (
+        ConfigKey,
+        BankBin,
+        AccountNumber,
+        AccountName
+    )
+    VALUES
+    (
+        'PRIMARY',
+        '970422',
+        '6327052008888',
+        N'HO QUOC BAO'
+    );
+END;
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 

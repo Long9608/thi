@@ -3,9 +3,13 @@ const express = require('express');
 const router = express.Router();
 const invoiceController = require('../controllers/invoiceController');
 const paymentWorkflow = require('../controllers/paymentWorkflowController');
+const extension = require('../controllers/invoiceExtensionController');
 const { authMiddleware, checkRole, checkPermission } = require('../middlewares/auth');
 
 router.get('/', authMiddleware, requireScope('INVOICE'), invoiceController.getAllInvoices);
+router.get('/:id/extensions', authMiddleware, requireScope('INVOICE'), extension.list);
+router.post('/:id/extensions', authMiddleware, requireScope('INVOICE'), extension.request);
+router.post('/:id/extensions/review', authMiddleware, requireScope('INVOICE', { allOnly: true }), checkPermission('INVOICE_DUE_DATE_EXTEND'), extension.review);
 router.get('/statuses', authMiddleware, requireScope('INVOICE'), invoiceController.getInvoiceStatuses);
 router.get('/payment-methods', authMiddleware, requireScope('INVOICE'), invoiceController.getPaymentMethods);
 router.get('/payment-config', authMiddleware, requireScope('INVOICE', { allOnly: true }), checkPermission('SYSTEM_SETTING'), paymentWorkflow.getConfig);

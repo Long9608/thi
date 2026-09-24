@@ -1,3 +1,4 @@
+import { fetchAllPages } from '../utils/fetchAllPages';
 // src/pages/ParkingCardManagement.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -113,10 +114,10 @@ export default function ParkingCardManagement({ flash }) {
   const fetchCards = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await vehicleAPI.getAll('', '', '', page, 20);
+      const res = await fetchAllPages((p, limit) => vehicleAPI.getParkingCards('', p, limit));
       const data = res?.data || res || [];
       const allVehicles = Array.isArray(data) ? data : [];
-      const withCards = allVehicles.filter(v => v.CardID);
+      const withCards = allVehicles.map(c => ({ ...c, CardIssueDate: c.IssueDate, CardExpiredDate: c.ExpiredDate }));
       setCards(withCards);
       setTotalPages(res?.pagination?.totalPages || 1);
     } catch (error) {
@@ -130,7 +131,7 @@ export default function ParkingCardManagement({ flash }) {
 
   const fetchVehicles = useCallback(async () => {
     try {
-      const res = await vehicleAPI.getAll('', '', '', 1, 999);
+      const res = await fetchAllPages((p, limit) => vehicleAPI.getAll('', '', '', p, limit));
       const data = res?.data || res || [];
       const allVehicles = Array.isArray(data) ? data : [];
       const noCard = allVehicles.filter(v => !v.CardID);

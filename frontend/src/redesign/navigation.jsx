@@ -121,10 +121,11 @@ export const navigationGroups = [
     id: 'ai',
     label: 'AI Assistant',
     items: [
-      { id: 'ai-chat', label: 'Chat AI', icon: Bot, permissions: ['AI_CHAT'], audience: ['staff'] },
+      { id: 'ai-chat', label: 'Chat AI', icon: Bot, permissions: ['AI_CHAT'], audience: ['staff', 'resident'] },
       { id: 'ai-stats', label: 'Thống kê AI', icon: Sparkles, permissions: ['AI_STATISTIC'], audience: ['staff'] },
       { id: 'ai-predict', label: 'Dự đoán hợp đồng', icon: ChartNoAxesCombined, permissions: ['AI_PREDICT'], audience: ['staff'] },
-      { id: 'ai-search', label: 'Tìm kiếm AI', icon: Search, permissions: ['AI_SEARCH'], audience: ['staff'] },
+      { id: 'ai-search', label: 'Tìm kiếm AI', icon: Search, permissions: ['AI_SEARCH'], audience: ['staff', 'resident'] },
+      { id: 'ai-record', label: 'Chi tiết tra cứu', icon: FileText, permissions: ['AI_SEARCH','AI_CHAT'], audience: ['staff', 'resident'] },
     ],
   },
   {

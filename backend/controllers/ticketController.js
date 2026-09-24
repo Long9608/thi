@@ -107,7 +107,7 @@ exports.updateTicket = async(req,res,next) => {
                 .input('Progress',sql.Int,progress).input('Response',sql.NVarChar(sql.MAX),response || (status===2 ? 'Đã nhận xử lý' : status===3 ? 'Đã hoàn thành' : 'Đã hủy'))
                 .query('INSERT TicketUpdate(RequestID,ActorID,StatusID,Progress,Response) VALUES(@ID,@Actor,@Status,@Progress,@Response)');
             const resident=(await tx.request().input('ID',sql.Int,ticket.ResidentID).query('SELECT UserID FROM Resident WHERE ResidentID=@ID AND Status=1')).recordset[0];
-            if(resident?.UserID) await notifyUsers(tx,{senderId:req.userId,title:`Cập nhật yêu cầu #${id}`,content:`${ticket.Title}: ${status===3?'Hoàn tất':status===4?'Đã hủy':'Đang xử lý'} (${progress}%). ${response}`,userIds:[resident.UserID]});
+            if(resident?.UserID) await notifyUsers(tx,{senderId:req.userId,title:`Cập nhật yêu cầu #${id}`,content:`${ticket.Title}: ${status===3?'Hoàn tất':status===4?'Đã hủy':'Đang xử lý'} (${progress}%). ${response}`,userIds:[resident.UserID],entityType:'MaintenanceRequest',entityId:id,targetPage:'tickets'});
         });
         res.json({success:true,message:'Đã cập nhật yêu cầu'});
     } catch(error){next(error);}

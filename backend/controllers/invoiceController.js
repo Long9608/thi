@@ -150,7 +150,11 @@ exports.getAllInvoices = async (req, res) => {
         const result = await request.query(`
             SELECT
                 i.InvoiceID,
-                (SELECT s.SubmittedAt FROM InvoicePaymentSubmission s WHERE s.InvoiceID=i.InvoiceID AND s.ConfirmedAt IS NULL) AS PaymentSubmittedAt,
+                CASE WHEN i.DueDate<CAST(GETDATE() AS date) AND i.StatusID NOT IN (2,4) AND i.WorkflowStatus<>'DRAFT'
+                  AND i.TotalAmount>ISNULL((SELECT SUM(Amount) FROM Payment WHERE InvoiceID=i.InvoiceID AND StatusID=2),0) THEN 1 ELSE 0 END IsOverdue,
+                (SELECT RequestID FROM InvoiceDueDateExtensionRequest WHERE InvoiceID=i.InvoiceID AND Status='PENDING') PendingExtensionID,
+
+                (SELECT TOP 1 s.SubmittedAt FROM InvoicePaymentSubmission s WHERE s.InvoiceID=i.InvoiceID AND s.ConfirmedAt IS NULL ORDER BY s.SubmittedAt DESC) AS PaymentSubmittedAt,
                 i.ContractID,
                 i.InvoiceMonth,
                 i.InvoiceYear,
@@ -245,6 +249,10 @@ exports.getInvoiceById = async (req, res) => {
             .query(`
                 SELECT
                     i.*,
+                CASE WHEN i.DueDate<CAST(GETDATE() AS date) AND i.StatusID NOT IN (2,4) AND i.WorkflowStatus<>'DRAFT'
+                  AND i.TotalAmount>ISNULL((SELECT SUM(Amount) FROM Payment WHERE InvoiceID=i.InvoiceID AND StatusID=2),0) THEN 1 ELSE 0 END IsOverdue,
+                (SELECT RequestID FROM InvoiceDueDateExtensionRequest WHERE InvoiceID=i.InvoiceID AND Status='PENDING') PendingExtensionID,
+ (SELECT SubmittedAt FROM InvoicePaymentSubmission WHERE InvoiceID=i.InvoiceID AND ConfirmedAt IS NULL) PaymentSubmittedAt,
                     i.WorkflowStatus,
                     ist.StatusName AS InvoiceStatus,
                     c.ContractNumber,

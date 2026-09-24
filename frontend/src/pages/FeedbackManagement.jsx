@@ -13,7 +13,7 @@ import { feedbackAPI } from '../api';
 import { Card, Button, Input, Badge, Modal, StatCard } from '../components/UI';
 import { formatDate, formatDateTime, getInitials, timeAgo } from '../utils/formatters';
 
-export default function FeedbackManagement({ flash }) {
+export default function FeedbackManagement({ flash, deepLink }) {
   const { can, canAny, roleCodes } = createPermissionChecker(JSON.parse(localStorage.getItem('user') || '{}'));
   const canReply = !roleCodes.includes('RESIDENT') && can('FEEDBACK_VIEW_ALL') && canAny(['FEEDBACK_REPLY','TICKET_UPDATE','MAINTENANCE_UPDATE']);
   const [feedbacks, setFeedbacks] = useState([]);
@@ -57,6 +57,13 @@ export default function FeedbackManagement({ flash }) {
   useEffect(() => {
     fetchFeedbacks();
   }, [fetchFeedbacks]);
+
+  useEffect(() => {
+    const feedbackId = Number(deepLink?.feedbackId);
+    if (!feedbackId) return;
+    const feedback = feedbacks.find(item => Number(item.id) === feedbackId);
+    if (feedback) openViewModal(feedback);
+  }, [deepLink?.feedbackId, feedbacks]);
 
   const handleReply = async (e) => {
     e.preventDefault();

@@ -1,4 +1,6 @@
 const { resolveScope, contractOwnershipSql } = require('../utils/accessScope');
+const validPrice = value => (typeof value === 'number' || (typeof value === 'string' && value.trim() !== ''))
+    && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) < 1e16;
 ﻿const { getPool, sql } = require('../config/db');
 
 exports.getAllServices = async (req, res) => {
@@ -148,6 +150,8 @@ exports.createService = async (req, res) => {
             });
         }
 
+        if (!validPrice(price)) return res.status(400).json({success:false,message:'Giá dịch vụ phải là số không âm hợp lệ.'});
+
         const pool = await getPool();
 
         // Check if service name already exists
@@ -166,7 +170,7 @@ exports.createService = async (req, res) => {
             .input('CategoryID', sql.Int, categoryId)
             .input('ServiceName', sql.NVarChar, serviceName)
             .input('Unit', sql.NVarChar, unit || null)
-            .input('Price', sql.Decimal, price)
+            .input('Price', sql.Decimal(18, 2), Number(price))
             .input('Status', sql.Bit, status !== undefined ? status : 1)
             .query(`
                 INSERT INTO Service (CategoryID, ServiceName, Unit, Price, Status)
@@ -203,6 +207,8 @@ exports.updateService = async (req, res) => {
             status
         } = req.body;
 
+        if (price !== undefined && !validPrice(price)) return res.status(400).json({success:false,message:'Giá dịch vụ phải là số không âm hợp lệ.'});
+
         const pool = await getPool();
 
         const updates = [];
@@ -226,7 +232,7 @@ exports.updateService = async (req, res) => {
 
         if (price !== undefined) {
             updates.push('Price = @Price');
-            request.input('Price', sql.Decimal, price);
+            request.input('Price', sql.Decimal(18, 2), Number(price));
         }
 
         if (status !== undefined) {

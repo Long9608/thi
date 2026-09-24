@@ -18,16 +18,19 @@ async function inTransaction(pool, work) {
         throw error;
     }
 }
-async function notifyUsers(transaction, { senderId, title, content, userIds }) {
+async function notifyUsers(transaction, { senderId, title, content, userIds, entityType = null, entityId = null, targetPage = null, actionUrl = null }) {
     if (!userIds.length) return;
     const result = await transaction.request().input('SenderID', sql.Int, senderId)
         .input('Title', sql.NVarChar(200), title).input('Content', sql.NVarChar(sql.MAX), content)
-        .query(`INSERT Notification(SenderID,Title,Content,CreatedDate,TargetScope)
-                OUTPUT INSERTED.NotificationID VALUES((SELECT EmployeeID FROM Employee WHERE UserID=@SenderID AND Status=1),@Title,@Content,GETDATE(),'USER');`);
+        .input('EntityType', sql.VarChar(50), entityType).input('EntityID', sql.Int, entityId)
+        .input('TargetPage', sql.VarChar(100), targetPage).input('ActionUrl', sql.VarChar(500), actionUrl)
+        .query(`INSERT Notification(SenderID,Title,Content,CreatedDate,TargetScope,EntityType,EntityID,TargetPage,ActionUrl)
+            OUTPUT INSERTED.NotificationID VALUES((SELECT EmployeeID FROM Employee WHERE UserID=@SenderID AND Status=1),@Title,@Content,GETDATE(),'USER',@EntityType,@EntityID,@TargetPage,@ActionUrl);`);
     for (const userId of new Set(userIds)) {
         await transaction.request().input('NotificationID', sql.Int, result.recordset[0].NotificationID)
             .input('UserID', sql.Int, userId)
-            .query('INSERT NotificationReceiver(NotificationID,UserID,IsRead) VALUES(@NotificationID,@UserID,0)');
+            .query(`INSERT NotificationReceiver(NotificationID,UserID,IsRead) VALUES(@NotificationID,@UserID,0);
+              INSERT NotificationDelivery(NotificationID,UserID,Channel,Status,AttemptCount,SentAt) VALUES(@NotificationID,@UserID,'WEB','SENT',1,SYSDATETIME())`);
     }
 }
 module.exports = { fail, positiveId, inTransaction, notifyUsers };
